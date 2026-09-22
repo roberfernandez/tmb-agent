@@ -21,6 +21,7 @@ function icon(module) {
 }
 function render() {
   const route = location.hash.slice(1) || '/';
+  if (route === '/incidencias') { location.replace('/incidencias-l4/'); return; }
   document.body.classList.toggle('home', route === '/' || location.hash === '#content');
   content.replaceChildren();
   if (route === '/' || location.hash === '#content') {
@@ -29,7 +30,7 @@ function render() {
     grid.setAttribute('aria-label', 'Módulos');
     modules.forEach(module => {
       const card = element('a', 'card');
-      card.href = `#/${module.id}`;
+      card.href = module.id === 'incidencias' ? '/incidencias-l4/' : `#/${module.id}`;
       const copy = element('div', 'card-copy');
       copy.append(element('h2', '', module.name));
       card.append(icon(module), copy);

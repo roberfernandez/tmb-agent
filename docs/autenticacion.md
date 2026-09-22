@@ -56,7 +56,19 @@ a una aprobación real por Telegram ni al cierre físico de una PWA instalada.
 
 Antes de retirar el formulario redundante en Incidencias deben verificarse con
 el usuario el acceso aprobado y la solicitud pendiente mediante Telegram.
-La primera fase no modifica Incidencias, DEA, Bobines ni otros módulos.
+La primera fase no modificó Incidencias, DEA, Bobines ni otros módulos.
+
+## Integración de Incidencias
+
+Tras confirmar el acceso aprobado, la restauración en el navegador y la solicitud
+real por Telegram, la tarjeta Incidencias abre `/incidencias-l4/`. Allí se reutiliza
+este mismo `src/session.js` antes de arrancar Flutter. El retorno desde el login
+estaba ya limitado a ambas rutas. No se modifican los restantes módulos.
+
+La prueba controlada generó la solicitud #5, aprobada desde Telegram y confirmada
+por el usuario al entrar al launcher. La solicitud histórica #3 permanece rechazada;
+no se cambió la cuenta Auth ni la cuenta principal. El cierre completo de la PWA
+instalada sigue necesitando comprobación en el dispositivo del usuario.
 
 Limitaciones: navegadores/perfiles distintos no comparten sesión. El aislamiento
 de almacenamiento de una PWA depende del navegador y debe comprobarse en el
