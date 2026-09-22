@@ -9,7 +9,7 @@
   "background_color": "#f5f6f2",
   "theme_color": "#172c32",
   "icons": [
-    { "src": "assets/icons/placeholder-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "assets/icons/placeholder-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "assets/icons/tmb-agent-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/tmb-agent-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
