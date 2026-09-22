@@ -20,24 +20,21 @@ function icon(module) {
 }
 function render() {
   const route = location.hash.slice(1) || '/';
+  document.body.classList.toggle('home', route === '/' || location.hash === '#content');
   content.replaceChildren();
   if (route === '/' || location.hash === '#content') {
     document.title = 'TMB Agent';
-    const intro = element('section', 'intro');
-    intro.append(element('p', 'eyebrow', 'TMB AGENT'), element('h1', '', '¿Qué necesitas hoy?'), element('p', 'subtitle', 'Accede directamente a tus herramientas.'));
     const grid = element('nav', 'grid');
     grid.setAttribute('aria-label', 'Módulos');
     modules.forEach(module => {
       const card = element('a', 'card');
       card.href = `#/${module.id}`;
       const copy = element('div', 'card-copy');
-      copy.append(element('h2', '', module.name), element('p', '', module.description));
-      const arrow = element('span', 'arrow', '↗');
-      arrow.setAttribute('aria-hidden', 'true');
-      card.append(icon(module), copy, arrow);
+      copy.append(element('h2', '', module.name));
+      card.append(icon(module), copy);
       grid.append(card);
     });
-    content.append(intro, grid);
+    content.append(grid);
   } else {
     const module = modules.find(item => route === `/${item.id}`);
     const back = element('a', 'back', '← Inicio');
