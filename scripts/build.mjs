@@ -4,6 +4,7 @@ await mkdir('dist', { recursive: true });
 await cp('index.html', 'dist/index.html');
 await cp('src', 'dist/src', { recursive: true });
 await cp('public', 'dist', { recursive: true });
+await cp('auth/build/web', 'dist/auth', { recursive: true });
 const hash = createHash('sha256');
 async function digest(path) {
   for (const entry of (await readdir(path, { withFileTypes: true })).sort((a,b) => a.name.localeCompare(b.name))) {

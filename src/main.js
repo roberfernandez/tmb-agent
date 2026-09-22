@@ -1,4 +1,5 @@
 import { modules } from './modules.js';
+import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 
 const content = document.querySelector('main');
 function element(tag, className, text) {
@@ -59,11 +60,37 @@ function render() {
   }
 }
 
-// Entrada única de la aplicación. Un futuro login podrá preceder a startApp().
-// Hoy no hay autenticación, almacenamiento de perfiles ni permisos.
+let checking = 0;
+async function authorizedRender() {
+  const requestId = ++checking;
+  content.replaceChildren(element('p', 'notice', 'Comprovant el teu accés…'));
+  try {
+    const state = await checkSession();
+    if (requestId !== checking) return;
+    if (state !== 'approved') {
+      location.replace(loginUrl(location));
+      return;
+    }
+    render();
+  } catch {
+    if (requestId !== checking) return;
+    const retry = element('button', 'button', 'Tornar-ho a provar');
+    retry.addEventListener('click', authorizedRender);
+    content.replaceChildren(element('p', 'notice', 'No s’ha pogut comprovar la sessió. Revisa la connexió i torna-ho a provar.'), retry);
+  }
+}
+
 function startApp() {
-  render();
-  window.addEventListener('hashchange', () => { render(); content.focus(); window.scrollTo(0, 0); });
+  authorizedRender();
+  window.addEventListener('hashchange', () => { authorizedRender(); content.focus(); window.scrollTo(0, 0); });
+  window.addEventListener('storage', event => { if (event.key === SESSION_KEY || event.key === null) authorizedRender(); });
+  window.addEventListener('pageshow', event => { if (event.persisted) authorizedRender(); });
+  window.addEventListener('pagehide', () => { ++checking; content.replaceChildren(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { ++checking; content.replaceChildren(); }
+    else authorizedRender();
+  });
+  setInterval(() => { if (!document.hidden) authorizedRender(); }, 60000);
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(() => {

@@ -22,6 +22,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: auth
+      - run: flutter test test/sesion_guardada_test.dart
+        working-directory: auth
+      - run: flutter build web --release --base-href /tmb-agent/auth/ --pwa-strategy none --no-web-resources-cdn
+        working-directory: auth
+      - run: node --test tests/session.test.js
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

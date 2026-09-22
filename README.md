@@ -1,11 +1,11 @@
 # TMB Agent
 
-Base PWA móvil, estática y sin dependencias. Única rama oficial: `main`.
+PWA móvil con launcher estático y la pantalla Flutter de acceso de Incidencias. Única rama oficial: `main`.
 
 ## Estructura
 
 - `index.html`: shell común y entrada de la aplicación.
-- `src/main.js`: launcher, rutas y pantallas placeholder. `startApp()` es la entrada central donde se podrá incorporar un login único en otra fase.
+- `src/main.js`: launcher, rutas y pantallas placeholder. El launcher comprueba sesión y aprobación antes de mostrarse.
 - `src/modules.js`: registro extensible de módulos, iconos y enlaces externos.
 - `src/styles.css`: diseño responsive.
 - `public/`: manifest, service worker y assets.
@@ -22,10 +22,20 @@ El icono de aplicación y las iniciales son placeholders explícitos pendientes 
 
 ## Publicación
 
-`npm run build` con Node 22 o posterior. No requiere instalación de paquetes.
+Primero compila `auth/` con Flutter 3.41.9:
+
+```sh
+cd auth
+flutter pub get
+flutter build web --release --base-href /tmb-agent/auth/ --pwa-strategy none --no-web-resources-cdn
+cd ..
+npm run build
+```
+
+El launcher usa Node 22 o posterior para la exportación.
 GitHub Pages usa GitHub Actions y publica al subir a `main`.
 URL: https://roberfernandez.github.io/tmb-agent/
 
 El service worker conserva únicamente archivos públicos de la base para abrirla sin conexión después de la primera visita. No almacena perfiles ni credenciales. Los destinos externos requieren su propia conexión.
 
-No hay autenticación, Supabase, Telegram, permisos ni integración de aplicaciones reales. El futuro login y los módulos internos se implementarán por separado; esta base no ofrece control de acceso.
+La autenticación reutiliza Supabase Auth, usuarios y aprobación manual de Incidencias L4. Consulta `docs/autenticacion.md`. Los demás módulos mantienen sus placeholders.
