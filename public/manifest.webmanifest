@@ -2,7 +2,7 @@
   "id": "./",
   "name": "TMB Agent",
   "short_name": "TMB Agent",
-  "lang": "es",
+  "lang": "ca",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

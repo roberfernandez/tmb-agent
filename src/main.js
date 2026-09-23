@@ -1,4 +1,5 @@
-import { modules } from './modules.js';
+import { renderMap } from './map.js?v=ca-mapa-v1';
+import { modules } from './modules.js?v=ca-mapa-v1';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 
 const content = document.querySelector('main');
@@ -28,10 +29,11 @@ function render() {
   if (route === '/' || location.hash === '#content') {
     document.title = 'TMB Agent';
     const grid = element('nav', 'grid');
-    grid.setAttribute('aria-label', 'Módulos');
+    grid.setAttribute('aria-label', 'Mòduls');
     modules.forEach(module => {
       const card = element('a', 'card');
-      card.href = module.appUrl || `#/${module.id}`;
+      card.href = module.appUrl || module.externalUrl || `#/${module.id}`;
+      if (module.externalUrl) { card.target = '_blank'; card.rel = 'noopener noreferrer'; }
       const copy = element('div', 'card-copy');
       copy.append(element('h2', '', module.name));
       card.append(icon(module), copy);
@@ -45,23 +47,28 @@ function render() {
     content.append(hero, grid);
   } else {
     const module = modules.find(item => route === `/${item.id}`);
-    const back = element('a', 'back', '← Inicio');
+    const back = element('a', 'back', '← Inici');
     back.href = '#/';
+    if (module?.id === 'mapa-metro') {
+      document.title = 'Mapa Metro · TMB Agent';
+      content.append(back, renderMap());
+      return;
+    }
     const panel = element('section', 'panel');
-    document.title = `${module?.name || 'Página no encontrada'} · TMB Agent`;
+    document.title = `${module?.name || 'Pàgina no trobada'} · TMB Agent`;
     if (module) {
       panel.append(icon(module), element('p', 'eyebrow', 'TMB AGENT'), element('h1', '', module.name), element('p', 'subtitle', module.description));
       let external;
       try { const url = new URL(module.externalUrl); if (url.protocol === 'https:') external = url.href; } catch {}
       if (external) {
-        const link = element('a', 'button', `Abrir ${module.name} ↗`);
+        const link = element('a', 'button', `Obrir ${module.name} ↗`);
         link.href = external; link.target = '_blank'; link.rel = 'noopener noreferrer';
         panel.append(link);
       } else {
-        panel.append(element('span', 'badge', 'Próximamente'), element('p', 'notice', 'Este espacio está preparado. Su contenido estará disponible más adelante.'));
+        panel.append(element('span', 'badge', 'Properament'), element('p', 'notice', 'Aquest espai està preparat. El contingut estarà disponible més endavant.'));
       }
     } else {
-      panel.append(element('h1', '', 'Página no encontrada'), element('p', 'subtitle', 'Vuelve al inicio para elegir un módulo.'));
+      panel.append(element('h1', '', 'Pàgina no trobada'), element('p', 'subtitle', 'Torna a l’inici per triar un mòdul.'));
     }
     content.append(back, panel);
   }
@@ -101,7 +108,7 @@ function startApp() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(() => {
-        document.querySelector('footer').append(element('p', 'notice', 'El modo sin conexión no está disponible en este navegador.'));
+        document.querySelector('footer').append(element('p', 'notice', 'El mode sense connexió no està disponible en aquest navegador.'));
       });
     });
   }
