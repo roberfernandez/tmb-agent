@@ -7,5 +7,5 @@ export const modules = [
   { id: 'miralin', name: 'Miralín', initials: 'MI', description: 'Accés a Miralín', icon: './assets/icons/miralin-192.png', externalUrl: 'https://aplicacions.tmb.cat/miralin/routes/4/stops/413?dswid=4465' },
   { id: 't-mobilitat', name: 'Consultes T-Mobilitat', initials: 'TM', description: 'Consultes T-Mobilitat', icon: './assets/consultes.png', externalUrl: 'https://aplicacions.tmb.cat/consulta-tmobilitat/index?dswid=-2952' },
   { id: 'mapa-metro', name: 'Mapa Metro', initials: 'MM', description: 'Mapa del metro de Barcelona', icon: './assets/mapa-icono.png' },
-  { id: 'cinta-metrica', appUrl: 'https://roberfernandez.github.io/cinta-metrica/', name: 'Cinta Mètrica', initials: 'CM', description: 'Correspondència entre codis i estacions', icon: './assets/icons/cinta-metrica-192.png' },
+  { id: 'cinta-metrica', appUrl: 'https://roberfernandez.github.io/cinta-metrica/', name: 'Cinta Mètrica', initials: 'CM', description: 'Correspondència entre codis i estacions', icon: 'https://roberfernandez.github.io/cinta-metrica/cinta-metrica-192.png' },
 ];
