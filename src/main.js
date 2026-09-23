@@ -37,7 +37,12 @@ function render() {
       card.append(icon(module), copy);
       grid.append(card);
     });
-    content.append(grid);
+    const hero = element('div', 'metro-hero');
+    hero.setAttribute('aria-hidden', 'true');
+    const lines = element('img', 'metro-lines');
+    lines.src = './assets/metro-lines.svg'; lines.alt = '';
+    hero.append(lines);
+    content.append(hero, grid);
   } else {
     const module = modules.find(item => route === `/${item.id}`);
     const back = element('a', 'back', '← Inicio');
