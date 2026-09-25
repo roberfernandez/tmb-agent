@@ -48,6 +48,7 @@ function render() {
     grid.setAttribute('aria-label', 'MÃ²duls');
     modules.forEach(module => {
       const card = element('a', 'card');
+      card.dataset.module = module.id;
       card.href = module.appUrl || module.externalUrl || `#/${module.id}`;
       if (module.externalUrl) { card.target = '_blank'; card.rel = 'noopener noreferrer'; }
       const copy = element('div', 'card-copy');
@@ -139,4 +140,5 @@ function startApp() {
   }
 }
 startApp();
+
 
