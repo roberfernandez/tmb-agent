@@ -1,4 +1,4 @@
-﻿import { renderMap } from './map.js?v=ca-mapa-v1';
+import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=ca-mapa-v1';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCount, renderCQuadre } from './cquadre.js';
@@ -45,7 +45,7 @@ function render() {
   if (route === '/' || location.hash === '#content') {
     document.title = 'TMB Agent';
     const grid = element('nav', 'grid');
-    grid.setAttribute('aria-label', 'MÃ²duls');
+    grid.setAttribute('aria-label', 'Mòduls');
     modules.forEach(module => {
       const card = element('a', 'card');
       card.dataset.module = module.id;
@@ -65,10 +65,10 @@ function render() {
     refreshCQuadreBadge();
   } else {
     const module = modules.find(item => route === `/${item.id}`);
-    const back = element('a', 'back', 'â† Inici');
+    const back = element('a', 'back', '← Inici');
     back.href = '#/';
     if (module?.id === 'cquadre') {
-      document.title = 'Complements de Quadre · TMB Agent';
+      document.title = 'Complements de Quadre � TMB Agent';
       const panel = element('section', 'panel cquadre-panel');
       panel.append(icon(module), element('p', 'eyebrow', 'TMB AGENT'), element('h1', '', module.name), element('p', 'subtitle', module.description));
       content.append(back, panel);
@@ -76,25 +76,25 @@ function render() {
       return;
     }
     if (module?.id === 'mapa-metro') {
-      document.title = 'Mapa Metro Â· TMB Agent';
+      document.title = 'Mapa Metro · TMB Agent';
       content.append(back, renderMap());
       return;
     }
     const panel = element('section', 'panel');
-    document.title = `${module?.name || 'PÃ gina no trobada'} Â· TMB Agent`;
+    document.title = `${module?.name || 'Pàgina no trobada'} · TMB Agent`;
     if (module) {
       panel.append(icon(module), element('p', 'eyebrow', 'TMB AGENT'), element('h1', '', module.name), element('p', 'subtitle', module.description));
       let external;
       try { const url = new URL(module.externalUrl); if (url.protocol === 'https:') external = url.href; } catch {}
       if (external) {
-        const link = element('a', 'button', `Obrir ${module.name} â†—`);
+        const link = element('a', 'button', `Obrir ${module.name} ↗`);
         link.href = external; link.target = '_blank'; link.rel = 'noopener noreferrer';
         panel.append(link);
       } else {
-        panel.append(element('span', 'badge', 'Properament'), element('p', 'notice', 'Aquest espai estÃ  preparat. El contingut estarÃ  disponible mÃ©s endavant.'));
+        panel.append(element('span', 'badge', 'Properament'), element('p', 'notice', 'Aquest espai està preparat. El contingut estarà disponible més endavant.'));
       }
     } else {
-      panel.append(element('h1', '', 'PÃ gina no trobada'), element('p', 'subtitle', 'Torna a lâ€™inici per triar un mÃ²dul.'));
+      panel.append(element('h1', '', 'Pàgina no trobada'), element('p', 'subtitle', 'Torna a l’inici per triar un mòdul.'));
     }
     content.append(back, panel);
   }
@@ -103,7 +103,7 @@ function render() {
 let checking = 0;
 async function authorizedRender() {
   const requestId = ++checking;
-  content.replaceChildren(element('p', 'notice', 'Comprovant el teu accÃ©sâ€¦'));
+  content.replaceChildren(element('p', 'notice', 'Comprovant el teu accés…'));
   try {
     const state = await checkSession();
     if (requestId !== checking) return;
@@ -116,7 +116,7 @@ async function authorizedRender() {
     if (requestId !== checking) return;
     const retry = element('button', 'button', 'Tornar-ho a provar');
     retry.addEventListener('click', authorizedRender);
-    content.replaceChildren(element('p', 'notice', 'No sâ€™ha pogut comprovar la sessiÃ³. Revisa la connexiÃ³ i torna-ho a provar.'), retry);
+    content.replaceChildren(element('p', 'notice', 'No s’ha pogut comprovar la sessió. Revisa la connexió i torna-ho a provar.'), retry);
   }
 }
 
@@ -134,7 +134,7 @@ function startApp() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(() => {
-        document.querySelector('footer').append(element('p', 'notice', 'El mode sense connexiÃ³ no estÃ  disponible en aquest navegador.'));
+        document.querySelector('footer').append(element('p', 'notice', 'El mode sense connexió no està disponible en aquest navegador.'));
       });
     });
   }
