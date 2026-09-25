@@ -1,5 +1,5 @@
-const CACHE = 'tmb-agent-__VERSION__';
-const FILES = ['.', 'index.html', 'src/main.js?v=ca-mapa-v1', 'src/modules.js?v=ca-mapa-v1', 'src/map.js?v=ca-mapa-v1', 'assets/mapa-icono.png', 'assets/consultes.png', 'assets/mapa-metro-barcelona-2026.png', 'src/session.js', 'src/styles.css?v=ca-mapa-v1', 'assets/metro-9000.jpg', 'assets/metro-lines.svg', 'manifest.webmanifest', 'assets/icons/tmb-agent-192.png', 'assets/icons/tmb-agent-512.png', 'assets/icons/incidencias-192.png', 'assets/icons/dea-192.png', 'assets/icons/bobines-192.png', 'assets/icons/computo-192.png', 'assets/icons/miralin-192.png'];
+﻿const CACHE = 'tmb-agent-__VERSION__';
+const FILES = ['.', 'index.html', 'src/main.js?v=ca-mapa-v1', 'src/modules.js?v=ca-mapa-v1', 'src/map.js?v=ca-mapa-v1', 'assets/mapa-icono.png', 'assets/consultes.png', 'assets/mapa-metro-barcelona-2026.png', 'src/session.js', 'src/cquadre.js', 'src/styles.css?v=ca-mapa-v1', 'assets/metro-9000.jpg', 'assets/metro-lines.svg', 'manifest.webmanifest', 'assets/icons/tmb-agent-192.png', 'assets/icons/tmb-agent-512.png', 'assets/icons/incidencias-192.png', 'assets/icons/dea-192.png', 'assets/icons/bobines-192.png', 'assets/icons/computo-192.png', 'assets/icons/miralin-192.png', 'assets/icons/complements-quadre-192.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES.map(file => new URL(file, self.registration.scope).href))));
 });
@@ -15,3 +15,4 @@ self.addEventListener('fetch', event => {
     return Response.error();
   }));
 });
+
