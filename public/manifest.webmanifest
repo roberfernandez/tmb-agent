@@ -19,5 +19,43 @@
       "sizes": "512x512",
       "type": "image/png"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Miralín",
+      "short_name": "Miralín",
+      "url": "./#/miralin",
+      "icons": [
+        {
+          "src": "assets/icons/miralin-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Incidències",
+      "short_name": "Incidències",
+      "url": "./#/incidencias",
+      "icons": [
+        {
+          "src": "assets/icons/incidencias-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Consultes T-Mobilitat",
+      "short_name": "T-Mobilitat",
+      "url": "./#/t-mobilitat",
+      "icons": [
+        {
+          "src": "assets/consultes.png",
+          "sizes": "1254x1254",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

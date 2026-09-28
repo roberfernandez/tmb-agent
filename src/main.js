@@ -38,7 +38,8 @@ async function refreshCQuadreBadge() {
 
 function render() {
   const route = location.hash.slice(1) || '/';
-  const destination = modules.find(module => route === `/${module.id}`)?.appUrl;
+  const shortcutModule = modules.find(module => route === `/${module.id}`);
+  const destination = shortcutModule?.appUrl || shortcutModule?.externalUrl;
   if (destination) { location.replace(destination); return; }
   document.body.classList.toggle('home', route === '/' || location.hash === '#content');
   content.replaceChildren();
