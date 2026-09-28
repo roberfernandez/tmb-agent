@@ -51,8 +51,8 @@
       "url": "./#/t-mobilitat",
       "icons": [
         {
-          "src": "assets/consultes.png",
-          "sizes": "1254x1254",
+          "src": "assets/icons/consultes-192.png",
+          "sizes": "192x192",
           "type": "image/png"
         }
       ]
