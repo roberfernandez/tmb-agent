@@ -33,7 +33,7 @@ jobs:
         working-directory: auth
       - run: flutter build web --release --base-href /tmb-agent/auth/ --pwa-strategy none --no-web-resources-cdn
         working-directory: auth
-      - run: node --test tests/session.test.js
+      - run: node --test tests/*.test.js
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
@@ -42,3 +42,4 @@ jobs:
       - name: Desplegar
         id: deployment
         uses: actions/deploy-pages@v4
+
