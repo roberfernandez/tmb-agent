@@ -4,6 +4,119 @@ import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCount, renderCQuadre } from './cquadre.js';
 
 const content = document.querySelector('main');
+const MODULE_ORDER_KEY = 'tmb-agent-module-order-v1';
+
+function orderedModules() {
+  let saved = [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MODULE_ORDER_KEY) || '[]');
+    if (Array.isArray(parsed)) saved = parsed.filter(id => typeof id === 'string');
+  } catch {}
+
+  const byId = new Map(modules.map(module => [module.id, module]));
+  const ordered = saved.map(id => byId.get(id)).filter(Boolean);
+  const known = new Set(ordered.map(module => module.id));
+  return [...ordered, ...modules.filter(module => !known.has(module.id))];
+}
+
+function saveModuleOrder(grid) {
+  const order = [...grid.querySelectorAll('.card[data-module]')].map(card => card.dataset.module);
+  localStorage.setItem(MODULE_ORDER_KEY, JSON.stringify(order));
+}
+
+function enableModuleReorder(grid) {
+  let timer = 0;
+  let active = null;
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let suppressClick = false;
+
+  const clearTimer = () => {
+    if (timer) window.clearTimeout(timer);
+    timer = 0;
+  };
+
+  const finish = () => {
+    clearTimer();
+    if (!active) return;
+    saveModuleOrder(grid);
+    active.classList.remove('card-dragging');
+    grid.classList.remove('reordering');
+    active = null;
+    pointerId = null;
+    window.setTimeout(() => { suppressClick = false; }, 80);
+  };
+
+  grid.addEventListener('pointerdown', event => {
+    if (event.button !== undefined && event.button !== 0) return;
+    const card = event.target.closest('.card[data-module]');
+    if (!card) return;
+
+    clearTimer();
+    active = null;
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+
+    timer = window.setTimeout(() => {
+      active = card;
+      suppressClick = true;
+      grid.classList.add('reordering');
+      card.classList.add('card-dragging');
+      try { card.setPointerCapture(pointerId); } catch {}
+      if (navigator.vibrate) navigator.vibrate(25);
+    }, 500);
+  });
+
+  grid.addEventListener('pointermove', event => {
+    if (event.pointerId !== pointerId) return;
+
+    if (!active) {
+      if (Math.hypot(event.clientX - startX, event.clientY - startY) > 10) {
+        clearTimer();
+        pointerId = null;
+      }
+      return;
+    }
+
+    event.preventDefault();
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.card[data-module]');
+    if (!target || target === active || target.parentElement !== grid) return;
+
+    const rect = target.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2 ||
+      (Math.abs(event.clientY - (rect.top + rect.height / 2)) < rect.height * 0.25 &&
+       event.clientX < rect.left + rect.width / 2);
+
+    grid.insertBefore(active, before ? target : target.nextSibling);
+  });
+
+  grid.addEventListener('pointerup', event => {
+    if (event.pointerId !== pointerId) return;
+    if (active) finish();
+    else {
+      clearTimer();
+      pointerId = null;
+    }
+  });
+
+  grid.addEventListener('pointercancel', () => {
+    if (active) finish();
+    else {
+      clearTimer();
+      pointerId = null;
+    }
+  });
+
+  grid.addEventListener('click', event => {
+    if (!suppressClick) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  grid.addEventListener('dragstart', event => event.preventDefault());
+}
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -47,7 +160,7 @@ function render() {
     document.title = 'TMB Agent';
     const grid = element('nav', 'grid');
     grid.setAttribute('aria-label', 'Mòduls');
-    modules.forEach(module => {
+    orderedModules().forEach(module => {
       const card = element('a', 'card');
       card.dataset.module = module.id;
       card.href = module.appUrl || module.externalUrl || `#/${module.id}`;
@@ -63,6 +176,7 @@ function render() {
     lines.src = './assets/metro-lines.svg'; lines.alt = '';
     hero.append(lines);
     content.append(hero, grid);
+    enableModuleReorder(grid);
     refreshCQuadreBadge();
   } else {
     const module = modules.find(item => route === `/${item.id}`);
