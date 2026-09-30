@@ -96,3 +96,18 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
   .cquadre-item{padding:14px}
   .cquadre-panel{padding:24px}
 }
+
+
+/* Reordenació local dels mòduls */
+.grid.reordering{user-select:none;-webkit-user-select:none}
+.card{-webkit-touch-callout:none}
+.grid.reordering .card{transition:transform .12s,border-color .12s,background .12s}
+.card.card-dragging{
+  z-index:5;
+  transform:scale(.96);
+  border-color:#98c5e0;
+  background:linear-gradient(145deg,#263b55,#17283e);
+  box-shadow:0 14px 34px #0008;
+  cursor:grabbing
+}
+@media(pointer:fine){.card{cursor:grab}}
