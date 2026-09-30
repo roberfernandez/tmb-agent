@@ -27,7 +27,6 @@ function saveModuleOrder(grid) {
 function enableModuleReorder(grid) {
   let timer = 0;
   let active = null;
-  let pointerId = null;
   let startX = 0;
   let startY = 0;
   let suppressClick = false;
@@ -37,6 +36,27 @@ function enableModuleReorder(grid) {
     timer = 0;
   };
 
+  const begin = (card) => {
+    active = card;
+    suppressClick = true;
+    grid.classList.add('reordering');
+    card.classList.add('card-dragging');
+    if (navigator.vibrate) navigator.vibrate(25);
+  };
+
+  const moveActive = (x, y) => {
+    if (!active) return;
+    const target = document.elementFromPoint(x, y)?.closest('.card[data-module]');
+    if (!target || target === active || target.parentElement !== grid) return;
+
+    const rect = target.getBoundingClientRect();
+    const before = y < rect.top + rect.height / 2 ||
+      (Math.abs(y - (rect.top + rect.height / 2)) < rect.height * 0.25 &&
+       x < rect.left + rect.width / 2);
+
+    grid.insertBefore(active, before ? target : target.nextSibling);
+  };
+
   const finish = () => {
     clearTimer();
     if (!active) return;
@@ -44,69 +64,74 @@ function enableModuleReorder(grid) {
     active.classList.remove('card-dragging');
     grid.classList.remove('reordering');
     active = null;
-    pointerId = null;
-    window.setTimeout(() => { suppressClick = false; }, 80);
+    window.setTimeout(() => { suppressClick = false; }, 120);
   };
 
-  grid.addEventListener('pointerdown', event => {
-    if (event.button !== undefined && event.button !== 0) return;
+  // Mòbil: Touch Events permeten mantenir l'scroll normal fins que
+  // la pulsació llarga activa realment el mode de reordenació.
+  grid.addEventListener('touchstart', event => {
+    if (event.touches.length !== 1) return;
     const card = event.target.closest('.card[data-module]');
     if (!card) return;
 
     clearTimer();
     active = null;
-    pointerId = event.pointerId;
-    startX = event.clientX;
-    startY = event.clientY;
+    const touch = event.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    timer = window.setTimeout(() => begin(card), 500);
+  }, { passive: true });
 
-    timer = window.setTimeout(() => {
-      active = card;
-      suppressClick = true;
-      grid.classList.add('reordering');
-      card.classList.add('card-dragging');
-      try { card.setPointerCapture(pointerId); } catch {}
-      if (navigator.vibrate) navigator.vibrate(25);
-    }, 500);
-  });
-
-  grid.addEventListener('pointermove', event => {
-    if (event.pointerId !== pointerId) return;
+  grid.addEventListener('touchmove', event => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
 
     if (!active) {
-      if (Math.hypot(event.clientX - startX, event.clientY - startY) > 10) {
-        clearTimer();
-        pointerId = null;
-      }
+      if (Math.hypot(touch.clientX - startX, touch.clientY - startY) > 12) clearTimer();
       return;
     }
 
     event.preventDefault();
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.card[data-module]');
-    if (!target || target === active || target.parentElement !== grid) return;
+    moveActive(touch.clientX, touch.clientY);
+  }, { passive: false });
 
-    const rect = target.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2 ||
-      (Math.abs(event.clientY - (rect.top + rect.height / 2)) < rect.height * 0.25 &&
-       event.clientX < rect.left + rect.width / 2);
+  grid.addEventListener('touchend', () => {
+    if (active) finish();
+    else clearTimer();
+  }, { passive: true });
 
-    grid.insertBefore(active, before ? target : target.nextSibling);
+  grid.addEventListener('touchcancel', () => {
+    if (active) finish();
+    else clearTimer();
+  }, { passive: true });
+
+  // PC: ratolí amb el mateix gest de pulsació mantinguda.
+  grid.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch' || event.button !== 0) return;
+    const card = event.target.closest('.card[data-module]');
+    if (!card) return;
+
+    clearTimer();
+    active = null;
+    startX = event.clientX;
+    startY = event.clientY;
+    timer = window.setTimeout(() => begin(card), 350);
+  });
+
+  grid.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch') return;
+    if (!active) {
+      if (timer && Math.hypot(event.clientX - startX, event.clientY - startY) > 10) clearTimer();
+      return;
+    }
+    event.preventDefault();
+    moveActive(event.clientX, event.clientY);
   });
 
   grid.addEventListener('pointerup', event => {
-    if (event.pointerId !== pointerId) return;
+    if (event.pointerType === 'touch') return;
     if (active) finish();
-    else {
-      clearTimer();
-      pointerId = null;
-    }
-  });
-
-  grid.addEventListener('pointercancel', () => {
-    if (active) finish();
-    else {
-      clearTimer();
-      pointerId = null;
-    }
+    else clearTimer();
   });
 
   grid.addEventListener('click', event => {
@@ -117,7 +142,7 @@ function enableModuleReorder(grid) {
 
   grid.addEventListener('dragstart', event => event.preventDefault());
   grid.addEventListener('contextmenu', event => {
-    if (event.target.closest('.card[data-module]')) event.preventDefault();
+    if (active || timer) event.preventDefault();
   });
 }
 function element(tag, className, text) {
