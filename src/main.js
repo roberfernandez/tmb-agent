@@ -1,5 +1,5 @@
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=ca-mapa-v1';
+import { modules } from './modules.js?v=cquadre-acces-v2';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCount, renderCQuadre } from './cquadre.js';
 
