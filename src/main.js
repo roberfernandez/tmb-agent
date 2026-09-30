@@ -116,6 +116,9 @@ function enableModuleReorder(grid) {
   }, true);
 
   grid.addEventListener('dragstart', event => event.preventDefault());
+  grid.addEventListener('contextmenu', event => {
+    if (event.target.closest('.card[data-module]')) event.preventDefault();
+  });
 }
 function element(tag, className, text) {
   const node = document.createElement(tag);
