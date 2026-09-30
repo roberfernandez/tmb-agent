@@ -66,19 +66,17 @@ function render() {
     refreshCQuadreBadge();
   } else {
     const module = modules.find(item => route === `/${item.id}`);
-    const back = element('a', 'back', '← Inici');
-    back.href = '#/';
     if (module?.id === 'cquadre') {
       document.title = 'Complements de Quadre � TMB Agent';
       const panel = element('section', 'panel cquadre-panel');
       panel.append(icon(module), element('p', 'eyebrow', 'TMB AGENT'), element('h1', '', module.name), element('p', 'subtitle', module.description));
-      content.append(back, panel);
+      content.append(panel);
       renderCQuadre(setCQuadreBadge).then(view => panel.append(view));
       return;
     }
     if (module?.id === 'mapa-metro') {
       document.title = 'Mapa Metro · TMB Agent';
-      content.append(back, renderMap());
+      content.append(renderMap());
       return;
     }
     const panel = element('section', 'panel');
