@@ -172,9 +172,13 @@ async function renderProposalList(list, status) {
       list.append(proposalCard(item, async proposal => {
         const action = proposal.meu_vot ? 'unvote' : 'vote';
         const result = await callBustia({ action, proposta_id: proposal.id });
-        status.textContent = action === 'vote'
-          ? 'T’has sumat a la petició.'
-          : 'Has retirat el teu suport.';
+        if (result.telegram === false) {
+          status.textContent = 'Canvi guardat, però no s’ha pogut enviar l’avís per Telegram.';
+        } else {
+          status.textContent = action === 'vote'
+            ? 'T’has sumat a la petició.'
+            : 'Has retirat el teu suport.';
+        }
         return result;
       }));
     });
@@ -314,7 +318,7 @@ function renderProposalsPanel() {
     setBusy(submit, true, 'Publicant…');
     formStatus.textContent = '';
     try {
-      await callBustia({
+      const result = await callBustia({
         action: 'proposal',
         categoria: category.value,
         modul: module.value,
@@ -325,7 +329,9 @@ function renderProposalsPanel() {
       detail.value = '';
       form.classList.add('is-hidden');
       newButton.textContent = '+ Nova petició';
-      listStatus.textContent = '✓ Petició publicada. Ja compta amb el teu suport.';
+      listStatus.textContent = result.telegram === false
+        ? '✓ Petició publicada, però no s’ha pogut enviar l’avís per Telegram.'
+        : '✓ Petició publicada. Ja compta amb el teu suport.';
       await renderProposalList(list, listStatus);
     } catch (error) {
       formStatus.textContent = error.message || 'No s’ha pogut publicar.';
