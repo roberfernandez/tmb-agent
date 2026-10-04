@@ -1,7 +1,7 @@
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=avisos-v3';
+import { modules } from './modules.js?v=avisos-v4';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
-import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v3';
+import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v4';
 import { renderBustia } from './bustia.js?v=bustia-v1';
 
 const content = document.querySelector('main');
@@ -167,15 +167,17 @@ function setCQuadreBadge(kind, count) {
   const card = document.querySelector('[data-module="cquadre"]');
   if (!card) return;
 
-  const shortcut = card.querySelector(`.cquadre-shortcut[data-kind="${kind}"]`);
-  if (!shortcut) return;
+  const badge = card.querySelector(`.cquadre-overlay-badge[data-kind="${kind}"]`);
+  if (!badge) return;
 
-  shortcut.querySelector('.unread-badge-count')?.remove();
+  badge.replaceChildren();
 
   if (count > 0) {
-    const badge = element('strong', `unread-badge-count unread-badge-count-${kind}`, count > 99 ? '99+' : String(count));
-    badge.setAttribute('aria-label', `${count} pendents`);
-    shortcut.prepend(badge);
+    badge.hidden = false;
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.setAttribute('aria-label', `${kind === 'cquadre' ? 'C.Quadre' : 'Avisos'}: ${count} pendents`);
+  } else {
+    badge.hidden = true;
   }
 }
 
@@ -207,37 +209,49 @@ function render() {
     grid.setAttribute('aria-label', 'Mòduls');
     orderedModules().forEach(module => {
       const isCQuadre = module.id === 'cquadre';
-      const card = element(isCQuadre ? 'div' : 'a', isCQuadre ? 'card card-cquadre' : 'card');
-      card.dataset.module = module.id;
 
-      const cardLink = isCQuadre ? element('a', 'card-main-link') : card;
-      cardLink.href = module.appUrl || module.externalUrl || `#/${module.id}`;
+      if (isCQuadre) {
+        const card = element('div', 'card card-cquadre');
+        card.dataset.module = module.id;
+
+        const visual = element('div', 'cquadre-visual');
+
+        const imageLink = element('a', 'cquadre-image-link');
+        imageLink.href = '#/cquadre';
+        imageLink.append(icon(module));
+
+        const cq = element('a', 'cquadre-overlay-badge cquadre-overlay-badge-cquadre');
+        cq.dataset.kind = 'cquadre';
+        cq.href = '#/cquadre/cquadre';
+        cq.setAttribute('aria-label', 'Obrir C.Quadre pendents');
+
+        const avisos = element('a', 'cquadre-overlay-badge cquadre-overlay-badge-avisos');
+        avisos.dataset.kind = 'avisos';
+        avisos.href = '#/cquadre/avisos';
+        avisos.setAttribute('aria-label', 'Obrir Avisos pendents');
+
+        visual.append(imageLink, cq, avisos);
+
+        const titleLink = element('a', 'card-copy cquadre-title-link');
+        titleLink.href = '#/cquadre';
+        titleLink.append(element('h2', '', module.name));
+
+        card.append(visual, titleLink);
+        grid.append(card);
+        return;
+      }
+
+      const card = element('a', 'card');
+      card.dataset.module = module.id;
+      card.href = module.appUrl || module.externalUrl || `#/${module.id}`;
       if (module.externalUrl) {
-        cardLink.target = '_blank';
-        cardLink.rel = 'noopener noreferrer';
+        card.target = '_blank';
+        card.rel = 'noopener noreferrer';
       }
 
       const copy = element('div', 'card-copy');
       copy.append(element('h2', '', module.name));
-      cardLink.append(icon(module), copy);
-
-      if (isCQuadre) {
-        const shortcuts = element('div', 'cquadre-shortcuts');
-
-        const cq = element('a', 'cquadre-shortcut cquadre-shortcut-cquadre');
-        cq.dataset.kind = 'cquadre';
-        cq.href = '#/cquadre/cquadre';
-        cq.append(element('span', 'cquadre-shortcut-label', 'C.Quadre'));
-
-        const avisos = element('a', 'cquadre-shortcut cquadre-shortcut-avisos');
-        avisos.dataset.kind = 'avisos';
-        avisos.href = '#/cquadre/avisos';
-        avisos.append(element('span', 'cquadre-shortcut-label', 'Avisos'));
-
-        shortcuts.append(cq, avisos);
-        card.append(cardLink, shortcuts);
-      }
-
+      card.append(icon(module), copy);
       grid.append(card);
     });
     const hero = element('div', 'metro-hero');
