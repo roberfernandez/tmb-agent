@@ -1,5 +1,5 @@
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=cquadre-acces-v2';
+import { modules } from './modules.js?v=bustia-v1';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCount, renderCQuadre } from './cquadre.js';
 import { renderBustia } from './bustia.js?v=bustia-v1';
