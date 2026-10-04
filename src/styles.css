@@ -19,9 +19,18 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
 
 /* Complements de Quadre */
 .card{position:relative}
+.card-cquadre{padding-bottom:54px}
+.card-main-link{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  width:100%;
+  min-width:0
+}
 .unread-badges{
   position:absolute;
-  top:8px;
+  bottom:8px;
   left:8px;
   right:8px;
   z-index:2;
@@ -44,7 +53,8 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
   font-size:11px;
   line-height:1;
   font-weight:750;
-  white-space:nowrap
+  white-space:nowrap;
+  pointer-events:auto
 }
 .unread-badge-cquadre{background:#d93632}
 .unread-badge-avisos{background:#cf6500}
@@ -139,7 +149,9 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
 .cquadre-all{margin-top:22px}
 
 @media(max-width:760px){
-  .unread-badges{top:6px;left:6px;right:6px;gap:4px}
+  .card-cquadre{padding-bottom:48px}
+  .card-main-link{gap:11px}
+  .unread-badges{bottom:6px;left:6px;right:6px;gap:4px}
   .unread-badge{padding-left:7px;font-size:10px}
   .unread-badge-count{min-width:18px;height:18px;font-size:10px}
   .cquadre-item{padding:14px}

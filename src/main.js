@@ -1,7 +1,7 @@
 import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=avisos-v1';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
-import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v1';
+import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v2';
 import { renderBustia } from './bustia.js?v=bustia-v1';
 
 const content = document.querySelector('main');
@@ -177,9 +177,10 @@ function setCQuadreBadge(kind, count) {
 
   if (count > 0) {
     const label = kind === 'cquadre' ? 'C.Quadre' : 'Avisos';
-    const badge = element('span', `unread-badge unread-badge-${kind}`);
+    const badge = element('a', `unread-badge unread-badge-${kind}`);
     badge.dataset.kind = kind;
-    badge.setAttribute('aria-label', `${label}: ${count} pendents`);
+    badge.href = kind === 'cquadre' ? '#/cquadre/cquadre' : '#/cquadre/avisos';
+    badge.setAttribute('aria-label', `Obrir ${label}: ${count} pendents`);
     badge.append(
       element('span', 'unread-badge-label', label),
       element('strong', 'unread-badge-count', count > 99 ? '99+' : String(count)),
@@ -201,7 +202,13 @@ async function refreshCQuadreBadges() {
 
 function render() {
   const route = location.hash.slice(1) || '/';
-  const shortcutModule = modules.find(module => route === `/${module.id}`);
+  const cquadreView = route === '/cquadre/cquadre'
+    ? 'cquadre'
+    : route === '/cquadre/avisos'
+      ? 'avisos'
+      : 'all';
+  const moduleRoute = route.startsWith('/cquadre/') ? '/cquadre' : route;
+  const shortcutModule = modules.find(module => moduleRoute === `/${module.id}`);
   const destination = shortcutModule?.appUrl || shortcutModule?.externalUrl;
   if (destination) { location.replace(destination); return; }
   document.body.classList.toggle('home', route === '/' || location.hash === '#content');
@@ -211,13 +218,22 @@ function render() {
     const grid = element('nav', 'grid');
     grid.setAttribute('aria-label', 'Mòduls');
     orderedModules().forEach(module => {
-      const card = element('a', 'card');
+      const isCQuadre = module.id === 'cquadre';
+      const card = element(isCQuadre ? 'div' : 'a', isCQuadre ? 'card card-cquadre' : 'card');
       card.dataset.module = module.id;
-      card.href = module.appUrl || module.externalUrl || `#/${module.id}`;
-      if (module.externalUrl) { card.target = '_blank'; card.rel = 'noopener noreferrer'; }
+
+      const cardLink = isCQuadre ? element('a', 'card-main-link') : card;
+      cardLink.href = module.appUrl || module.externalUrl || `#/${module.id}`;
+      if (module.externalUrl) {
+        cardLink.target = '_blank';
+        cardLink.rel = 'noopener noreferrer';
+      }
+
       const copy = element('div', 'card-copy');
       copy.append(element('h2', '', module.name));
-      card.append(icon(module), copy);
+      cardLink.append(icon(module), copy);
+
+      if (isCQuadre) card.append(cardLink);
       grid.append(card);
     });
     const hero = element('div', 'metro-hero');
@@ -229,13 +245,29 @@ function render() {
     enableModuleReorder(grid);
     refreshCQuadreBadges();
   } else {
-    const module = modules.find(item => route === `/${item.id}`);
+    const module = modules.find(item => moduleRoute === `/${item.id}`);
     if (module?.id === 'cquadre') {
-      document.title = 'Complements de Quadre · TMB Agent';
+      const title = cquadreView === 'cquadre'
+        ? 'C.Quadre'
+        : cquadreView === 'avisos'
+          ? 'Avisos'
+          : module.name;
+      const subtitle = cquadreView === 'cquadre'
+        ? 'Complements de Quadre pendents de llegir'
+        : cquadreView === 'avisos'
+          ? 'Avisos pendents de llegir'
+          : module.description;
+
+      document.title = `${title} · TMB Agent`;
       const panel = element('section', 'panel cquadre-panel');
-      panel.append(icon(module), element('p', 'eyebrow', 'TMB AGENT'), element('h1', '', module.name), element('p', 'subtitle', module.description));
+      panel.append(
+        icon(module),
+        element('p', 'eyebrow', 'TMB AGENT'),
+        element('h1', '', title),
+        element('p', 'subtitle', subtitle),
+      );
       content.append(panel);
-      renderCQuadre(setCQuadreBadge).then(view => panel.append(view));
+      renderCQuadre(setCQuadreBadge, cquadreView).then(view => panel.append(view));
       return;
     }
     if (module?.id === 'mapa-metro') {
