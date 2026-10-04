@@ -1,8 +1,10 @@
-﻿import { SESSION_KEY } from './session.js';
+import { SESSION_KEY } from './session.js';
 
 const URL = 'https://hhenkvendzengggrgook.supabase.co';
 const PUBLIC_KEY = 'sb_publishable_QSPDTmh3fd0FH-VvAjH5KQ_Rfvzr2x_';
+
 export const CQUADRE_URL = 'https://tmbbcn.sharepoint.com/sites/CQuadre';
+export const AVISOS_URL = 'https://tmbbcn.sharepoint.com/sites/UltimaHora/Avisos/Forms/AllItems.aspx';
 
 function session() {
   try {
@@ -52,16 +54,36 @@ export async function getComplements() {
   }));
 }
 
-export async function getUnreadCount() {
-  const complements = await getComplements();
-  return complements.reduce((total, item) => total + (item.llegit ? 0 : 1), 0);
-}
-
-export async function markComplementRead(id) {
+export async function getAvisos() {
   const current = session();
   if (!current) throw new Error('Sessió no disponible');
 
-  const response = await fetch(`${URL}/rest/v1/complements_quadre_llegits`, {
+  const [catalog, readRows] = await Promise.all([
+    request('avisos_tmb?select=id,titulo,enlace,fecha,fecha_iso,archivo,interessa&order=fecha_iso.desc.nullslast,id.desc'),
+    request(`avisos_tmb_llegits?select=aviso_id&user_id=eq.${encodeURIComponent(current.user.id)}`),
+  ]);
+
+  const read = new Set(readRows.map(row => Number(row.aviso_id)));
+
+  return catalog.map(item => ({
+    ...item,
+    llegit: read.has(Number(item.id)),
+  }));
+}
+
+export async function getUnreadCounts() {
+  const [complements, avisos] = await Promise.all([getComplements(), getAvisos()]);
+  return {
+    cquadre: complements.reduce((total, item) => total + (item.llegit ? 0 : 1), 0),
+    avisos: avisos.reduce((total, item) => total + (item.llegit ? 0 : 1), 0),
+  };
+}
+
+async function markRead(table, field, id) {
+  const current = session();
+  if (!current) throw new Error('Sessió no disponible');
+
+  const response = await fetch(`${URL}/rest/v1/${table}`, {
     method: 'POST',
     cache: 'no-store',
     headers: headers(current.access_token, {
@@ -70,11 +92,19 @@ export async function markComplementRead(id) {
     }),
     body: JSON.stringify({
       user_id: current.user.id,
-      complement_id: Number(id),
+      [field]: Number(id),
     }),
   });
 
   if (!response.ok) throw new Error(`Supabase ${response.status}`);
+}
+
+export function markComplementRead(id) {
+  return markRead('complements_quadre_llegits', 'complement_id', id);
+}
+
+export function markAvisoRead(id) {
+  return markRead('avisos_tmb_llegits', 'aviso_id', id);
 }
 
 function node(tag, className, text) {
@@ -95,75 +125,115 @@ function formatDate(value) {
   }).format(new Date(year, month - 1, day));
 }
 
+function renderPendingSection({
+  kind,
+  title,
+  items,
+  markReadItem,
+  onUnreadChange,
+  allUrl,
+  allLabel,
+}) {
+  const section = node('section', 'pending-section');
+  const heading = node('div', 'pending-section-heading');
+  heading.append(node('h2', '', title));
+
+  const unread = items.filter(item => !item.llegit);
+  const summary = node(
+    'p',
+    unread.length ? 'cquadre-summary' : 'cquadre-summary cquadre-ok',
+    unread.length
+      ? `${unread.length} pendent${unread.length === 1 ? '' : 's'} de llegir`
+      : '✓ Estàs al dia. No tens pendents.'
+  );
+  heading.append(summary);
+  section.append(heading);
+
+  const list = node('div', 'cquadre-list');
+
+  unread.forEach(item => {
+    const link = node('a', 'cquadre-item');
+    link.href = item.enlace;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+
+    const copy = node('span', 'cquadre-item-copy');
+    copy.append(node('strong', '', item.titulo));
+
+    const meta = [];
+    if (item.fecha) meta.push(formatDate(item.fecha));
+    if (kind === 'avisos' && item.interessa) meta.push(item.interessa);
+    if (meta.length) copy.append(node('span', 'cquadre-date', meta.join(' · ')));
+
+    link.append(copy, node('span', 'cquadre-arrow', '↗'));
+
+    link.addEventListener('click', async () => {
+      link.classList.add('cquadre-reading');
+      try {
+        await markReadItem(item.id);
+        link.remove();
+        const remaining = list.querySelectorAll('.cquadre-item').length;
+        onUnreadChange(kind, remaining);
+
+        if (remaining === 0) {
+          summary.className = 'cquadre-summary cquadre-ok';
+          summary.textContent = '✓ Estàs al dia. No tens pendents.';
+        } else {
+          summary.className = 'cquadre-summary';
+          summary.textContent =
+            `${remaining} pendent${remaining === 1 ? '' : 's'} de llegir`;
+        }
+      } catch {
+        link.classList.remove('cquadre-reading');
+      }
+    });
+
+    list.append(link);
+  });
+
+  section.append(list);
+
+  const all = node('a', 'button cquadre-all', allLabel);
+  all.href = allUrl;
+  all.target = '_blank';
+  all.rel = 'noopener noreferrer';
+  section.append(all);
+
+  return section;
+}
+
 export async function renderCQuadre(onUnreadChange = () => {}) {
   const container = node('section', 'cquadre');
-  const loading = node('p', 'notice', 'Carregant complements…');
+  const loading = node('p', 'notice', 'Carregant C.Quadre i Avisos…');
   container.append(loading);
 
   try {
-    const complements = await getComplements();
+    const [complements, avisos] = await Promise.all([getComplements(), getAvisos()]);
     container.replaceChildren();
 
-    const unread = complements.filter(item => !item.llegit);
-
-    const summary = node(
-      'p',
-      unread.length ? 'cquadre-summary' : 'cquadre-summary cquadre-ok',
-      unread.length
-        ? `${unread.length} complement${unread.length === 1 ? '' : 's'} pendent${unread.length === 1 ? '' : 's'} de llegir`
-        : '✓ Estàs al dia. No tens complements pendents.'
+    container.append(
+      renderPendingSection({
+        kind: 'cquadre',
+        title: 'C.Quadre',
+        items: complements,
+        markReadItem: markComplementRead,
+        onUnreadChange,
+        allUrl: CQUADRE_URL,
+        allLabel: 'Veure tots els Complements de Quadre ↗',
+      }),
+      renderPendingSection({
+        kind: 'avisos',
+        title: 'Avisos',
+        items: avisos,
+        markReadItem: markAvisoRead,
+        onUnreadChange,
+        allUrl: AVISOS_URL,
+        allLabel: 'Veure tots els Avisos ↗',
+      }),
     );
-    container.append(summary);
-
-    const list = node('div', 'cquadre-list');
-
-    unread.forEach(item => {
-      const link = node('a', 'cquadre-item');
-      link.href = item.enlace;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-
-      const copy = node('span', 'cquadre-item-copy');
-      copy.append(node('strong', '', item.titulo));
-      if (item.fecha) copy.append(node('span', 'cquadre-date', formatDate(item.fecha)));
-
-      link.append(copy, node('span', 'cquadre-arrow', '↗'));
-
-      link.addEventListener('click', async () => {
-        link.classList.add('cquadre-reading');
-        try {
-          await markComplementRead(item.id);
-          link.remove();
-          const remaining = list.querySelectorAll('.cquadre-item').length;
-          onUnreadChange(remaining);
-
-          if (remaining === 0) {
-            summary.className = 'cquadre-summary cquadre-ok';
-            summary.textContent = '✓ Estàs al dia. No tens complements pendents.';
-          } else {
-            summary.className = 'cquadre-summary';
-            summary.textContent =
-              `${remaining} complement${remaining === 1 ? '' : 's'} ` +
-              `pendent${remaining === 1 ? '' : 's'} de llegir`;
-          }
-        } catch {
-          link.classList.remove('cquadre-reading');
-        }
-      });
-
-      list.append(link);
-    });
-
-    container.append(list);
-
-    const all = node('a', 'button cquadre-all', 'Veure tots els Complements de Quadre ↗');
-    all.href = CQUADRE_URL;
-    all.target = '_blank';
-    all.rel = 'noopener noreferrer';
-    container.append(all);
   } catch {
     container.replaceChildren(
-      node('p', 'notice', 'No s’han pogut carregar els Complements de Quadre.')
+      node('p', 'notice', 'No s’han pogut carregar C.Quadre i Avisos.')
     );
   }
 
