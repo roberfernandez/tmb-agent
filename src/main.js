@@ -2,6 +2,7 @@ import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=cquadre-acces-v2';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCount, renderCQuadre } from './cquadre.js';
+import { renderBustia } from './bustia.js?v=bustia-v1';
 
 const content = document.querySelector('main');
 const MODULE_ORDER_KEY = 'tmb-agent-module-order-v1';
@@ -219,6 +220,19 @@ function render() {
     if (module?.id === 'mapa-metro') {
       document.title = 'Mapa Metro · TMB Agent';
       content.append(renderMap());
+      return;
+    }
+    if (module?.id === 'bustia') {
+      document.title = 'Bústia · TMB Agent';
+      const panel = element('section', 'panel bustia-panel');
+      panel.append(
+        icon(module),
+        element('p', 'eyebrow', 'TMB AGENT'),
+        element('h1', '', module.name),
+        element('p', 'subtitle', module.description),
+        renderBustia(),
+      );
+      content.append(panel);
       return;
     }
     const panel = element('section', 'panel');
