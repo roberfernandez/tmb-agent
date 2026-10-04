@@ -43,7 +43,7 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
 }
 .cquadre-overlay-badge{
   position:absolute;
-  top:72%;
+  top:86%;
   z-index:3;
   display:grid;
   place-items:center;
@@ -146,7 +146,7 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
 .cquadre-all{margin-top:22px}
 
 @media(max-width:760px){
-  .cquadre-overlay-badge{top:70%;min-width:32px;height:32px;font-size:12px}
+  .cquadre-overlay-badge{top:84%;min-width:32px;height:32px;font-size:12px}
   .cquadre-overlay-badge-cquadre{left:20%}
   .cquadre-overlay-badge-avisos{right:20%}
   .cquadre-item{padding:14px}
