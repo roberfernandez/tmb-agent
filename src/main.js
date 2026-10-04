@@ -1,7 +1,7 @@
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=bustia-v1';
+import { modules } from './modules.js?v=avisos-v1';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
-import { getUnreadCount, renderCQuadre } from './cquadre.js';
+import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v1';
 import { renderBustia } from './bustia.js?v=bustia-v1';
 
 const content = document.querySelector('main');
@@ -163,19 +163,40 @@ function icon(module) {
   placeholder.setAttribute('aria-hidden', 'true');
   return placeholder;
 }
-function setCQuadreBadge(count) {
+function setCQuadreBadge(kind, count) {
   const card = document.querySelector('[data-module="cquadre"]');
   if (!card) return;
-  card.querySelector('.unread-badge')?.remove();
-  if (count > 0) {
-    const badge = element('span', 'unread-badge', count > 99 ? '99+' : String(count));
-    badge.setAttribute('aria-label', `${count} complements pendents`);
-    card.append(badge);
+
+  let group = card.querySelector('.unread-badges');
+  if (!group) {
+    group = element('span', 'unread-badges');
+    card.append(group);
   }
+
+  group.querySelector(`.unread-badge[data-kind="${kind}"]`)?.remove();
+
+  if (count > 0) {
+    const label = kind === 'cquadre' ? 'C.Quadre' : 'Avisos';
+    const badge = element('span', `unread-badge unread-badge-${kind}`);
+    badge.dataset.kind = kind;
+    badge.setAttribute('aria-label', `${label}: ${count} pendents`);
+    badge.append(
+      element('span', 'unread-badge-label', label),
+      element('strong', 'unread-badge-count', count > 99 ? '99+' : String(count)),
+    );
+    group.append(badge);
+  }
+
+  if (!group.children.length) group.remove();
 }
 
-async function refreshCQuadreBadge() {
-  try { setCQuadreBadge(await getUnreadCount()); } catch {}
+function setCQuadreBadges(counts) {
+  setCQuadreBadge('cquadre', Number(counts?.cquadre) || 0);
+  setCQuadreBadge('avisos', Number(counts?.avisos) || 0);
+}
+
+async function refreshCQuadreBadges() {
+  try { setCQuadreBadges(await getUnreadCounts()); } catch {}
 }
 
 function render() {
@@ -206,11 +227,11 @@ function render() {
     hero.append(lines);
     content.append(hero, grid);
     enableModuleReorder(grid);
-    refreshCQuadreBadge();
+    refreshCQuadreBadges();
   } else {
     const module = modules.find(item => route === `/${item.id}`);
     if (module?.id === 'cquadre') {
-      document.title = 'Complements de Quadre � TMB Agent';
+      document.title = 'Complements de Quadre · TMB Agent';
       const panel = element('section', 'panel cquadre-panel');
       panel.append(icon(module), element('p', 'eyebrow', 'TMB AGENT'), element('h1', '', module.name), element('p', 'subtitle', module.description));
       content.append(panel);
