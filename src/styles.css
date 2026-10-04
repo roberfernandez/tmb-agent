@@ -19,7 +19,7 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
 
 /* Complements de Quadre */
 .card{position:relative}
-.card-cquadre{padding-bottom:54px}
+.card-cquadre{padding-bottom:18px}
 .card-main-link{
   display:flex;
   flex-direction:column;
@@ -28,49 +28,51 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
   width:100%;
   min-width:0
 }
-.unread-badges{
-  position:absolute;
-  bottom:8px;
-  left:8px;
-  right:8px;
-  z-index:2;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:6px;
-  pointer-events:none
+.cquadre-shortcuts{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  width:100%;
+  margin-top:2px
 }
-.unread-badge{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  min-height:28px;
-  padding:3px 5px 3px 9px;
+.cquadre-shortcut{
+  position:relative;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  min-height:54px;
+  padding:22px 10px 8px;
+  border:1px solid #ffffff18;
+  border-radius:14px;
+  background:#0e1b2c;
+  font-size:13px;
+  font-weight:700;
+  text-align:center
+}
+.cquadre-shortcut-cquadre{border-color:#d9363266}
+.cquadre-shortcut-avisos{border-color:#cf650066}
+.cquadre-shortcut-label{line-height:1.15}
+.unread-badge-count{
+  position:absolute;
+  top:-10px;
+  left:50%;
+  transform:translateX(-50%);
+  display:grid;
+  place-items:center;
+  min-width:30px;
+  height:30px;
+  padding:0 7px;
   border-radius:999px;
   color:#fff;
   border:2px solid #111e30;
   box-shadow:0 3px 10px #0008;
-  font-size:11px;
+  font-size:12px;
   line-height:1;
-  font-weight:750;
-  white-space:nowrap;
-  pointer-events:auto
-}
-.unread-badge-cquadre{background:#d93632}
-.unread-badge-avisos{background:#cf6500}
-.unread-badge-count{
-  display:grid;
-  place-items:center;
-  min-width:20px;
-  height:20px;
-  padding:0 5px;
-  border-radius:999px;
-  background:#fff;
-  color:#142033;
-  font-size:11px;
+  font-weight:800;
   font-variant-numeric:tabular-nums
 }
-.unread-badge-label{letter-spacing:.1px}
+.unread-badge-count-cquadre{background:#d93632}
+.unread-badge-count-avisos{background:#cf6500}
 .cquadre-panel{max-width:820px}
 .cquadre{margin-top:26px}
 .pending-section{
@@ -149,15 +151,13 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
 .cquadre-all{margin-top:22px}
 
 @media(max-width:760px){
-  .card-cquadre{padding-bottom:48px}
   .card-main-link{gap:11px}
-  .unread-badges{bottom:6px;left:6px;right:6px;gap:4px}
-  .unread-badge{padding-left:7px;font-size:10px}
-  .unread-badge-count{min-width:18px;height:18px;font-size:10px}
+  .cquadre-shortcuts{gap:8px}
+  .cquadre-shortcut{min-height:50px;padding:20px 8px 7px;font-size:12px}
+  .unread-badge-count{top:-9px;min-width:28px;height:28px;font-size:11px}
   .cquadre-item{padding:14px}
   .cquadre-panel{padding:24px}
 }
-
 
 /* Reordenació local dels mòduls */
 .grid.reordering{user-select:none;-webkit-user-select:none}

@@ -1,7 +1,7 @@
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=avisos-v1';
+import { modules } from './modules.js?v=avisos-v3';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
-import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v2';
+import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v3';
 import { renderBustia } from './bustia.js?v=bustia-v1';
 
 const content = document.querySelector('main');
@@ -167,28 +167,16 @@ function setCQuadreBadge(kind, count) {
   const card = document.querySelector('[data-module="cquadre"]');
   if (!card) return;
 
-  let group = card.querySelector('.unread-badges');
-  if (!group) {
-    group = element('span', 'unread-badges');
-    card.append(group);
-  }
+  const shortcut = card.querySelector(`.cquadre-shortcut[data-kind="${kind}"]`);
+  if (!shortcut) return;
 
-  group.querySelector(`.unread-badge[data-kind="${kind}"]`)?.remove();
+  shortcut.querySelector('.unread-badge-count')?.remove();
 
   if (count > 0) {
-    const label = kind === 'cquadre' ? 'C.Quadre' : 'Avisos';
-    const badge = element('a', `unread-badge unread-badge-${kind}`);
-    badge.dataset.kind = kind;
-    badge.href = kind === 'cquadre' ? '#/cquadre/cquadre' : '#/cquadre/avisos';
-    badge.setAttribute('aria-label', `Obrir ${label}: ${count} pendents`);
-    badge.append(
-      element('span', 'unread-badge-label', label),
-      element('strong', 'unread-badge-count', count > 99 ? '99+' : String(count)),
-    );
-    group.append(badge);
+    const badge = element('strong', `unread-badge-count unread-badge-count-${kind}`, count > 99 ? '99+' : String(count));
+    badge.setAttribute('aria-label', `${count} pendents`);
+    shortcut.prepend(badge);
   }
-
-  if (!group.children.length) group.remove();
 }
 
 function setCQuadreBadges(counts) {
@@ -233,7 +221,23 @@ function render() {
       copy.append(element('h2', '', module.name));
       cardLink.append(icon(module), copy);
 
-      if (isCQuadre) card.append(cardLink);
+      if (isCQuadre) {
+        const shortcuts = element('div', 'cquadre-shortcuts');
+
+        const cq = element('a', 'cquadre-shortcut cquadre-shortcut-cquadre');
+        cq.dataset.kind = 'cquadre';
+        cq.href = '#/cquadre/cquadre';
+        cq.append(element('span', 'cquadre-shortcut-label', 'C.Quadre'));
+
+        const avisos = element('a', 'cquadre-shortcut cquadre-shortcut-avisos');
+        avisos.dataset.kind = 'avisos';
+        avisos.href = '#/cquadre/avisos';
+        avisos.append(element('span', 'cquadre-shortcut-label', 'Avisos'));
+
+        shortcuts.append(cq, avisos);
+        card.append(cardLink, shortcuts);
+      }
+
       grid.append(card);
     });
     const hero = element('div', 'metro-hero');
