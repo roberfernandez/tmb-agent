@@ -10,5 +10,6 @@ export const modules = [
   { id: 'mapa-metro', name: 'Mapa Metro', initials: 'MM', description: 'Mapa del metro de Barcelona', icon: './assets/mapa-icono.png' },
   { id: 'cquadre', name: 'Complements de Quadre', initials: 'CQ', description: 'Complements pendents i accés al Quadre', icon: './assets/icons/complements-quadre-192.png' },
   { id: 'cinta-metrica', appUrl: 'https://roberfernandez.github.io/cinta-metrica/', name: 'Cinta Mètrica', initials: 'CM', description: 'Correspondència entre codis i estacions', icon: 'https://raw.githubusercontent.com/roberfernandez/cinta-metrica/main/cinta-metrica-192.png' },
+  { id: 'bustia', name: 'Bústia', initials: '?', description: 'Consultes, errors i peticions', icon: './assets/icons/bustia-192.png' },
 ];
 

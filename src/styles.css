@@ -111,3 +111,150 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
   cursor:grabbing
 }
 @media(pointer:fine){.card{cursor:grab}}
+
+
+/* Bústia */
+.bustia-panel{max-width:880px}
+.bustia{margin-top:28px}
+.bustia-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  padding:5px;
+  border:1px solid #ffffff14;
+  border-radius:14px;
+  background:#0b1726
+}
+.bustia-tab{
+  min-height:44px;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:#9fb0c5;
+  font:650 14px system-ui,sans-serif;
+  cursor:pointer
+}
+.bustia-tab.is-active{
+  background:#233a53;
+  color:#f0f6fc
+}
+.bustia-body{margin-top:20px}
+.bustia-section h2{margin:0 0 6px;font-size:20px}
+.bustia-intro{margin:0 0 18px;color:#9fb0c5;line-height:1.5}
+.bustia-form{
+  display:grid;
+  gap:14px;
+  margin-top:14px;
+  padding:18px;
+  border:1px solid #ffffff14;
+  border-radius:16px;
+  background:#0d1929
+}
+.bustia-form.is-hidden{display:none}
+.bustia-field{display:grid;gap:7px}
+.bustia-label{
+  color:#c8d6e5;
+  font-size:13px;
+  font-weight:650
+}
+.bustia-input,.bustia-select,.bustia-textarea{
+  width:100%;
+  min-height:44px;
+  border:1px solid #49627d;
+  border-radius:10px;
+  background:#111f31;
+  color:#eef4fb;
+  padding:11px 12px;
+  font:inherit
+}
+.bustia-textarea{resize:vertical;min-height:110px;line-height:1.45}
+.bustia-input:focus,.bustia-select:focus,.bustia-textarea:focus{
+  outline:3px solid #98c5e0;
+  outline-offset:2px
+}
+.bustia-submit{justify-self:start;margin-top:2px}
+.bustia-status{
+  min-height:20px;
+  margin:0;
+  color:#b8c7d8;
+  font-size:13px
+}
+.bustia-new{margin:0 0 14px}
+.bustia-proposal-list{
+  display:grid;
+  gap:12px;
+  margin-top:12px
+}
+.bustia-proposal{
+  padding:16px;
+  border:1px solid #ffffff14;
+  border-radius:15px;
+  background:#0d1929
+}
+.bustia-proposal-meta{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex-wrap:wrap;
+  margin-bottom:10px
+}
+.bustia-pill,.bustia-module{
+  display:inline-flex;
+  align-items:center;
+  min-height:26px;
+  padding:4px 9px;
+  border-radius:999px;
+  background:#1a2b40;
+  color:#b9cce0;
+  font-size:11px;
+  font-weight:650
+}
+.bustia-state-feta{color:#bfe7c9}
+.bustia-state-descartada{color:#d2aeb0}
+.bustia-proposal h3{
+  margin:0;
+  color:#edf3fb;
+  font-size:16px;
+  line-height:1.4
+}
+.bustia-detail{
+  margin:9px 0 0;
+  color:#aebed0;
+  line-height:1.5;
+  white-space:pre-wrap
+}
+.bustia-proposal-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:15px
+}
+.bustia-vote-count{
+  color:#91a6bd;
+  font-size:13px
+}
+.bustia-vote{
+  min-height:42px;
+  padding:9px 13px;
+  border:1px solid #56728f;
+  border-radius:10px;
+  background:#14243a;
+  color:#dce8f5;
+  font-weight:650;
+  cursor:pointer
+}
+.bustia-vote.is-active{
+  border-color:#98c5e0;
+  background:#233a53;
+  color:#f3f8fd
+}
+.bustia-vote:disabled,.bustia-submit:disabled{opacity:.6;cursor:wait}
+
+@media(max-width:760px){
+  .bustia-panel{padding:24px}
+  .bustia{margin-top:22px}
+  .bustia-form{padding:14px}
+  .bustia-proposal{padding:14px}
+  .bustia-proposal-footer{align-items:flex-end}
+}
