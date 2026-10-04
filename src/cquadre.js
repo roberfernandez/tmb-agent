@@ -202,38 +202,58 @@ function renderPendingSection({
   return section;
 }
 
-export async function renderCQuadre(onUnreadChange = () => {}) {
+export async function renderCQuadre(onUnreadChange = () => {}, view = 'all') {
   const container = node('section', 'cquadre');
-  const loading = node('p', 'notice', 'Carregant C.Quadre i Avisos…');
+  const loadingText = view === 'cquadre'
+    ? 'Carregant C.Quadre…'
+    : view === 'avisos'
+      ? 'Carregant Avisos…'
+      : 'Carregant C.Quadre i Avisos…';
+  const loading = node('p', 'notice', loadingText);
   container.append(loading);
 
   try {
-    const [complements, avisos] = await Promise.all([getComplements(), getAvisos()]);
+    const [complements, avisos] = await Promise.all([
+      view === 'avisos' ? Promise.resolve([]) : getComplements(),
+      view === 'cquadre' ? Promise.resolve([]) : getAvisos(),
+    ]);
     container.replaceChildren();
 
-    container.append(
-      renderPendingSection({
-        kind: 'cquadre',
-        title: 'C.Quadre',
-        items: complements,
-        markReadItem: markComplementRead,
-        onUnreadChange,
-        allUrl: CQUADRE_URL,
-        allLabel: 'Veure tots els Complements de Quadre ↗',
-      }),
-      renderPendingSection({
-        kind: 'avisos',
-        title: 'Avisos',
-        items: avisos,
-        markReadItem: markAvisoRead,
-        onUnreadChange,
-        allUrl: AVISOS_URL,
-        allLabel: 'Veure tots els Avisos ↗',
-      }),
-    );
+    if (view !== 'avisos') {
+      container.append(
+        renderPendingSection({
+          kind: 'cquadre',
+          title: 'C.Quadre',
+          items: complements,
+          markReadItem: markComplementRead,
+          onUnreadChange,
+          allUrl: CQUADRE_URL,
+          allLabel: 'Veure tots els Complements de Quadre ↗',
+        }),
+      );
+    }
+
+    if (view !== 'cquadre') {
+      container.append(
+        renderPendingSection({
+          kind: 'avisos',
+          title: 'Avisos',
+          items: avisos,
+          markReadItem: markAvisoRead,
+          onUnreadChange,
+          allUrl: AVISOS_URL,
+          allLabel: 'Veure tots els Avisos ↗',
+        }),
+      );
+    }
   } catch {
+    const label = view === 'cquadre'
+      ? 'C.Quadre'
+      : view === 'avisos'
+        ? 'Avisos'
+        : 'C.Quadre i Avisos';
     container.replaceChildren(
-      node('p', 'notice', 'No s’han pogut carregar C.Quadre i Avisos.')
+      node('p', 'notice', `No s’han pogut carregar ${label}.`)
     );
   }
 
