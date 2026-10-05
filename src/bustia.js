@@ -151,7 +151,8 @@ export function proposalCard(item, onVote, onStatus) {
     }
   });
 
-  footer.append(count, vote);
+  footer.append(count);
+  if (item.estat !== 'feta') footer.append(vote);
   article.append(footer);
   if (onStatus) {
     const select = node('select', 'bustia-select');

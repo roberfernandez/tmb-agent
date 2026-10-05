@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm';
 import { proposalCard } from '../src/bustia.js';
 
 const source = stripTypeScriptTypes(readFileSync(new URL('../supabase/functions/tmb-agent-bustia/index.ts', import.meta.url), 'utf8').replace(/^import .*;\n/gm, ''));
-async function invoke({ admin = false, approved = true, authenticated = true, missing = false, dbError = false, body = {} } = {}) {
+async function invoke({ admin = false, approved = true, authenticated = true, missing = false, dbError = false, proposalState, body = {} } = {}) {
   let handler;
   const writes = [];
   const user = { id: 'test-user', email: 'test@example.invalid', app_metadata: { bustia_admin: admin }, user_metadata: { bustia_admin: true } };
@@ -18,7 +18,7 @@ async function invoke({ admin = false, approved = true, authenticated = true, mi
         update(value) { writes.push({ table, value }); return this; },
         maybeSingle: async () => table === 'solicitudes_acceso'
           ? { data: approved ? { id: 1 } : null }
-          : { data: missing ? null : { id: 1, estat: body.estat }, error: dbError ? {} : null },
+          : { data: missing ? null : { id: 1, estat: proposalState ?? body.estat }, error: dbError ? {} : null },
         then(resolve) { resolve({ data: [] }); },
       };
       return query;
@@ -62,6 +62,12 @@ test('list exposes management capability only from server-owned metadata', async
   assert.equal((await invoke({ body: { action: 'list' } })).data.can_manage, false);
   assert.equal((await invoke({ admin: true, body: { action: 'list' } })).data.can_manage, true);
 });
+test('completed proposals reject both support actions on the server', async () => {
+  for (const action of ['vote', 'unvote']) {
+    const r = await invoke({ proposalState: 'feta', body: { action, proposta_id: 1 } });
+    assert.equal(r.status, 409); assert.equal(r.writes.length, 0);
+  }
+});
 
 class Element {
   children = []; dataset = {}; listeners = {}; classList = { toggle() {} };
@@ -76,6 +82,11 @@ test('administrator can select Feta and save; errors retain controls; ordinary c
   globalThis.document = { createElement: tag => new Element(tag) };
   try {
     const item = { id: 1, titol: 'Example', estat: 'oberta', vots: 1 };
+    const completed = descendants(proposalCard({ ...item, estat: 'feta' }, () => {}));
+    assert.ok(completed.some(n => n.textContent === 'Feta'));
+    assert.ok(!completed.some(n => n.tag === 'button'));
+    assert.ok(completed.some(n => n.textContent === '1 suport'));
+    assert.ok(descendants(proposalCard(item, () => {})).some(n => n.textContent === 'M’hi sumo'));
     assert.equal(descendants(proposalCard(item, () => {})).filter(n => n.tag === 'select').length, 0);
     let saved;
     const card = proposalCard(item, () => {}, async (_, value) => { saved = value; throw Error('Offline'); });

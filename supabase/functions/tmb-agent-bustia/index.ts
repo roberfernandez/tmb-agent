@@ -218,11 +218,14 @@ Deno.serve(async (req) => {
 
     const { data: proposal, error: proposalError } = await admin
       .from("tmb_agent_propostes")
-      .select("id,titol")
+      .select("id,titol,estat")
       .eq("id", propostaId)
       .maybeSingle();
     if (proposalError || !proposal) {
       return json({ ok: false, error: "La petició no existeix" }, 404);
+    }
+    if (proposal.estat === "feta") {
+      return json({ ok: false, error: "La petició ja està feta i no admet canvis de suport" }, 409);
     }
 
     let changed = false;
