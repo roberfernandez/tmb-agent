@@ -102,7 +102,7 @@ function setBusy(button, busy, busyText = 'Enviant…') {
   button.textContent = busy ? busyText : button.dataset.label;
 }
 
-function proposalCard(item, onVote) {
+export function proposalCard(item, onVote, onStatus) {
   const article = node('article', 'bustia-proposal');
   article.dataset.proposalId = String(item.id);
 
@@ -153,6 +153,30 @@ function proposalCard(item, onVote) {
 
   footer.append(count, vote);
   article.append(footer);
+  if (onStatus) {
+    const select = node('select', 'bustia-select');
+    for (const state of ['oberta', 'en_estudi', 'acceptada', 'en_desenvolupament', 'feta', 'descartada']) {
+      select.append(option(state, statusLabel(state)));
+    }
+    select.value = item.estat;
+    const save = node('button', 'button', 'Desar estat');
+    save.type = 'button';
+    const status = liveStatus();
+    save.addEventListener('click', async () => {
+      setBusy(save, true, 'Desant…');
+      select.disabled = true;
+      status.textContent = '';
+      try {
+        await onStatus(item, select.value);
+      } catch (error) {
+        status.textContent = error.message || 'No s’ha pogut desar l’estat.';
+      } finally {
+        select.disabled = false;
+        setBusy(save, false);
+      }
+    });
+    article.append(field(`Gestionar estat · ${item.titol}`, select), save, status);
+  }
   return article;
 }
 
@@ -180,7 +204,11 @@ async function renderProposalList(list, status) {
             : 'Has retirat el teu suport.';
         }
         return result;
-      }));
+      }, data.can_manage === true ? async (proposal, estat) => {
+        await callBustia({ action: 'set_status', proposta_id: proposal.id, estat });
+        status.textContent = `Estat desat: ${statusLabel(estat)}.`;
+        await renderProposalList(list, status);
+      } : undefined));
     });
   } catch (error) {
     list.replaceChildren(node('p', 'notice', error.message || 'No s’han pogut carregar les peticions.'));

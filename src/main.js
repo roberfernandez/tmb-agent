@@ -2,7 +2,7 @@ import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=avisos-v4';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v4';
-import { renderBustia } from './bustia.js?v=bustia-v1';
+import { renderBustia } from './bustia.js?v=bustia-admin-v1';
 
 const content = document.querySelector('main');
 const MODULE_ORDER_KEY = 'tmb-agent-module-order-v1';
