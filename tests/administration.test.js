@@ -50,3 +50,29 @@ test('edge rejects invalid event/period and uses verified user ID for writes',as
   assert.equal(r.status,200); assert.equal(r.calls.at(-1)[2].p_user,'server-user');assert.equal(r.calls.at(-1)[2].p_module,'nomina');
   assert.equal((await invoke({admin:true,rpcError:true})).status,503);
 });
+test('dashboard renders server data as text and exposes launcher-only presence limits',async()=>{
+  class Element {
+    children=[]; style={}; listeners={}; isConnected=true; value='';
+    constructor(tag){this.tag=tag;}
+    append(...children){this.children.push(...children); if(this.tag==='select' && !this.value) this.value=this.children[0].value;}
+    replaceChildren(...children){this.children=children;}
+    addEventListener(name,fn){this.listeners[name]=fn;}
+  }
+  const previous={document:globalThis.document,localStorage:globalThis.localStorage,fetch:globalThis.fetch};
+  globalThis.document={createElement:tag=>new Element(tag)};
+  globalThis.localStorage={getItem:()=>JSON.stringify({access_token:'test'})};
+  globalThis.fetch=async()=>({ok:true,json:async()=>({ok:true,server_time:new Date().toISOString(),users:[{email:'<script>test</script>',authorization:'aprobado',online:true}],stats:[{module:'nomina',opens:2,unique_users:1}],events:[{email:'example.invalid',module:'nomina'}]})});
+  try {
+    const {renderAdministration}=await import('../src/administration.js');
+    const panel=renderAdministration();
+    await new Promise(resolve=>setImmediate(resolve));
+    const flatten=n=>[n,...n.children.flatMap(flatten)];
+    const nodes=flatten(panel),texts=nodes.map(n=>n.textContent||'').join(' ');
+    assert.ok(texts.includes('<script>test</script>'));
+    assert.ok(texts.includes('75 segons'));
+    assert.ok(texts.includes('no acrediten ús ni presència'));
+    assert.equal(nodes.filter(n=>n.tag==='script').length,0);
+    assert.equal(nodes.filter(n=>n.tag==='table').length,3);
+  } finally {Object.assign(globalThis,previous);}
+});
+
