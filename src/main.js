@@ -1,3 +1,5 @@
+import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js';
+let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=avisos-v4';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
@@ -200,15 +202,23 @@ function render() {
       : 'all';
   const moduleRoute = route.startsWith('/cquadre/') ? '/cquadre' : route;
   const shortcutModule = modules.find(module => moduleRoute === `/${module.id}`);
+  if (route === '/administracio') {
+    document.title = 'Administració · TMB Agent';
+    document.body.classList.remove('home');
+    content.replaceChildren();
+    if (canAdmin) content.append(renderAdministration());
+    else content.append(element('p', 'notice', 'Accés denegat'));
+    return;
+  }
   const destination = shortcutModule?.appUrl || shortcutModule?.externalUrl;
-  if (destination) { location.replace(destination); return; }
+  if (destination) { recordOpen(shortcutModule.id); location.replace(destination); return; }
   document.body.classList.toggle('home', route === '/' || location.hash === '#content');
   content.replaceChildren();
   if (route === '/' || location.hash === '#content') {
     document.title = 'TMB Agent';
     const grid = element('nav', 'grid');
     grid.setAttribute('aria-label', 'Mòduls');
-    orderedModules().forEach(module => {
+    orderedModules().filter(module => !module.adminOnly || canAdmin).forEach(module => {
       const isCQuadre = module.id === 'cquadre';
 
       if (isCQuadre) {
@@ -262,6 +272,7 @@ function render() {
     hero.append(lines);
     content.append(hero, grid);
     enableModuleReorder(grid);
+    grid.addEventListener('click', event => { const card = event.target.closest('[data-module]'); if (!event.defaultPrevented && card && card.dataset.module !== 'administracio') recordOpen(card.dataset.module); });
     refreshCQuadreBadges();
   } else {
     const module = modules.find(item => moduleRoute === `/${item.id}`);
@@ -351,6 +362,9 @@ async function authorizedRender() {
       location.replace(loginUrl(location));
       return;
     }
+    try { canAdmin = (await callAdmin({ action: 'capabilities' })).can_manage === true; } catch { canAdmin = false; }
+    if (requestId !== checking) return;
+    launcherHeartbeat(!document.hidden);
     showAuthorizationStatus(true);
     render();
   } catch {
@@ -362,13 +376,14 @@ async function authorizedRender() {
 }
 
 function startApp() {
+  setInterval(() => { if (!document.hidden) launcherHeartbeat(true); }, 25000);
   authorizedRender();
   window.addEventListener('hashchange', () => { authorizedRender(); content.focus(); window.scrollTo(0, 0); });
   window.addEventListener('storage', event => { if (event.key === SESSION_KEY || event.key === null) authorizedRender(); });
   window.addEventListener('pageshow', event => { if (event.persisted) authorizedRender(); });
-  window.addEventListener('pagehide', () => { ++checking; content.replaceChildren(); });
+  window.addEventListener('pagehide', () => { launcherHeartbeat(false); ++checking; content.replaceChildren(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { ++checking; content.replaceChildren(); }
+    if (document.hidden) { launcherHeartbeat(false); ++checking; content.replaceChildren(); }
     else authorizedRender();
   });
   setInterval(() => { if (!document.hidden) authorizedRender(); }, 60000);
@@ -381,5 +396,3 @@ function startApp() {
   }
 }
 startApp();
-
-

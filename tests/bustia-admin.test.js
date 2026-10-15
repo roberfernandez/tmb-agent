@@ -5,7 +5,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import { runInNewContext } from 'node:vm';
 import { proposalCard } from '../src/bustia.js';
 
-const source = stripTypeScriptTypes(readFileSync(new URL('../supabase/functions/tmb-agent-bustia/index.ts', import.meta.url), 'utf8').replace(/^import .*;\n/gm, ''));
+const source = stripTypeScriptTypes(readFileSync(new URL('../supabase/functions/tmb-agent-bustia/index.ts', import.meta.url), 'utf8').replace(/^import .*;\r?\n/gm, ''));
 async function invoke({ admin = false, approved = true, authenticated = true, missing = false, dbError = false, proposalState, body = {} } = {}) {
   let handler;
   const writes = [];
