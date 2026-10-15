@@ -1,4 +1,4 @@
-import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js';
+import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=administracio-v1';
@@ -396,4 +396,3 @@ function startApp() {
   }
 }
 startApp();
-

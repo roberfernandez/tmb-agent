@@ -13,3 +13,9 @@ La llista usa només correu, alta, estat d’autorització i últim inici de ses
 Les taules noves tenen RLS sense polítiques de client i permisos revocats a PUBLIC/anon/authenticated; les funcions RPC només són executables per service_role. El dashboard té un definer restringit per projectar camps seleccionats d’Auth. Les claus privilegiades només s’obtenen de l’entorn de Supabase. El cron horari elimina obertures anteriors a 90 dies i heartbeats d’un dia; pot haver-hi fins a una hora de marge de purga. L’eliminació d’un usuari elimina en cascada la seva telemetria. Les dades no s’exporten a Telegram.
 
 Proves: `node --test tests/*.test.js`, proves d’autorització i permisos SQL amb transacció revertida, comprovacions HTTP sense JWT i amb JWT invàlid, build complet i desplegament de Pages. La comprovació visual amb dades reals necessita sessió de l’administrador; no es suplanta cap usuari ni es creen sessions d’Auth.
+
+## Vista d’activitat per usuari
+
+El panell mostra primer tres xifres: usuaris amb presència recent al launcher (instantània actual), obertures i usuaris amb obertures en el període seleccionat. La taula principal agrupa tota l’activitat per persona, amb MiniApps desplegables, recompte i última obertura per MiniApp. El registre horari es desplega a demanda i només inclou les 100 obertures més recents globals; aquest límit no afecta els totals. La llista completa d’usuaris i autoritzacions queda al final. El període es conserva durant les actualitzacions del panell.
+
+Verificat també amb 101 esdeveniments dins d’una transacció revertida: l’agrupació inclou tots els esdeveniments i l’historial continua limitat a 100, mantenint l’RPC privat.

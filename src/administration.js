@@ -1,3 +1,4 @@
+import { modules } from './modules.js?v=administracio-v1';
 import { SESSION_KEY } from './session.js';
 const ENDPOINT = 'https://hhenkvendzengggrgook.supabase.co/functions/v1/tmb-agent-admin';
 export async function callAdmin(payload, request = fetch, storage = localStorage) {
@@ -15,28 +16,80 @@ export function launcherHeartbeat(visible) {
 }
 export function recordOpen(module) { return callAdmin({ action: 'open', module }).catch(() => {}); }
 const node = (tag, text) => { const n = document.createElement(tag); n.textContent = text; return n; };
+let selectedDays = 7;
+const moduleName = id => modules.find(module => module.id === id)?.name || id;
+function table(headers, rows) {
+  const result = node('table', ''); result.style.width = '100%';
+  const head = node('tr', '');
+  headers.forEach(label => head.append(node('th', label)));
+  const thead = node('thead', ''); thead.append(head); result.append(thead);
+  const body = node('tbody', '');
+  for (const row of rows) {
+    const tr = node('tr', '');
+    for (const value of row) {
+      const td = node('td', ''); td.style.padding = '10px 8px';
+      if (value && typeof value === 'object') td.append(value);
+      else td.textContent = value ?? '—';
+      tr.append(td);
+    }
+    body.append(tr);
+  }
+  result.append(body); return result;
+}
+const date = value => value ? new Date(value).toLocaleString('ca-ES') : '—';
 export function renderAdministration() {
   const panel = node('section', ''); panel.className = 'panel';
   panel.append(node('h1', 'Administració'), node('p', 'Només activitat del launcher. Les obertures són clics d’accés; no acrediten ús ni presència dins les MiniApps independents. No es recullen continguts privats.'));
   const select = document.createElement('select');
-  for (const days of [7,30,90]) { const option = node('option', `Últims ${days} dies`); option.value = days; select.append(option); }
+  select.setAttribute('aria-label', 'Període d’activitat');
+  for (const days of [7,30,90]) {
+    const option = node('option', `Últims ${days} dies`); option.value = days; select.append(option);
+  }
+  select.value = String(selectedDays);
   const refresh = node('button', 'Actualitzar'); refresh.className = 'button';
   const result = node('div', ''); result.style.overflowX = 'auto';
   let generation = 0;
-  const table = (headers, rows) => { const t = document.createElement('table'); t.style.width = '100%'; const head = document.createElement('tr'); headers.forEach(h => head.append(node('th',h))); const thead = document.createElement('thead'); thead.append(head); t.append(thead); const body = document.createElement('tbody'); rows.forEach(row => { const tr = document.createElement('tr'); row.forEach(v => { const td = node('td',v ?? '—'); td.style.padding = '8px'; tr.append(td); }); body.append(tr); }); t.append(body); return t; };
-  const date = value => value ? new Date(value).toLocaleString('ca-ES') : '—';
   async function load() {
     const current = ++generation;
     result.replaceChildren(node('p','Carregant…'));
     try {
       const data = await callAdmin({ action:'dashboard', days:Number(select.value) });
       if (current !== generation || !panel.isConnected) return;
-      result.replaceChildren(node('p',`Verificat: ${date(data.server_time)}. «Online al launcher» = heartbeat rebut en els últims 75 segons d’una pestanya visible. Pot trigar fins a 75 segons a detectar una desconnexió. Dades d’obertures: 90 dies; presència: 1 dia. Actualitza per renovar la verificació.`),
-        node('h2','Usuaris'), table(['Correu','Alta','Autorització','Últim login','Presència al launcher','Últim heartbeat'], data.users.map(u=>[u.email,date(u.created_at),u.authorization,date(u.last_sign_in_at),u.online ? 'Online al launcher (heartbeat recent)' : 'Sense presència recent',date(u.last_seen)])),
-        node('h2','Obertures des del launcher'), table(['MiniApp','Obertures','Usuaris únics'], data.stats.map(s=>[s.module,s.opens,s.unique_users])),
-        node('h2','Últimes obertures (màxim 100)'), table(['Correu','MiniApp','Data'],data.events.map(e=>[e.email,e.module,date(e.opened_at)])));
+      const activity = data.activity || [];
+      const summary = node('dl', '');
+      Object.assign(summary.style, {display:'flex', flexWrap:'wrap', gap:'12px', margin:'24px 0'});
+      for (const [label, value] of [
+        ['Amb presència recent al launcher', data.users.filter(user => user.online).length],
+        ['Obertures en el període', activity.reduce((total,user) => total + Number(user.opens),0)],
+        ['Usuaris amb obertures en el període', activity.length],
+      ]) {
+        const card = node('div', '');
+        Object.assign(card.style, {flex:'1 1 150px', padding:'16px', border:'1px solid #ffffff20', borderRadius:'14px', background:'#172436'});
+        const count = node('dd', String(value));
+        Object.assign(count.style, {fontSize:'32px', fontWeight:'700', margin:'8px 0 0'});
+        card.append(node('dt',label),count); summary.append(card);
+      }
+      const rows = activity.map(user => {
+        const detail = node('details', '');
+        detail.append(node('summary', `${user.modules.length} MiniApps · Veure detall`));
+        detail.append(table(['MiniApp','Obertures','Última obertura'],user.modules.map(module => [moduleName(module.module), module.opens, date(module.last_open)])));
+        const events = data.events.filter(event => event.email === user.email);
+        if (events.length) {
+          const history = node('details','');
+          history.append(node('summary','Hores de les últimes obertures disponibles'),node('p','Només registres inclosos en les 100 obertures més recents del període. Els totals de dalt inclouen tot el període.'),table(['MiniApp','Data'],events.map(event => [moduleName(event.module),date(event.opened_at)])));
+          detail.append(history);
+        }
+        return [user.email, user.opens, detail, date(user.last_open)];
+      });
+      const presence = node('p', `Verificat: ${date(data.server_time)}. Presència recent = heartbeat rebut en els últims 75 segons d’una pestanya visible del launcher. Pot trigar fins a 75 segons a detectar una desconnexió. Actualitza per renovar la verificació.`);
+      result.replaceChildren(summary, presence, node('h2','Activitat per usuari'),
+        rows.length ? table(['Correu','Obertures','MiniApps','Última obertura'],rows) : node('p','Encara no hi ha obertures en aquest període.'),
+        node('h2','Llista d’usuaris'), node('p','Dades d’accés i autorització. L’últim login correspon a l’inici de sessió, no a l’última activitat.'),
+        table(['Correu','Alta','Autorització','Últim login','Presència al launcher','Últim heartbeat'], data.users.map(user=>[user.email,date(user.created_at),user.authorization,date(user.last_sign_in_at),user.online ? 'Presència recent al launcher' : 'Sense presència recent',date(user.last_seen)])),
+        node('p','Retenció: obertures durant 90 dies; presència durant 1 dia.'));
     } catch (error) { if(current === generation) result.replaceChildren(node('p',error.message)); }
   }
-  select.addEventListener('change',load); refresh.addEventListener('click',load);
+  select.addEventListener('change',() => { selectedDays = Number(select.value); load(); });
+  refresh.addEventListener('click',load);
   panel.append(select,refresh,result); queueMicrotask(load); return panel;
 }

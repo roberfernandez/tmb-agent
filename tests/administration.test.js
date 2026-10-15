@@ -56,12 +56,13 @@ test('dashboard renders server data as text and exposes launcher-only presence l
     constructor(tag){this.tag=tag;}
     append(...children){this.children.push(...children); if(this.tag==='select' && !this.value) this.value=this.children[0].value;}
     replaceChildren(...children){this.children=children;}
+    setAttribute() {} 
     addEventListener(name,fn){this.listeners[name]=fn;}
   }
   const previous={document:globalThis.document,localStorage:globalThis.localStorage,fetch:globalThis.fetch};
   globalThis.document={createElement:tag=>new Element(tag)};
   globalThis.localStorage={getItem:()=>JSON.stringify({access_token:'test'})};
-  globalThis.fetch=async()=>({ok:true,json:async()=>({ok:true,server_time:new Date().toISOString(),users:[{email:'<script>test</script>',authorization:'aprobado',online:true}],stats:[{module:'nomina',opens:2,unique_users:1}],events:[{email:'example.invalid',module:'nomina'}]})});
+  globalThis.fetch=async()=>({ok:true,json:async()=>({ok:true,server_time:new Date().toISOString(),users:[{email:'<script>test</script>',authorization:'aprobado',online:true}],activity:[{email:'<script>test</script>',opens:150,last_open:'2026-10-15T14:00:00Z',modules:[{module:'nomina',opens:150,last_open:'2026-10-15T14:00:00Z'}]}],events:[{email:'<script>test</script>',module:'nomina'}]})});
   try {
     const {renderAdministration}=await import('../src/administration.js');
     const panel=renderAdministration();
@@ -72,7 +73,9 @@ test('dashboard renders server data as text and exposes launcher-only presence l
     assert.ok(texts.includes('75 segons'));
     assert.ok(texts.includes('no acrediten ús ni presència'));
     assert.equal(nodes.filter(n=>n.tag==='script').length,0);
-    assert.equal(nodes.filter(n=>n.tag==='table').length,3);
+    assert.equal(nodes.filter(n=>n.tag==='table').length,4);
+    assert.deepEqual(nodes.filter(n=>n.tag==='h2').map(n=>n.textContent),['Activitat per usuari','Llista d’usuaris']);
+    assert.deepEqual(nodes.filter(n=>n.tag==='dd').map(n=>n.textContent),['1','150','1']);
+    assert.ok(nodes.some(n=>n.tag==='summary' && n.textContent.includes('Veure detall')));
   } finally {Object.assign(globalThis,previous);}
 });
-
