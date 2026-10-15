@@ -11,5 +11,5 @@ export const modules = [
   { id: 'cquadre', name: 'C.Quadre/Avisos', initials: 'CQ', description: 'C.Quadre i Avisos pendents', icon: './assets/icons/complements-quadre-192.png' },
   { id: 'cinta-metrica', appUrl: 'https://roberfernandez.github.io/cinta-metrica/', name: 'Cinta Mètrica', initials: 'CM', description: 'Correspondència entre codis i estacions', icon: 'https://raw.githubusercontent.com/roberfernandez/cinta-metrica/main/cinta-metrica-192.png' },
   { id: 'bustia', name: 'Bústia', initials: '?', description: 'Consultes, errors i peticions', icon: './assets/icons/bustia-192.png' },
+  { id: 'administracio', name: 'Administració', initials: 'AD', description: 'Administració privada del launcher', adminOnly: true },
 ];
-

@@ -7,3 +7,5 @@ node_modules/
 auth/.dart_tool/
 auth/build/
 auth/.flutter-plugins-dependencies
+
+supabase/.temp/

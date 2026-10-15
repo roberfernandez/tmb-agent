@@ -71,7 +71,7 @@ export function statusLabel(value) {
 
 export function availableModules() {
   return modules
-    .filter(module => module.id !== 'bustia')
+    .filter(module => module.id !== 'bustia' && !module.adminOnly)
     .map(module => ({ id: module.id, name: module.name }));
 }
 
