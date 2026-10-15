@@ -1,4 +1,4 @@
-import { modules } from './modules.js?v=bustia-v1';
+import { modules } from './modules.js?v=administracio-v1';
 import { SESSION_KEY } from './session.js';
 
 const URL = 'https://hhenkvendzengggrgook.supabase.co';
@@ -409,3 +409,4 @@ export function renderBustia() {
 }
 
 export { callBustia };
+

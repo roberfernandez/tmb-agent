@@ -1,11 +1,11 @@
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js';
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=avisos-v4';
+import { modules } from './modules.js?v=administracio-v1';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCounts } from './cquadre.js?v=cquadre-manual-v1';
 import { renderCQuadre } from './cquadre-view.js?v=cquadre-simple-v2';
-import { renderBustia } from './bustia.js?v=bustia-admin-v2';
+import { renderBustia } from './bustia.js?v=administracio-v1';
 
 const content = document.querySelector('main');
 const MODULE_ORDER_KEY = 'tmb-agent-module-order-v1';
@@ -396,3 +396,4 @@ function startApp() {
   }
 }
 startApp();
+
