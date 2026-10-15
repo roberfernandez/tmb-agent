@@ -328,7 +328,20 @@ function render() {
 }
 
 let checking = 0;
+function showAuthorizationStatus(approved) {
+  const header = document.querySelector('.header');
+  if (!header) return;
+  let badge = header.querySelector('.auth-status');
+  if (!badge && approved) {
+    badge = element('span', 'auth-status', 'Autorizado');
+    badge.setAttribute('role', 'status');
+    header.append(badge);
+  }
+  if (badge) badge.hidden = !approved;
+}
+
 async function authorizedRender() {
+  showAuthorizationStatus(false);
   const requestId = ++checking;
   content.replaceChildren(element('p', 'notice', 'Comprovant el teu accés…'));
   try {
@@ -338,6 +351,7 @@ async function authorizedRender() {
       location.replace(loginUrl(location));
       return;
     }
+    showAuthorizationStatus(true);
     render();
   } catch {
     if (requestId !== checking) return;

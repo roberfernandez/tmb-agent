@@ -27,6 +27,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
   bool ocultarPassword = true;
   String? error;
   String? mensaje;
+  String? estadoAutorizacion;
   bool comprobandoSesion = true;
   bool falloRecuperacion = false;
 
@@ -68,7 +69,8 @@ class _AccesoScreenState extends State<AccesoScreen> {
       setState(() {
         comprobandoSesion = false;
         if (estado != null) {
-          mensaje = 'El teu compte no té l’accés aprovat actualment.';
+          estadoAutorizacion = 'No autorizado';
+          mensaje = 'El teu compte encara no té l’accés autoritzat.';
         }
       });
     } catch (_) {
@@ -146,6 +148,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
       cargando = true;
       error = null;
       mensaje = null;
+      estadoAutorizacion = null;
     });
 
     try {
@@ -156,6 +159,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
       if (!mounted) return;
 
       if (estado == 'aprobado') {
+        setState(() => estadoAutorizacion = 'Autorizado');
         _entrarEnApp();
         return;
       }
@@ -166,6 +170,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
 
       setState(() {
         cargando = false;
+        estadoAutorizacion = 'No autorizado';
 
         if (estado == 'pendiente') {
           mensaje = 'La teva sol·licitud està pendent d’autorització.';
@@ -224,6 +229,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
       cargando = true;
       error = null;
       mensaje = null;
+      estadoAutorizacion = null;
     });
 
     try {
@@ -289,6 +295,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
       // Si ya estaba autorizado, entra directamente.
       if (estado == 'aprobado') {
         if (!mounted) return;
+        setState(() => estadoAutorizacion = 'Autorizado');
         _entrarEnApp();
         return;
       }
@@ -302,6 +309,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
       setState(() {
         cargando = false;
         error = null;
+        estadoAutorizacion = 'No autorizado';
 
         if (estado == 'pendiente') {
           mensaje =
@@ -428,13 +436,61 @@ class _AccesoScreenState extends State<AccesoScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Accés autoritzat',
+                    'Accés amb autorització',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16, color: Colors.white70),
                   ),
-                  const SizedBox(height: 38),
+                  const SizedBox(height: 16),
+                  if (estadoAutorizacion != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: estadoAutorizacion == 'Autorizado'
+                            ? const Color(0xFF133F29)
+                            : const Color(0xFF453015),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: estadoAutorizacion == 'Autorizado'
+                              ? const Color(0xFF52B67E)
+                              : const Color(0xFFEAB36B),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            estadoAutorizacion == 'Autorizado'
+                                ? Icons.verified_user_outlined
+                                : Icons.lock_outline_rounded,
+                            color: estadoAutorizacion == 'Autorizado'
+                                ? const Color(0xFFAAE8C3)
+                                : const Color(0xFFFFD19A),
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              estadoAutorizacion!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 19,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 22),
                   TextField(
                     controller: emailController,
+                    onChanged: (_) {
+                      if (estadoAutorizacion != null) {
+                        setState(() => estadoAutorizacion = null);
+                      }
+                    },
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     autocorrect: false,
@@ -488,10 +544,10 @@ class _AccesoScreenState extends State<AccesoScreen> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.12),
+                        color: (estadoAutorizacion == 'No autorizado' ? Colors.orange : Colors.green).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.green.withValues(alpha: 0.45),
+                          color: (estadoAutorizacion == 'No autorizado' ? Colors.orange : Colors.green).withValues(alpha: 0.45),
                         ),
                       ),
                       child: Text(
