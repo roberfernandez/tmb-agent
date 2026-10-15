@@ -319,3 +319,28 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
   .pending-section-heading{display:block}
   .pending-section-heading .cquadre-summary{margin-top:10px;text-align:left}
 }
+
+
+/* Lectura manual individual i múltiple de C.Quadre i Avisos */
+.cquadre-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.cquadre-toolbar[hidden]{display:none}
+.cquadre-select-all,.cquadre-read-button{
+  min-height:42px;padding:9px 12px;border:1px solid #56728f;border-radius:10px;
+  background:#17283e;color:#e4eef9;font:650 13px system-ui,sans-serif;cursor:pointer
+}
+.cquadre-mark-selected{min-height:42px;margin:0;padding:10px 14px}
+.cquadre-mark-selected:disabled,.cquadre-select-all:disabled,.cquadre-read-button:disabled{
+  opacity:.5;cursor:default
+}
+.cquadre-item{gap:12px}
+.cquadre-item.cquadre-selected{border-color:#98c5e0;background:#142941}
+.cquadre-checkbox{width:21px;height:21px;flex:0 0 21px;margin:0;accent-color:#98c5e0;cursor:pointer}
+.cquadre-link{display:flex;min-width:0;flex:1;align-items:center;justify-content:space-between;gap:12px}
+.cquadre-read-button{flex:0 0 auto}
+.cquadre-status{margin:0 0 10px;color:#f3bea9;font-size:13px;line-height:1.45}
+.cquadre-status:empty{display:none}
+@media(max-width:560px){
+  .cquadre-item{display:grid;grid-template-columns:21px minmax(0,1fr);gap:10px}
+  .cquadre-link{width:100%}
+  .cquadre-read-button{grid-column:2;justify-self:end}
+}
