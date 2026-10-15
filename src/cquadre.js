@@ -137,68 +137,144 @@ function renderPendingSection({
   const section = node('section', 'pending-section');
   const heading = node('div', 'pending-section-heading');
   heading.append(node('h2', '', title));
-
-  const unread = items.filter(item => !item.llegit);
-  const summary = node(
-    'p',
-    unread.length ? 'cquadre-summary' : 'cquadre-summary cquadre-ok',
-    unread.length
-      ? `${unread.length} pendent${unread.length === 1 ? '' : 's'} de llegir`
-      : '✓ Estàs al dia. No tens pendents.'
-  );
+  const summary = node('p', 'cquadre-summary');
+  summary.setAttribute('aria-live', 'polite');
   heading.append(summary);
   section.append(heading);
 
   const list = node('div', 'cquadre-list');
+  const toolbar = node('div', 'cquadre-toolbar');
+  const selectAll = node('button', 'cquadre-select-all', 'Selecciona tots');
+  selectAll.type = 'button';
+  const markSelected = node('button', 'button cquadre-mark-selected', 'Marca com a llegits');
+  markSelected.type = 'button';
+  const status = node('p', 'cquadre-status');
+  status.setAttribute('role', 'status');
+  toolbar.append(selectAll, markSelected);
+  section.append(toolbar, status, list);
 
-  unread.forEach(item => {
-    const link = node('a', 'cquadre-item');
+  const rows = new Map();
+  const selected = new Set();
+  let busy = false;
+
+  function refresh(notify = false) {
+    const remaining = rows.size;
+    summary.className = remaining ? 'cquadre-summary' : 'cquadre-summary cquadre-ok';
+    summary.textContent = remaining
+      ? `${remaining} pendent${remaining === 1 ? '' : 's'} de llegir`
+      : '✓ Estàs al dia. No tens pendents.';
+    toolbar.hidden = remaining === 0;
+    selectAll.textContent = selected.size === remaining && remaining > 0 ? 'Desmarca tots' : 'Selecciona tots';
+    markSelected.textContent = selected.size ? `Marca com a llegits (${selected.size})` : 'Marca com a llegits';
+    selectAll.disabled = busy || !remaining;
+    markSelected.disabled = busy || selected.size === 0;
+    if (notify) onUnreadChange(kind, remaining);
+  }
+
+  function setBusy(value) {
+    busy = value;
+    section.classList.toggle('cquadre-busy', value);
+    for (const entry of rows.values()) {
+      entry.checkbox.disabled = value;
+      entry.markButton.disabled = value;
+    }
+    refresh();
+  }
+
+  function forget(id) {
+    const entry = rows.get(id);
+    if (!entry) return;
+    entry.row.remove();
+    rows.delete(id);
+    selected.delete(id);
+    refresh(true);
+  }
+
+  async function saveOne(id) {
+    if (busy || !rows.has(id)) return;
+    status.textContent = '';
+    setBusy(true);
+    try {
+      await markReadItem(Number(id));
+      forget(id);
+    } catch {
+      status.textContent = 'No s’ha pogut marcar com a llegit. Torna-ho a provar.';
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  selectAll.addEventListener('click', () => {
+    if (busy) return;
+    const allSelected = selected.size === rows.size;
+    for (const [id, entry] of rows) {
+      entry.checkbox.checked = !allSelected;
+      entry.row.classList.toggle('cquadre-selected', !allSelected);
+      if (allSelected) selected.delete(id);
+      else selected.add(id);
+    }
+    refresh();
+  });
+
+  markSelected.addEventListener('click', async () => {
+    if (busy || selected.size === 0) return;
+    const ids = [...selected];
+    status.textContent = '';
+    setBusy(true);
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await markReadItem(Number(id));
+        forget(id);
+      } catch {
+        failed += 1;
+      }
+    }
+    setBusy(false);
+    if (failed) status.textContent = `No s’han pogut marcar ${failed} element${failed === 1 ? '' : 's'}. Torna-ho a provar.`;
+  });
+
+  items.filter(item => !item.llegit).forEach(item => {
+    const id = String(item.id);
+    const row = node('div', 'cquadre-item');
+    const checkbox = node('input', 'cquadre-checkbox');
+    checkbox.type = 'checkbox';
+    checkbox.setAttribute('aria-label', `Selecciona: ${item.titulo}`);
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) selected.add(id);
+      else selected.delete(id);
+      row.classList.toggle('cquadre-selected', checkbox.checked);
+      refresh();
+    });
+
+    const link = node('a', 'cquadre-link');
     link.href = item.enlace;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-
     const copy = node('span', 'cquadre-item-copy');
     copy.append(node('strong', '', item.titulo));
-
     const meta = [];
     if (item.fecha) meta.push(formatDate(item.fecha));
     if (kind === 'avisos' && item.interessa) meta.push(item.interessa);
     if (meta.length) copy.append(node('span', 'cquadre-date', meta.join(' · ')));
-
     link.append(copy, node('span', 'cquadre-arrow', '↗'));
+    link.addEventListener('click', () => { void saveOne(id); });
 
-    link.addEventListener('click', async () => {
-      link.classList.add('cquadre-reading');
-      try {
-        await markReadItem(item.id);
-        link.remove();
-        const remaining = list.querySelectorAll('.cquadre-item').length;
-        onUnreadChange(kind, remaining);
-
-        if (remaining === 0) {
-          summary.className = 'cquadre-summary cquadre-ok';
-          summary.textContent = '✓ Estàs al dia. No tens pendents.';
-        } else {
-          summary.className = 'cquadre-summary';
-          summary.textContent =
-            `${remaining} pendent${remaining === 1 ? '' : 's'} de llegir`;
-        }
-      } catch {
-        link.classList.remove('cquadre-reading');
-      }
-    });
-
-    list.append(link);
+    const markButton = node('button', 'cquadre-read-button', '✓ Llegit');
+    markButton.type = 'button';
+    markButton.setAttribute('aria-label', `Marca com a llegit: ${item.titulo}`);
+    markButton.addEventListener('click', () => { void saveOne(id); });
+    row.append(checkbox, link, markButton);
+    list.append(row);
+    rows.set(id, { row, checkbox, markButton });
   });
 
-  section.append(list);
-
+  refresh();
   const all = node('a', 'button cquadre-all', allLabel);
   all.href = allUrl;
   all.target = '_blank';
   all.rel = 'noopener noreferrer';
   section.append(all);
-
   return section;
 }
 
