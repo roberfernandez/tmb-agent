@@ -1,7 +1,7 @@
 import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=avisos-v4';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
-import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=avisos-v4';
+import { getUnreadCounts, renderCQuadre } from './cquadre.js?v=cquadre-manual-v1';
 import { renderBustia } from './bustia.js?v=bustia-admin-v2';
 
 const content = document.querySelector('main');
