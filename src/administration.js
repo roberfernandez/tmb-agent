@@ -1,4 +1,4 @@
-import { modules } from './modules.js?v=administracio-v1';
+import { modules } from './modules.js?v=permisos-v1';
 import { SESSION_KEY } from './session.js';
 const ENDPOINT = 'https://hhenkvendzengggrgook.supabase.co/functions/v1/tmb-agent-admin';
 export async function callAdmin(payload, request = fetch, storage = localStorage) {

@@ -1,4 +1,4 @@
-import { modules } from './modules.js?v=administracio-v1';
+import { modules } from './modules.js?v=permisos-v1';
 import { SESSION_KEY } from './session.js';
 
 const URL = 'https://hhenkvendzengggrgook.supabase.co';

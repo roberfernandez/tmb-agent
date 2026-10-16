@@ -1,7 +1,8 @@
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=administracio-v1';
+import { modules } from './modules.js?v=permisos-v1';
+import { renderPermisos } from './permisos.js?v=permisos-v1';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCounts } from './cquadre.js?v=cquadre-manual-v1';
 import { renderCQuadre } from './cquadre-view.js?v=cquadre-simple-v2';
@@ -300,6 +301,11 @@ function render() {
       renderCQuadre(setCQuadreBadge, cquadreView).then(view => panel.append(view));
       return;
     }
+    if (module?.id === 'permisos') {
+      document.title = 'Permisos TMB · TMB Agent';
+      content.append(renderPermisos());
+      return;
+    }
     if (module?.id === 'mapa-metro') {
       document.title = 'Mapa Metro · TMB Agent';
       content.append(renderMap());
@@ -339,20 +345,7 @@ function render() {
 }
 
 let checking = 0;
-function showAuthorizationStatus(approved) {
-  const header = document.querySelector('.header');
-  if (!header) return;
-  let badge = header.querySelector('.auth-status');
-  if (!badge && approved) {
-    badge = element('span', 'auth-status', 'Autorizado');
-    badge.setAttribute('role', 'status');
-    header.append(badge);
-  }
-  if (badge) badge.hidden = !approved;
-}
-
 async function authorizedRender() {
-  showAuthorizationStatus(false);
   const requestId = ++checking;
   content.replaceChildren(element('p', 'notice', 'Comprovant el teu accés…'));
   try {
@@ -365,7 +358,6 @@ async function authorizedRender() {
     try { canAdmin = (await callAdmin({ action: 'capabilities' })).can_manage === true; } catch { canAdmin = false; }
     if (requestId !== checking) return;
     launcherHeartbeat(!document.hidden);
-    showAuthorizationStatus(true);
     render();
   } catch {
     if (requestId !== checking) return;
