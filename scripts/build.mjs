@@ -14,6 +14,9 @@ async function digest(path) {
   }
 }
 await digest('src'); await digest('public'); hash.update(await readFile('index.html'));
-await writeFile('dist/sw.js', (await readFile('public/sw.js', 'utf8')).replace('__VERSION__', hash.digest('hex').slice(0, 12)));
+const version = hash.digest('hex').slice(0, 12);
+await writeFile('dist/sw.js', (await readFile('public/sw.js', 'utf8')).replace('__VERSION__', version));
+await writeFile('dist/index.html', (await readFile('index.html', 'utf8')).replace('Versió de desenvolupament', `Versió ${version.slice(0, 8)}`));
+await writeFile('dist/version.json', JSON.stringify({ version: version.slice(0, 8) }));
 await writeFile('dist/.nojekyll', '');
 console.log('TMB Agent: exportación estática preparada en dist/');

@@ -344,3 +344,5 @@ main{max-width:1120px;margin:auto;padding:12px 28px 56px;min-height:65vh}.metro-
   .cquadre-link{width:100%}
   .cquadre-read-button{grid-column:2;justify-self:end}
 }
+
+.app-build{display:flex;justify-content:center;align-items:baseline;flex-wrap:wrap;gap:8px 14px;padding:16px 0 24px;color:#9aafc1;font-size:11px;font-variant-numeric:tabular-nums}.app-build small{font-size:10px;letter-spacing:.2px}
