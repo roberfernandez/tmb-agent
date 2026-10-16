@@ -35,7 +35,7 @@ test('recent birth rules, historical provenance and unresolved disputes remain d
 test('route remains inside approved launcher and service worker includes dependencies',async()=>{
   const main=await readFile(new URL('../src/main.js',import.meta.url),'utf8');
   assert.match(main,/module\?\.id === 'permisos'/);
-  assert.ok(main.indexOf("if (state !== 'approved')")<main.indexOf('    render();',main.indexOf('async function authorizedRender')));
+  assert.ok(main.indexOf("if (state !== 'approved')")<main.indexOf('render();',main.indexOf('async function authorizedRender')));
   const sw=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
   for(const f of ['src/permisos.js?v=permisos-v1','src/permisos-data.js','src/permisos.css?v=permisos-v1']) assert.ok(sw.includes(f));
 });

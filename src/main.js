@@ -345,22 +345,34 @@ function render() {
 }
 
 let checking = 0;
+let renderedRoute = null;
 async function authorizedRender() {
   const requestId = ++checking;
-  content.replaceChildren(element('p', 'notice', 'Comprovant el teu accés…'));
+  const route = location.hash;
+  const preserveView = renderedRoute !== null && renderedRoute === route;
+  if (!preserveView) {
+    renderedRoute = null;
+    content.replaceChildren(element('p', 'notice', 'Comprovant el teu accés…'));
+  }
   try {
     const state = await checkSession();
     if (requestId !== checking) return;
     if (state !== 'approved') {
+      renderedRoute = null;
+      content.replaceChildren();
       location.replace(loginUrl(location));
       return;
     }
     try { canAdmin = (await callAdmin({ action: 'capabilities' })).can_manage === true; } catch { canAdmin = false; }
     if (requestId !== checking) return;
     launcherHeartbeat(!document.hidden);
-    render();
+    if (!preserveView || (route === '#/administracio' && !canAdmin)) {
+      render();
+      renderedRoute = route;
+    }
   } catch {
     if (requestId !== checking) return;
+    if (preserveView) return;
     const retry = element('button', 'button', 'Tornar-ho a provar');
     retry.addEventListener('click', authorizedRender);
     content.replaceChildren(element('p', 'notice', 'No s’ha pogut comprovar la sessió. Revisa la connexió i torna-ho a provar.'), retry);
@@ -373,12 +385,12 @@ function startApp() {
   window.addEventListener('hashchange', () => { authorizedRender(); content.focus(); window.scrollTo(0, 0); });
   window.addEventListener('storage', event => { if (event.key === SESSION_KEY || event.key === null) authorizedRender(); });
   window.addEventListener('pageshow', event => { if (event.persisted) authorizedRender(); });
-  window.addEventListener('pagehide', () => { launcherHeartbeat(false); ++checking; content.replaceChildren(); });
+  window.addEventListener('pagehide', () => { launcherHeartbeat(false); ++checking; });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { launcherHeartbeat(false); ++checking; content.replaceChildren(); }
+    if (document.hidden) { launcherHeartbeat(false); ++checking; }
     else authorizedRender();
   });
-  setInterval(() => { if (!document.hidden) authorizedRender(); }, 60000);
+  setInterval(() => { if (!document.hidden) authorizedRender(); }, 3600000);
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(() => {
