@@ -1,4 +1,4 @@
-import { permits, filterPermits, relations, sources, REVIEW_DATE } from './permisos-data.js';
+import { permits, filterPermits, relations, sources } from './permisos-data.js';
 
 const state = {query:'',category:'',pay:'',relation:'',travel:''};
 const opened = new Set();
@@ -9,12 +9,11 @@ function sourceLinks(parent,keys) {
 }
 export function renderPermisos() {
   const root=node('section','panel permisos'); root.lang='ca';
-  const back=node('a','back','← Tornar a TMB Agent'); back.href='#/';
   const heading=node('div','perm-heading'); const image=node('img','perm-icon'); image.src='./assets/icons/permisos-192.webp'; image.alt=''; image.width=72; image.height=72;
   const copy=node('div'); copy.append(node('p','eyebrow','GUIA DE CONSULTA · FMB'),node('h1','','Permisos TMB')); heading.append(image,copy);
-  root.append(back,heading,node('p','subtitle','Consulta la durada, els justificants i les condicions de cada permís.'));
+  root.append(heading,node('p','subtitle','Consulta la durada, els justificants i les condicions de cada permís.'));
   const warning=node('div','perm-warning');
-  warning.append(node('strong','','Revisió · '+REVIEW_DATE),node('p','','Base: la taula més recent disponible, contrastada amb el conveni i la normativa. Les qüestions no resoltes s’indiquen a cada fitxa. Els filtres orienten la consulta.'));
+  warning.append(node('p','','Base: la taula més recent disponible, contrastada amb el conveni i la normativa. Les qüestions no resoltes s’indiquen a cada fitxa. Els filtres orienten la consulta.'));
   root.append(warning);
   const form=node('form','perm-filters'); form.setAttribute('role','search'); form.addEventListener('submit',e=>e.preventDefault());
   const searchLabel=node('label','perm-search','Cerca per motiu o paraula');

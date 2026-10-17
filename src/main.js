@@ -2,7 +2,7 @@ import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from '
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=permisos-v1';
-import { renderPermisos } from './permisos.js?v=permisos-v1';
+import { renderPermisos } from './permisos.js?v=permisos-v2';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCounts } from './cquadre.js?v=cquadre-manual-v1';
 import { renderCQuadre } from './cquadre-view.js?v=cquadre-simple-v2';
