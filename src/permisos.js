@@ -12,9 +12,6 @@ export function renderPermisos() {
   const heading=node('div','perm-heading'); const image=node('img','perm-icon'); image.src='./assets/icons/permisos-192.webp'; image.alt=''; image.width=72; image.height=72;
   const copy=node('div'); copy.append(node('p','eyebrow','GUIA DE CONSULTA · FMB'),node('h1','','Permisos TMB')); heading.append(image,copy);
   root.append(heading,node('p','subtitle','Consulta la durada, els justificants i les condicions de cada permís.'));
-  const warning=node('div','perm-warning');
-  warning.append(node('p','','Base: la taula més recent disponible, contrastada amb el conveni i la normativa. Les qüestions no resoltes s’indiquen a cada fitxa. Els filtres orienten la consulta.'));
-  root.append(warning);
   const form=node('form','perm-filters'); form.setAttribute('role','search'); form.addEventListener('submit',e=>e.preventDefault());
   const searchLabel=node('label','perm-search','Cerca per motiu o paraula');
   const input=node('input'); input.type='search'; input.placeholder='Hospitalització, naixement, domicili…'; input.value=state.query; searchLabel.append(input); form.append(searchLabel);
