@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {modules} from '../src/modules.js';
 import {readFile} from 'node:fs/promises';
+import {source as tmobilitatSource} from '../src/tmobilitat-data.js';
 test('Nòmina is linked with its real icon; original destinations and first cards remain',async()=>{
   assert.deepEqual(modules.slice(0,2).map(m=>m.id),['computo','incidencias']);
   const n=modules.find(m=>m.id==='nomina');
@@ -15,5 +16,6 @@ test('Nòmina is linked with its real icon; original destinations and first card
   assert.equal(modules.find(m=>m.id==='cinta-metrica').appUrl,'https://roberfernandez.github.io/cinta-metrica/');
   for(const [id,path] of [['computo','computo-aac'],['incidencias','incidencias-l4'],['dea','dea-codi-l4'],['bobines','bobines']])assert.equal(modules.find(m=>m.id===id).appUrl,`https://roberfernandez.github.io/${path}/`);
   assert.equal(modules.find(m=>m.id==='miralin').externalUrl,'https://aplicacions.tmb.cat/miralin/routes/4/stops/413?dswid=4465');
-  assert.equal(modules.find(m=>m.id==='t-mobilitat').externalUrl,'https://aplicacions.tmb.cat/consulta-tmobilitat/index?dswid=-2952');
+  assert.equal(modules.find(m=>m.id==='t-mobilitat').externalUrl,undefined);
+  assert.equal(tmobilitatSource.consultes,'https://aplicacions.tmb.cat/consulta-tmobilitat/index');
 });
