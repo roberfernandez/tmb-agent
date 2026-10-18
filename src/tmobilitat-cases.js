@@ -2,7 +2,7 @@
 export const source = {
   "document": "Procediments T-Mobilitat 3.0",
   "date": "23/03/2026",
-  "url": "https://tmbbcn.sharepoint.com/sites/CQuadre/SiteAssets/SitePages/Operacions-Metro(1)(3)/Procediments-T-Mobilitat_3.0.pdf?web=1",
+  "url": "./assets/tmobilitat/Procediments-T-Mobilitat_3.0.pdf",
   "consultes": "https://aplicacions.tmb.cat/consulta-tmobilitat/index",
   "manual": "https://aplicacions.tmb.cat/manual-titols/index",
   "intranet": "https://tmbbcn.sharepoint.com/sites/EQUIPSDELNIA-METRO/SitePages/T-Mobilitat.aspx"

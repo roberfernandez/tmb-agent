@@ -84,7 +84,7 @@ function renderActuacions(){
     if(c.calculator)detail.append(renderCalculator(state.calculatorDate,date=>{state.calculatorDate=date;save();}));
     if(c.related.length){const related=el('div','tm-related');related.append(el('h3','','Casos relacionats'));for(const id of c.related){const target=cases.find(t=>t.id===id);if(target)related.append(button(target.title+' →',()=>jump(id),'tm-related-button'));}detail.append(related);}
     if(c.original){const original=el('details','tm-original');original.append(el('summary','','Text original del procediment'),el('p','tm-text',c.originalTitle+'\n\n'+c.original));detail.append(original);}
-    detail.append(sourceLink(c.page),el('p','tm-small',`Font del ${source.date}. L’enllaç pot requerir identificació corporativa; localitza la pàgina indicada si el visor no hi salta directament.`));markText(detail,state.query);
+    detail.append(sourceLink(c.page),el('p','tm-small',`Font del ${source.date}. Còpia incorporada a l’app. Si el visor no hi salta directament, selecciona la pàgina indicada.`));markText(detail,state.query);
   }
   search.addEventListener('input',()=>{state.query=search.value;state.open=false;update();});category.addEventListener('change',()=>{state.category=category.value;state.open=false;update();});picker.addEventListener('change',()=>choose(picker.value));
   update();return root;
