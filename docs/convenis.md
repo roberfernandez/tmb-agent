@@ -29,3 +29,5 @@ Proves de cerca, accents, escanejos, pàgines, inventari FMB i integració amb e
 ## Disponibilitat dels convenis XX i XVI
 
 Els enllaços originals de CCOO han deixat de respondre en les comprovacions del 18/10/2026. Les còpies públiques descarregades durant la recerca s’inclouen sense modificacions a assets/convenis (14 i 8 pàgines), amb l’enllaç original conservat. La cerca, la comparació i la cronologia obren aquestes còpies. Només aquests dos PDF estan disponibles també a la memòria cau de la PWA.
+
+El conveni XXI (1997–1998, 9 pàgines) també disposa de còpia local íntegra. Tots els documents del catàleg procedents de CCOO obren ara còpies locals. Els enllaços originals es mantenen com a referència secundària.

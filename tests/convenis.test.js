@@ -25,8 +25,8 @@ test('empty and punctuation-only queries yield no results; excerpts remain verba
  assert.ok(excerpt(d.pages[0].text,'jornada').includes('La jornada anual'));
 });
 
-test('XX and XVI open bundled unchanged PDFs, including search page links',async()=>{
- for(const id of ['c1993','c1985']){
+test('all CCOO documents open bundled unchanged PDFs, including search page links',async()=>{
+ for(const id of ['c1997','c1993','c1985']){
   const d=docs.find(d=>d.id===id);
   assert.ok(d.fileUrl.startsWith('./assets/convenis/'));
   const bytes=await readFile(new URL('../public/'+d.fileUrl.slice(2),import.meta.url));
