@@ -20,5 +20,6 @@ export const modules = [
   { id: 'objectes-perduts', name: 'Objectes perduts', initials: 'OP', description: 'Procediment, tràmit del viatger i recollida', icon: './assets/objectes/objectes-256.webp' },
   { id: 'venda-diners', name: 'Incidències de venda i diners trobats', initials: 'VD', description: 'Procediments d’incidències i diners trobats a les DA', icon: './assets/icons/venda-diners-256.webp' },
   { id: 'cercapersones', name: 'Cercapersones', initials: 'CP', description: 'Directori corporatiu de persones de TMB', icon: './assets/icons/cercapersones-256.webp', externalUrl: 'https://tmbbcn.sharepoint.com/sites/PortalGenTMB/SitePages/CercaPersones.aspx' },
+  { id: 'convenis', name: 'Convenis', initials: 'CV', description: 'Documents, cerca i comparació dels convenis de Metro', icon: './assets/icons/convenis-256.webp' },
   { id: 'administracio', name: 'Administració', initials: 'AD', description: 'Administració privada del launcher', icon: './assets/icons/administracio-eye-256.webp', adminOnly: true },
 ];
