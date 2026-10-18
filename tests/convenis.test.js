@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {matchingPages, normalize, excerpt, pageUrl, topics} from '../src/convenis-search.js';
+import {matchingPages, normalize, excerpt, pageUrl, topics, highlightedParts} from '../src/convenis-search.js';
 const docs=JSON.parse(await readFile(new URL('../public/assets/convenis/index.json',import.meta.url),'utf8'));
 test('convenis search matches accents and topic translations, keeps PDF page provenance',()=>{
  const current=docs.find(d=>d.id==='c2023');
@@ -55,4 +55,27 @@ test('previously scanned agreements now return real OCR page matches and retain 
 test('excerpt stays near matching text after long punctuation sequences',()=>{
  const text='x '.repeat(400)+'---- '.repeat(400)+'vacaciones pactadas';
  assert.ok(excerpt(text,'vacaciones').includes('vacaciones pactadas'));
+});
+
+
+test('yellow highlight ranges preserve original text, accents, languages and overlapping terms',()=>{
+ for(const [text,query,expected] of [
+  ['Vacances i vacaciones','vacances|vacaciones',['Vacances','vacaciones']],
+  ['Pròrroga i PRÒRROGA','prorroga',['Pròrroga','PRÒRROGA']],
+  ['permisos','permis|permisos',['permisos']],
+  ['pròrroga'.normalize('NFD'),'prorroga',['pròrroga'.normalize('NFD')]],
+  ['<script>vacances</script>','vacances',['vacances']]
+ ]){
+  const parts=highlightedParts(text,query);
+  assert.equal(parts.map(p=>p.text).join(''),text);
+  assert.deepEqual(parts.filter(p=>p.match).map(p=>p.text),expected);
+ }
+ assert.deepEqual(highlightedParts('Text sense canvi',''),[{text:'Text sense canvi',match:false}]);
+});
+test('digital and OCR excerpts both contain highlightable source matches',()=>{
+ for(const id of ['c2023','c1999']){
+  const doc=docs.find(d=>d.id===id),page=matchingPages(doc,'vacances|vacaciones')[0];
+  const text=excerpt(page.text,'vacances|vacaciones');
+  assert.ok(highlightedParts(text,'vacances|vacaciones').some(p=>p.match));
+ }
 });

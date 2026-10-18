@@ -41,3 +41,7 @@ Les mostres revisades inclouen articles en prosa de cada document, pàgines de t
 Reproducció: scripts/ocr-convenis.py genera els resultats locals i scripts/index-convenis-ocr.py els incorpora després de revisió. Els models, PNG i TSV intermedis no es publiquen. El mòbil només consulta el text i els PDF; no executa OCR.
 
 La pròrroga 2012–2013 conté també, des de la pàgina 8, una còpia del XXV conveni 2008–2011. S’identifica aquesta part als resultats per evitar atribuir-li canvis de la pròrroga.
+
+## Cerca amb ressaltat
+
+On està escrit? i Compara actualitzen els resultats mentre s’escriu (espera breu de 180 ms, sense substituir el camp ni perdre el focus). Les coincidències es mostren amb mark groc, inclosos equivalents dels temes suggerits i accents. El text s’insereix com a text DOM, mai com HTML de la consulta. Les etiquetes OCR i els enllaços a la pàgina original es conserven.

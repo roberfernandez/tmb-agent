@@ -5,3 +5,5 @@
 .cv-source-original{display:block;color:#b8dbff;text-decoration:underline;font-size:13px;padding:8px 0}
 
 .cv-ocr-note{font-size:12px;color:#ffe0a1;background:#46351d;border-radius:8px;padding:7px 10px;line-height:1.5}
+
+.cv .cv-quote mark{background:#edcf55;color:#162130;border-radius:3px;padding:0 2px;font-weight:650}

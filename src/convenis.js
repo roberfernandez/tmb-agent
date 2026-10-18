@@ -1,4 +1,4 @@
-import { topics, normalize, matchingPages, excerpt, pageUrl } from './convenis-search.js';
+import { topics, normalize, matchingPages, excerpt, pageUrl, highlightedParts } from './convenis-search.js?v=highlight-v1';
 const KEY = 'tmb-agent-convenis-v1';
 const sources = [
   ['TMB · Acords laborals', 'https://transparencia.tmb.cat/ca/organitzacio-i-empleats/recursos-humans/acords-funcionarials-laborals-o-sindicals'],
@@ -14,7 +14,7 @@ export function renderConvenis() {
   try { const old = JSON.parse(sessionStorage.getItem(KEY)); if(old && typeof old === 'object') state = {...state,...old}; } catch {}
   if(state.kind==='Desats')state.kind='';
   delete state.saved;
-  let docs = [];
+  let docs = [];let refreshMatches=()=>{};let searchTimer;
   const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls)e.className=cls; if(text)e.textContent=text; return e; };
   const button = (text, fn, cls='cv-button') => { const b=el('button',cls,text); b.type='button'; b.onclick=fn; return b; };
   const link = (text, url, cls='cv-link') => {const a=el('a',cls,text); a.href=url; a.target='_blank'; a.rel='noopener noreferrer'; return a;};
@@ -28,7 +28,8 @@ export function renderConvenis() {
     const box=el('article','cv-fragment');box.append(el('p','cv-meta',`${doc.source} · pàgina ${page.page}`));
     if(page.sectionLabel)box.append(el('p','cv-meta',page.sectionLabel));
     if(page.ocr)box.append(el('p','cv-ocr-note',page.readingDifficulty?'Text reconegut per OCR · Lectura difícil: comprova el PDF.':'Text reconegut per OCR · Comprova el text al PDF.'));
-    box.append(el('p','cv-quote',excerpt(page.text,expandedQuery())),link(`Obre el PDF · pàg. ${page.page} ↗`,pageUrl(doc,page.page)));
+    const quote=el('p','cv-quote');for(const part of highlightedParts(excerpt(page.text,expandedQuery()),expandedQuery()))quote.append(el(part.match?'mark':'span','',part.text));
+    box.append(quote,link(`Obre el PDF · pàg. ${page.page} ↗`,pageUrl(doc,page.page)));
     return box;
   }
   function docCard(doc){
@@ -42,13 +43,14 @@ export function renderConvenis() {
   function searchBox(){
     const form=el('form','cv-search'),label=el('label','','Paraula o expressió');label.htmlFor='cv-query';
     const row=el('div','cv-input-row'),input=el('input');input.id='cv-query';input.type='search';input.value=state.query;input.placeholder='Ex.: jornada, vacances, excedència';input.maxLength=150;
-    input.oninput=()=>{state.query=input.value;save();};
+    input.oninput=()=>{state.query=input.value;state.limit=20;save();clearTimeout(searchTimer);searchTimer=setTimeout(()=>refreshMatches(),180);};
     const submit=el('button','cv-button','Cerca');submit.type='submit';row.append(input,submit);form.append(label,row);
-    form.onsubmit=e=>{e.preventDefault();state.query=input.value.trim();state.limit=20;save();draw();};
+    form.onsubmit=e=>{e.preventDefault();clearTimeout(searchTimer);state.query=input.value.trim();state.limit=20;save();refreshMatches();};
     const chips=el('div','cv-topics');for(const [label] of topics)chips.append(button(label,()=>{state.query=label;state.limit=20;save();draw();},'cv-chip'));
     form.append(chips);body.append(form);
   }
   function draw(){
+    clearTimeout(searchTimer);refreshMatches=()=>{};
     tabs.replaceChildren();body.replaceChildren();
     for(const [id,label] of [['documents','Documents'],['cerca','On està escrit?'],['compara','Compara'],['cronologia','Cronologia'],['fonts','Fonts']]){
       const b=button(label,()=>{state.tab=id;state.limit=20;save();draw();},'cv-tab');b.setAttribute('aria-current',state.tab===id?'page':'false');tabs.append(b);
@@ -61,28 +63,32 @@ export function renderConvenis() {
       const grid=el('div','cv-grid');const filtered=docs.filter(d=>!state.kind||d.kind===state.kind).sort((a,b)=>Number(b.id==='c2023')-Number(a.id==='c2023'));
       for(const doc of filtered)grid.append(docCard(doc));body.append(grid);if(!filtered.length)body.append(el('p','cv-empty','No hi ha documents d’aquest tipus.'));
     }else if(state.tab==='cerca'){
-      body.append(el('h2','','On està escrit?'),el('p','cv-intro','Cerca dins dels documents amb text disponible. Pots cercar en català o castellà; els temes suggerits inclouen totes dues llengües.'));searchBox();
+      body.append(el('h2','','On està escrit?'),el('p','cv-intro','Cerca dins dels documents amb text disponible. Pots cercar en català o castellà; els temes suggerits inclouen totes dues llengües. Els resultats s’actualitzen mentre escrius i les coincidències es ressalten en groc.'));searchBox();
+      const resultsArea=el('div','cv-results');body.append(resultsArea);
+      refreshMatches=()=>{resultsArea.replaceChildren();
       if(state.query){
         const results=docs.flatMap(doc=>matchingPages(doc,expandedQuery()).map(page=>({doc,page})));
-        body.append(el('p','cv-meta',`${results.length} pàgines amb coincidències · ${docs.filter(d=>d.pages.length).length} documents amb text`));
-        for(const {doc,page} of results.slice(0,state.limit)){const group=el('div','cv-result');group.append(el('h3','',doc.title),snippet(doc,page));body.append(group);}
-        if(!results.length)body.append(el('p','cv-empty','No s’han trobat coincidències. Prova una altra expressió. El reconeixement dels escanejos pot ometre paraules; consulta també el PDF.'));
-        if(results.length>state.limit)body.append(button('Mostra més resultats',()=>{state.limit+=20;save();draw();}));
+        const count=el('p','cv-meta',`${results.length} ${results.length===1?'pàgina':'pàgines'} amb coincidències · ${docs.filter(d=>d.pages.length).length} documents amb text`);count.setAttribute('aria-live','polite');resultsArea.append(count);
+        for(const {doc,page} of results.slice(0,state.limit)){const group=el('div','cv-result');group.append(el('h3','',doc.title),snippet(doc,page));resultsArea.append(group);}
+        if(!results.length)resultsArea.append(el('p','cv-empty','No s’han trobat coincidències. Prova una altra expressió. El reconeixement dels escanejos pot ometre paraules; consulta també el PDF.'));
+        if(results.length>state.limit)resultsArea.append(button('Mostra més resultats',()=>{state.limit+=20;save();refreshMatches();}));
       }
+      };refreshMatches();
       const scanned=docs.filter(d=>!d.pages.length);if(scanned.length){const details=el('details','cv-card');details.append(el('summary','',`${scanned.length} PDF sense cerca de text`));for(const d of scanned)details.append(link(d.title+' ↗',d.url));body.append(details);}
     }else if(state.tab==='compara'){
       body.append(el('h2','','El mateix tema, en dos documents'),el('p','cv-intro','Consulta els fragments originals costat a costat. Les diferències de text no determinen, per si soles, quina regla és aplicable avui.'));searchBox();
       const columns=el('div','cv-compare');
+      refreshMatches=()=>{columns.replaceChildren();
       for(const [key,label] of [['left','Primer document'],['right','Segon document']]){
         const column=el('section','cv-column'),field=el('label','cv-filter',label),select=el('select');
         for(const doc of docs.filter(d=>d.kind!=='Inventari')){const o=el('option','',doc.title);o.value=doc.id;select.append(o);}select.value=state[key];
-        select.onchange=()=>{state[key]=select.value;save();draw();};field.append(select);column.append(field);
+        select.onchange=()=>{state[key]=select.value;save();refreshMatches();};field.append(select);column.append(field);
         const doc=docs.find(d=>d.id===state[key]);if(doc){column.append(link('Obre el document complet ↗',doc.fileUrl || doc.url));
           if(!doc.pages.length)column.append(el('p','cv-empty','Aquest PDF és un escaneig. Obre’l per comparar-lo visualment.'));
           else if(!state.query)column.append(el('p','cv-empty','Tria un tema o escriu una expressió per començar.'));
-          else{const matches=matchingPages(doc,expandedQuery());column.append(el('p','cv-meta',`${matches.length} pàgines amb coincidències`));const passages=el('div','cv-passages');passages.tabIndex=0;passages.setAttribute('aria-label','Fragments de '+doc.title);for(const page of matches.slice(0,state.limit))passages.append(snippet(doc,page));if(matches.length>state.limit)passages.append(button('Mostra més fragments',()=>{state.limit+=20;save();draw();}));if(!matches.length)passages.append(el('p','cv-empty','Sense coincidències textuals. Això no acredita que el dret no existís.'));column.append(passages);}
+          else{const matches=matchingPages(doc,expandedQuery());column.append(el('p','cv-meta',`${matches.length} pàgines amb coincidències`));const passages=el('div','cv-passages');passages.tabIndex=0;passages.setAttribute('aria-label','Fragments de '+doc.title);for(const page of matches.slice(0,state.limit))passages.append(snippet(doc,page));if(matches.length>state.limit)passages.append(button('Mostra més fragments',()=>{state.limit+=20;save();refreshMatches();}));if(!matches.length)passages.append(el('p','cv-empty','Sense coincidències textuals. Això no acredita que el dret no existís.'));column.append(passages);}
         }columns.append(column);
-      }body.append(columns);
+      }};refreshMatches();body.append(columns);
     }else if(state.tab==='cronologia'){
       body.append(el('h2','','Cronologia documental'),el('p','cv-intro','Els períodes identifiquen els documents. No equivalen a una validació de la vigència de cada clàusula.'));
       for(const doc of [...docs].filter(d=>d.kind!=='Inventari').sort((a,b)=>a.year-b.year)){const row=el('article','cv-timeline');row.append(el('strong','',String(doc.year)),link(doc.title+' ↗',doc.fileUrl || doc.url),el('small','',doc.kind));body.append(row);}
