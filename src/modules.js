@@ -18,5 +18,6 @@ export const modules = [
   { id: 'atencio', name: 'Atenció al viatger', initials: 'AV', description: 'Reglament, queixes i al·legacions', icon: './assets/icons/atencio-256.webp' },
   { id: 'farmacioles', name: 'Farmacioles i material d’estació', initials: 'FM', description: 'Avisos i reposició de material de L4', icon: './assets/icons/farmacioles-256.webp' },
   { id: 'objectes-perduts', name: 'Objectes perduts', initials: 'OP', description: 'Procediment, tràmit del viatger i recollida', icon: './assets/objectes/objectes-256.webp' },
+  { id: 'venda-diners', name: 'Incidències de venda i diners trobats', initials: 'VD', description: 'Procediments d’incidències i diners trobats a les DA', icon: './assets/icons/venda-diners-256.webp' },
   { id: 'administracio', name: 'Administració', initials: 'AD', description: 'Administració privada del launcher', adminOnly: true },
 ];
