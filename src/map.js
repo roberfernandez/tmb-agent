@@ -1,3 +1,4 @@
+import { imageGestures } from './image-gestures.js';
 // Visor de la imatge original: zoom sense retallar ni modificar el fitxer.
 export function renderMap() {
   const section = document.createElement('section');
@@ -36,8 +37,9 @@ export function renderMap() {
     if (event.key === '-') { event.preventDefault(); setZoom(zoom / 1.5); }
   });
   viewport.append(img);
+  imageGestures(viewport, img, () => zoom, setZoom);
   const hint = document.createElement('p'); hint.className = 'notice';
-  hint.textContent = 'Amplia amb + i desplaça el mapa per consultar les estacions.';
+  hint.textContent = 'Amplia pessigant amb dos dits o amb +. Arrossega amb un dit per moure el mapa.';
   const original = document.createElement('a'); original.className = 'back';
   original.href = img.src; original.target = '_blank'; original.rel = 'noopener noreferrer';
   original.textContent = 'Obre la imatge original ↗';

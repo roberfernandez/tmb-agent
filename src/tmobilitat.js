@@ -1,3 +1,4 @@
+import { imageGestures } from './image-gestures.js';
 import {markText,excerpt} from './text-search.js';
 import { cases, categories, source, filterCases, expiryDate, guides, guideSearchText } from './tmobilitat-data.js';
 import { renderExpiry } from './tmobilitat-expiry.js?v=plastic-v1';
@@ -25,11 +26,13 @@ function openSourcePage(initialPage,opener){
   const shrink=button('−',()=>resize(-0.5)),grow=button('+',()=>resize(0.5));
   shrink.setAttribute('aria-label','Reduir');grow.setAttribute('aria-label','Ampliar');
   const close=button('Tancar',()=>dialog.close());
-  function resize(delta){zoom=Math.min(4,Math.max(1,zoom+delta));image.style.width=`${zoom*100}%`;shrink.disabled=zoom===1;grow.disabled=zoom===4;}
+  function setZoom(value){zoom=Math.min(6,Math.max(1,value));image.style.width=`${zoom*100}%`;shrink.disabled=zoom===1;grow.disabled=zoom===6;}
+  function resize(delta){setZoom(zoom+delta);}
   function draw(value){page=Math.max(1,Math.min(SOURCE_PAGE_COUNT,value));error.hidden=true;image.alt=`${source.document} · pàgina ${page}`;image.src=`./assets/tmobilitat/pages/page-${page}.webp`;status.textContent=`Pàgina ${page} / ${SOURCE_PAGE_COUNT}`;previous.disabled=page===1;next.disabled=page===SOURCE_PAGE_COUNT;zoom=1;resize(0);viewport.scrollTo(0,0);}
   image.addEventListener('error',()=>{error.hidden=false;});
   toolbar.append(previous,status,next,shrink,grow,close);
   const footer=el('div','tm-pdf-footer');footer.append(button('Tornar a carregar',()=>draw(page)),link('Obrir PDF complet ↗',source.url));
+  imageGestures(viewport,image,()=>zoom,setZoom);
   viewport.append(image,error);dialog.append(toolbar,viewport,footer);document.body.append(dialog);
   dialog.addEventListener('close',()=>{dialog.remove();if(opener.isConnected)opener.focus();},{once:true});
   dialog.showModal();draw(page);close.focus();
