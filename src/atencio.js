@@ -1,4 +1,4 @@
-import {items,articles,searchArticles} from './atencio-data.js';
+import {items,articles,searchArticles,matchingParagraphs,highlightedParts} from './atencio-data.js?v=search-v2';
 const KEY='tmb-agent-atencio-v1';
 export function renderAtencio(){
  const root=document.createElement('section');root.id='atencio-demo';root.lang='ca';
@@ -16,8 +16,23 @@ export function renderAtencio(){
  if(screen==='reglament'){
  detail.append(el('p','av-note','Text del DOGC de 24/10/2024 · CVE-DOGC-A-24291065-2024. Consulta el document oficial i el web de TMB per comprovar possibles actualitzacions, especialment les dels annexos.'));
  const label=el('label','','Cerca als articles i annexos'),input=el('input');input.id='av-search';label.htmlFor=input.id;input.type='search';input.placeholder='Morrió, bicicletes, reclamacions…';input.value=query;const count=el('p','av-result-count'),list=el('div','av-articles');list.setAttribute('aria-label','Articles i annexos');count.setAttribute('aria-live','polite');detail.append(label,input,count,list);
- function results(){const matches=searchArticles(query);count.textContent=matches.length+(matches.length===1?' apartat':' apartats');list.replaceChildren();for(const article of matches){const b=button(article.title,()=>{selected=selected===article.id?'':article.id;results();save()},'av-article');b.setAttribute('aria-expanded',String(selected===article.id));list.append(b);if(selected===article.id){const reading=el('article','av-reading');reading.append(el('h3','',article.title));for(const p of article.paragraphs)reading.append(el('p','',p));list.append(reading)}}if(!matches.length)list.append(el('p','av-note','No s’han trobat coincidències. Prova una altra paraula.'))}
- input.oninput=()=>{query=input.value;results();save()};results();
+ function results(){
+  const matches=searchArticles(query),searching=Boolean(query.trim());count.textContent=matches.length+(matches.length===1?' apartat':' apartats');list.replaceChildren();
+  for(const article of matches){
+   if(searching){
+    const reading=el('article','av-reading');reading.append(el('h3','',article.title));
+    const paragraphs=selected===article.id?article.paragraphs:matchingParagraphs(article,query);
+    for(const text of paragraphs){const p=el('p');for(const part of highlightedParts(text,query))p.append(el(part.match?'mark':'span','',part.text));reading.append(p);}
+    const toggle=button(selected===article.id?'Mostra només les coincidències':'Mostra tot l’apartat',()=>{selected=selected===article.id?'':article.id;results();save()},'av-article');toggle.setAttribute('aria-expanded',String(selected===article.id));reading.append(toggle);list.append(reading);
+   }else{
+    const b=button(article.title,()=>{selected=selected===article.id?'':article.id;results();save()},'av-article');b.setAttribute('aria-expanded',String(selected===article.id));list.append(b);
+    if(selected===article.id){const reading=el('article','av-reading');reading.append(el('h3','',article.title));for(const p of article.paragraphs)reading.append(el('p','',p));list.append(reading);}
+   }
+  }
+  if(!matches.length)list.append(el('p','av-note','No s’han trobat coincidències. Prova una altra paraula.'));
+ }
+
+ input.oninput=()=>{query=input.value;selected='';results();save()};results();
  }else detail.append(el('p','av-note',screen==='queixes'?'Mostra el QR al viatger perquè obri el formulari públic de queixes, reclamacions i suggeriments.':'Mostra el QR al viatger perquè accedeixi al formulari públic d’al·legacions de percepció mínima.'));
  }
  try{const s=JSON.parse(sessionStorage.getItem(KEY));if(s){screen=items.some(i=>i.id===s.screen)?s.screen:'home';qr=s.qr===true;query=typeof s.query==='string'?s.query:'';selected=articles.some(a=>a.id===s.selected)?s.selected:''}}catch{}

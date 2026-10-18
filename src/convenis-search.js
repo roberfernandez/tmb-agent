@@ -17,9 +17,9 @@ export function matchingPages(doc, query) {
 }
 export function excerpt(text, query, length = 520) {
   const first = query.split('|').map(normalize).filter(Boolean).map(q => q.split(' ')[0]);
-  const plain = normalize(text);
+  const plain = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const positions = first.map(word => plain.indexOf(word)).filter(i => i >= 0);
-  // Normalization may alter offsets: the excerpt is only a reading aid; the PDF is authoritative.
+  // Keep punctuation and whitespace so the snippet starts beside the actual match.
   const start = Math.max(0, (positions.length ? Math.min(...positions) : 0) - 100);
   return `${start ? '…' : ''}${text.slice(start, start + length)}${start + length < text.length ? '…' : ''}`;
 }

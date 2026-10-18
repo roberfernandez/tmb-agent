@@ -8,7 +8,7 @@ Catàleg: `public/assets/convenis/index.json`. 15 documents individuals i un inv
 
 Revisió documental: 18/10/2026. No hi ha actualització automàtica. Els textos dels PDF públics s'han extret amb PyMuPDF, conservant el número físic de pàgina del PDF i normalitzant només els espais. L'original continua accessible al servidor de la font; excepte les còpies dels convenis XX i XVI descrites al final.
 
-Hi ha 6 escanejos sense text extraïble: XXII, XXIII, XXV i pròrrogues 2012–2013, 2013–2014, 2014–2015. Es poden consultar, però no generen resultats de cerca ni fragments inventats. No s'ha fet OCR. La resta té text extraïble, que pot no reproduir perfectament la disposició visual o totes les taules.
+Sis escanejos tenen OCR en castellà i català: XXII, XXIII, XXV, pròrrogues 2012–2013 i 2014–2015, i annex acord FMB 2013–2014. S’han processat 93 pàgines, de les quals 91 tenen text indexat i dues són fulls en blanc comprovats visualment. La resta de documents conserva el text original extret del PDF.
 
 L'inventari d'abril de 2020 només s'indexa a la secció FMB (pàgines 34–38). Inclou antecedents des de 1961 i altres pactes, però no equival als textos individuals ni acredita vigència. La discrepància 1999–2000 / 1999–2001 queda indicada; no es duplica com dos convenis confirmats. El pla d'igualtat localitzat correspon a 2022–2024.
 
@@ -20,7 +20,7 @@ L'inventari d'abril de 2020 només s'indexa a la secció FMB (pàgines 34–38).
 - Cronologia: períodes documentals i accés a antecedents.
 - Fonts: abast, procedència, data de revisió i enllaç a Permisos TMB.
 
-La pàgina indicada al fragment és física; el visor extern pot ignorar `#page`. Els PDF externs requereixen connexió. El catàleg i els fragments s'inclouen a la memòria cau de la PWA. L'índex es demana només en entrar a Convenis (~604 KB sense compressió); l'icona WebP de 256 píxels ocupa 7.012 bytes.
+La pàgina indicada al fragment és física; el visor extern pot ignorar `#page`. Els PDF externs requereixen connexió. El catàleg i els fragments s'inclouen a la memòria cau de la PWA. L'índex es demana només en entrar a Convenis (aproximadament 770 KB sense compressió); l'icona WebP de 256 píxels ocupa 7.012 bytes.
 
 ## Validació
 
@@ -31,3 +31,13 @@ Proves de cerca, accents, escanejos, pàgines, inventari FMB i integració amb e
 Els enllaços originals de CCOO han deixat de respondre en les comprovacions del 18/10/2026. Les còpies públiques descarregades durant la recerca s’inclouen sense modificacions a assets/convenis (14 i 8 pàgines), amb l’enllaç original conservat. La cerca, la comparació i la cronologia obren aquestes còpies. Només aquests dos PDF estan disponibles també a la memòria cau de la PWA.
 
 El conveni XXI (1997–1998, 9 pàgines) també disposa de còpia local íntegra. Tots els documents del catàleg procedents de CCOO obren ara còpies locals. Els enllaços originals es mantenen com a referència secundària.
+
+## Reconeixement OCR
+
+Tesseract 5.5.0 amb models oficials tessdata_best spa+cat, renderitzat en gris a 300 dpi. Detecció d’orientació amb el model osd instal·lat i segon intent de segmentació per a lectures difícils. PDF originals intactes; només s’afegeix text al catàleg. Metadades de procedència i mostres revisades a convenis-ocr-audit.json. Les puntuacions del motor són senyals de revisió, no percentatges d’exactitud. No s’ha verificat paraula per paraula tota la transcripció ni s’usen els imports OCR per calcular nòmines. Les taules poden perdre l’ordre de columnes.
+
+Les mostres revisades inclouen articles en prosa de cada document, pàgines de taules girades i els fulls en blanc p2013/4 i p2014/3. El PDF p2013 s’ha retitulat segons la capçalera comprovada visualment: annex a l’acta de 05/12/2012, acord FMB per a 2013–2014. No s’afirma cap canvi de vigència.
+
+Reproducció: scripts/ocr-convenis.py genera els resultats locals i scripts/index-convenis-ocr.py els incorpora després de revisió. Els models, PNG i TSV intermedis no es publiquen. El mòbil només consulta el text i els PDF; no executa OCR.
+
+La pròrroga 2012–2013 conté també, des de la pàgina 8, una còpia del XXV conveni 2008–2011. S’identifica aquesta part als resultats per evitar atribuir-li canvis de la pròrroga.

@@ -1,0 +1,740 @@
+{
+  "engine": "Tesseract 5.5.0",
+  "languages": [
+    "spa",
+    "cat"
+  ],
+  "dpi": 300,
+  "modelHashes": {
+    "spa": "e2c1ffdad8b30f26c45d4017a9183d3a7f9aa69e59918be4f88b126fac99ab2c",
+    "cat": "dbddfce4cc65e5b127566d85243fe4422ef321f028b74ccf8db5c253f227a61a"
+  },
+  "date": "2026-10-18",
+  "note": "OCR confidence is an engine signal, not measured accuracy. Samples visually checked; not a full transcription review.",
+  "visualSamples": {
+    "c1999": [
+      3,
+      8,
+      23,
+      25
+    ],
+    "c2002": [
+      2
+    ],
+    "c2008": [
+      3,
+      24
+    ],
+    "p2012": [
+      1,
+      15
+    ],
+    "p2013": [
+      1,
+      4
+    ],
+    "p2014": [
+      1,
+      3
+    ]
+  },
+  "documents": [
+    {
+      "id": "p2014",
+      "sourceSha256": "7060a65d15a65a09553cb3f4ea90e55bcdc88def7423761cccec5118b879ae4e",
+      "blankPages": [
+        3
+      ],
+      "pages": [
+        {
+          "page": 1,
+          "wordCount": 215,
+          "meanConfidence": 96.1,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 2,
+          "wordCount": 207,
+          "meanConfidence": 96.4,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 3,
+          "wordCount": 0,
+          "meanConfidence": 0,
+          "rotation": 0,
+          "segmentation": 3
+        }
+      ]
+    },
+    {
+      "id": "p2013",
+      "sourceSha256": "cf4ce4aa0231db11bf34243eab9b8af1e2b4c7a7b13ec418a42609b1fbbaea8e",
+      "blankPages": [
+        4
+      ],
+      "pages": [
+        {
+          "page": 1,
+          "wordCount": 140,
+          "meanConfidence": 96.2,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 2,
+          "wordCount": 380,
+          "meanConfidence": 95.8,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 3,
+          "wordCount": 168,
+          "meanConfidence": 96.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 4,
+          "wordCount": 12,
+          "meanConfidence": 50.7,
+          "rotation": 0,
+          "segmentation": 6
+        }
+      ]
+    },
+    {
+      "id": "p2012",
+      "sourceSha256": "8d2a683015bfab9e807f0950f8381bf770e4162a65fdeb8dc1cd8bcab92ce3e7",
+      "blankPages": [],
+      "pages": [
+        {
+          "page": 1,
+          "wordCount": 131,
+          "meanConfidence": 92.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 2,
+          "wordCount": 204,
+          "meanConfidence": 96.1,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 3,
+          "wordCount": 273,
+          "meanConfidence": 95.2,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 4,
+          "wordCount": 469,
+          "meanConfidence": 94.4,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 5,
+          "wordCount": 264,
+          "meanConfidence": 94.9,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 6,
+          "wordCount": 245,
+          "meanConfidence": 94.8,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 7,
+          "wordCount": 176,
+          "meanConfidence": 95.1,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 8,
+          "wordCount": 365,
+          "meanConfidence": 94.1,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 9,
+          "wordCount": 418,
+          "meanConfidence": 93.5,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 10,
+          "wordCount": 454,
+          "meanConfidence": 93.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 11,
+          "wordCount": 479,
+          "meanConfidence": 93.9,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 12,
+          "wordCount": 536,
+          "meanConfidence": 96.0,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 13,
+          "wordCount": 503,
+          "meanConfidence": 95.4,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 14,
+          "wordCount": 293,
+          "meanConfidence": 95.5,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 15,
+          "wordCount": 253,
+          "meanConfidence": 94.6,
+          "rotation": 0,
+          "segmentation": 6
+        },
+        {
+          "page": 16,
+          "wordCount": 583,
+          "meanConfidence": 95.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 17,
+          "wordCount": 485,
+          "meanConfidence": 94.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 18,
+          "wordCount": 473,
+          "meanConfidence": 95.4,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 19,
+          "wordCount": 363,
+          "meanConfidence": 94.7,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 20,
+          "wordCount": 709,
+          "meanConfidence": 90.0,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 21,
+          "wordCount": 492,
+          "meanConfidence": 89.9,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 22,
+          "wordCount": 238,
+          "meanConfidence": 88.5,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 23,
+          "wordCount": 342,
+          "meanConfidence": 86.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 24,
+          "wordCount": 743,
+          "meanConfidence": 92.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 25,
+          "wordCount": 315,
+          "meanConfidence": 90.7,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 26,
+          "wordCount": 185,
+          "meanConfidence": 94.1,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 27,
+          "wordCount": 607,
+          "meanConfidence": 89.5,
+          "rotation": 0,
+          "segmentation": 3
+        }
+      ]
+    },
+    {
+      "id": "c2008",
+      "sourceSha256": "89faac95ce6da65a55e7dc297aa7dd98ea8741e0048331d8757992cea550ec2f",
+      "blankPages": [],
+      "pages": [
+        {
+          "page": 1,
+          "wordCount": 233,
+          "meanConfidence": 95.4,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 2,
+          "wordCount": 328,
+          "meanConfidence": 95.5,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 3,
+          "wordCount": 361,
+          "meanConfidence": 92.7,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 4,
+          "wordCount": 397,
+          "meanConfidence": 95.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 5,
+          "wordCount": 389,
+          "meanConfidence": 94.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 6,
+          "wordCount": 428,
+          "meanConfidence": 95.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 7,
+          "wordCount": 405,
+          "meanConfidence": 96.1,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 8,
+          "wordCount": 353,
+          "meanConfidence": 94.5,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 9,
+          "wordCount": 203,
+          "meanConfidence": 94.7,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 10,
+          "wordCount": 374,
+          "meanConfidence": 96.2,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 11,
+          "wordCount": 420,
+          "meanConfidence": 96.2,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 12,
+          "wordCount": 327,
+          "meanConfidence": 95.9,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 13,
+          "wordCount": 309,
+          "meanConfidence": 95.7,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 14,
+          "wordCount": 369,
+          "meanConfidence": 95.2,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 15,
+          "wordCount": 182,
+          "meanConfidence": 95.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 16,
+          "wordCount": 153,
+          "meanConfidence": 82.8,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 17,
+          "wordCount": 106,
+          "meanConfidence": 86.2,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 18,
+          "wordCount": 22,
+          "meanConfidence": 80.6,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 19,
+          "wordCount": 94,
+          "meanConfidence": 81.1,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 20,
+          "wordCount": 46,
+          "meanConfidence": 79.2,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 21,
+          "wordCount": 111,
+          "meanConfidence": 91.4,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 22,
+          "wordCount": 36,
+          "meanConfidence": 86.3,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 23,
+          "wordCount": 93,
+          "meanConfidence": 88.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 24,
+          "wordCount": 160,
+          "meanConfidence": 75.6,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 25,
+          "wordCount": 102,
+          "meanConfidence": 74.2,
+          "rotation": 90,
+          "segmentation": 3
+        }
+      ]
+    },
+    {
+      "id": "c2002",
+      "sourceSha256": "52a7251ce86622f6163c203a482bdbb6c5ca57ebc294c9374f37bffa90b3932e",
+      "blankPages": [],
+      "pages": [
+        {
+          "page": 1,
+          "wordCount": 250,
+          "meanConfidence": 95.8,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 2,
+          "wordCount": 311,
+          "meanConfidence": 95.7,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 3,
+          "wordCount": 337,
+          "meanConfidence": 95.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 4,
+          "wordCount": 359,
+          "meanConfidence": 95.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 5,
+          "wordCount": 292,
+          "meanConfidence": 95.7,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 6,
+          "wordCount": 312,
+          "meanConfidence": 96.0,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 7,
+          "wordCount": 168,
+          "meanConfidence": 96.2,
+          "rotation": 0,
+          "segmentation": 3
+        }
+      ]
+    },
+    {
+      "id": "c1999",
+      "sourceSha256": "28a84cb141292dba0f4eb4a35c595258be1af06a20a30fae788cbae6af314587",
+      "blankPages": [],
+      "pages": [
+        {
+          "page": 1,
+          "wordCount": 305,
+          "meanConfidence": 95.4,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 2,
+          "wordCount": 394,
+          "meanConfidence": 95.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 3,
+          "wordCount": 385,
+          "meanConfidence": 95.9,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 4,
+          "wordCount": 315,
+          "meanConfidence": 96.2,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 5,
+          "wordCount": 138,
+          "meanConfidence": 96.0,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 6,
+          "wordCount": 219,
+          "meanConfidence": 92.9,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 7,
+          "wordCount": 258,
+          "meanConfidence": 89.8,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 8,
+          "wordCount": 227,
+          "meanConfidence": 91.1,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 9,
+          "wordCount": 248,
+          "meanConfidence": 91.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 10,
+          "wordCount": 113,
+          "meanConfidence": 85.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 11,
+          "wordCount": 84,
+          "meanConfidence": 93.9,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 12,
+          "wordCount": 62,
+          "meanConfidence": 92.0,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 13,
+          "wordCount": 62,
+          "meanConfidence": 89.1,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 14,
+          "wordCount": 194,
+          "meanConfidence": 85.1,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 15,
+          "wordCount": 113,
+          "meanConfidence": 90.9,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 16,
+          "wordCount": 167,
+          "meanConfidence": 95.5,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 17,
+          "wordCount": 216,
+          "meanConfidence": 93.4,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 18,
+          "wordCount": 224,
+          "meanConfidence": 91.8,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 19,
+          "wordCount": 210,
+          "meanConfidence": 88.7,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 20,
+          "wordCount": 221,
+          "meanConfidence": 94.3,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 21,
+          "wordCount": 91,
+          "meanConfidence": 91.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 22,
+          "wordCount": 87,
+          "meanConfidence": 95.0,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 23,
+          "wordCount": 64,
+          "meanConfidence": 89.4,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 24,
+          "wordCount": 67,
+          "meanConfidence": 90.2,
+          "rotation": 90,
+          "segmentation": 3
+        },
+        {
+          "page": 25,
+          "wordCount": 177,
+          "meanConfidence": 90.9,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 26,
+          "wordCount": 114,
+          "meanConfidence": 89.6,
+          "rotation": 0,
+          "segmentation": 3
+        },
+        {
+          "page": 27,
+          "wordCount": 172,
+          "meanConfidence": 95.4,
+          "rotation": 0,
+          "segmentation": 3
+        }
+      ]
+    }
+  ]
+}

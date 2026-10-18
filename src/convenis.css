@@ -3,3 +3,5 @@
 .cv-passages{max-height:55vh;overflow:auto;padding:0 5px 0 0;scrollbar-gutter:stable;overscroll-behavior:contain}@media(max-width:650px){.cv-passages{max-height:42vh}}
 
 .cv-source-original{display:block;color:#b8dbff;text-decoration:underline;font-size:13px;padding:8px 0}
+
+.cv-ocr-note{font-size:12px;color:#ffe0a1;background:#46351d;border-radius:8px;padding:7px 10px;line-height:1.5}

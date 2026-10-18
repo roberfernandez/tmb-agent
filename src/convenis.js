@@ -25,13 +25,17 @@ export function renderConvenis() {
   const tabs=el('nav','cv-tabs');tabs.setAttribute('aria-label','Apartats de Convenis');
   const body=el('div','cv-body');root.append(heading,tabs,body);
   function snippet(doc,page){
-    const box=el('article','cv-fragment');box.append(el('p','cv-meta',`${doc.source} · pàgina ${page.page}`),el('p','cv-quote',excerpt(page.text,expandedQuery())),link(`Obre el PDF · pàg. ${page.page} ↗`,pageUrl(doc,page.page)));
+    const box=el('article','cv-fragment');box.append(el('p','cv-meta',`${doc.source} · pàgina ${page.page}`));
+    if(page.sectionLabel)box.append(el('p','cv-meta',page.sectionLabel));
+    if(page.ocr)box.append(el('p','cv-ocr-note',page.readingDifficulty?'Text reconegut per OCR · Lectura difícil: comprova el PDF.':'Text reconegut per OCR · Comprova el text al PDF.'));
+    box.append(el('p','cv-quote',excerpt(page.text,expandedQuery())),link(`Obre el PDF · pàg. ${page.page} ↗`,pageUrl(doc,page.page)));
     return box;
   }
   function docCard(doc){
     const card=el('article','cv-card'), top=el('div','cv-card-top'); top.append(el('span','cv-tag',doc.kind));
     card.append(top,el('h2','',doc.title),el('p','cv-meta',`${doc.source}${doc.pageCount?' · '+doc.pageCount+' pàgines':''}`));
     if(doc.note)card.append(el('p','cv-note',doc.note));
+    if(doc.ocr)card.append(el('p','cv-ocr-note',`Escaneig amb cerca per OCR · ${doc.ocr.indexedPages} pàgines amb text`));
     if(!doc.pages.length)card.append(el('p','cv-note','PDF escanejat: cerca de text no disponible.'));
     card.append(link('Consulta el document ↗',doc.fileUrl || doc.url));if(doc.fileUrl)card.append(link('Font original · '+doc.source+' ↗',doc.url,'cv-source-original'));return card;
   }
@@ -62,7 +66,7 @@ export function renderConvenis() {
         const results=docs.flatMap(doc=>matchingPages(doc,expandedQuery()).map(page=>({doc,page})));
         body.append(el('p','cv-meta',`${results.length} pàgines amb coincidències · ${docs.filter(d=>d.pages.length).length} documents amb text`));
         for(const {doc,page} of results.slice(0,state.limit)){const group=el('div','cv-result');group.append(el('h3','',doc.title),snippet(doc,page));body.append(group);}
-        if(!results.length)body.append(el('p','cv-empty','No s’han trobat coincidències. Prova una altra expressió. Els PDF escanejats s’han de consultar directament.'));
+        if(!results.length)body.append(el('p','cv-empty','No s’han trobat coincidències. Prova una altra expressió. El reconeixement dels escanejos pot ometre paraules; consulta també el PDF.'));
         if(results.length>state.limit)body.append(button('Mostra més resultats',()=>{state.limit+=20;save();draw();}));
       }
       const scanned=docs.filter(d=>!d.pages.length);if(scanned.length){const details=el('details','cv-card');details.append(el('summary','',`${scanned.length} PDF sense cerca de text`));for(const d of scanned)details.append(link(d.title+' ↗',d.url));body.append(details);}
@@ -86,7 +90,7 @@ export function renderConvenis() {
       old.append(el('p','','L’inventari d’abril de 2020 recull convenis, normes de compliment obligatori, el laude de 1979, l’arbitratge de 1981 i acords específics sobre organització, vacances, contractació, Non Stop i jubilació parcial. Són referències històriques: no tots els textos individuals estan disponibles.'));
       old.append(link('Consulta la secció FMB · pàg. 34 ↗',pageUrl(docs.find(d=>d.id==='inventari2020'),34)));body.append(old);
     }else{
-      body.append(el('h2','','Fonts i abast'),el('p','','Consulta documental de FMB. Fonts revisades el 18/10/2026; no hi ha sincronització automàtica de canvis.'),el('p','','Els fragments són transcripcions extretes dels PDF i poden tenir salts de línia o errors de lectura. Contrasta sempre el document original. La pàgina indicada correspon al PDF; alguns visors poden obrir-lo a l’inici.'));
+      body.append(el('h2','','Fonts i abast'),el('p','','Consulta documental de FMB. Fonts revisades el 18/10/2026; no hi ha sincronització automàtica de canvis.'),el('p','','Els documents digitals fan servir el text del PDF. Sis escanejos tenen text reconegut per OCR en català i castellà, identificat als resultats. S’han revisat mostres, però no tota la transcripció: poden faltar paraules o haver-hi errors, especialment en imports i taules. Contrasta el document original. La pàgina indicada correspon al PDF; alguns visors poden obrir-lo a l’inici.'));
       for(const [label,url] of sources)body.append(link(label+' ↗',url,'cv-source'));
       body.append(el('p','cv-note','Solidaritat Obrera: publicacions consultades, sense un arxiu equivalent de convenis complets localitzat. El pla d’igualtat disponible correspon a 2022–2024.'));
       body.append(link('Consulta pràctica dels permisos →','#/permisos'));body.lastChild.removeAttribute('target');
