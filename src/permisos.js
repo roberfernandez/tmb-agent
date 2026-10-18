@@ -1,3 +1,4 @@
+import {markText,excerpt} from './text-search.js';
 import { permits, filterPermits, relations, sources } from './permisos-data.js';
 
 const state = {query:'',category:'',pay:'',relation:'',travel:''};
@@ -42,7 +43,12 @@ export function renderPermisos() {
       if(p.controversy) {const dispute=node('div','perm-warning'); section(dispute,'Controvèrsia',p.controversy);body.append(dispute);}
       if(p.pending) section(body,'Punt pendent',p.pending);
       body.append(node('p','perm-small','Les condicions atribuïdes a la taula i els punts pendents no es presenten com a verificació completa de vigència.'));
-      card.append(summary,body); list.append(card);
+      if(state.query.trim()){
+        const fields=[p.reference.duration,p.reference.documents,p.reference.notes,p.verified,p.controversy,p.pending].filter(Boolean);
+        const matching=fields.filter(t=>{const box=node('div','',t);markText(box,state.query);return box.querySelector('mark')});
+        if(matching.length)summary.append(node('p','perm-search-preview',excerpt(matching.join(' · '),state.query,300)));
+      }
+      card.append(summary,body);markText(card,state.query); list.append(card);
     });
   }
   root.append(form,count,list);

@@ -11,3 +11,5 @@ Font: https://tmbbcn.sharepoint.com/sites/SEEpublic/SitePages/PAE.aspx, apartat 
 Els PDF s'obren en una pestanya del navegador amb el visor i zoom del dispositiu. SharePoint gestiona la identificació corporativa. No es guarden còpies dels documents ni es reescriuen instruccions. Els enllaços es converteixen del format de compartició al camí directe del mateix arxiu.
 
 No s'han executat migracions ni desplegaments de funcions Supabase. El registre administratiu d'obertures de la nova miniapp requereix habilitació al servidor; no condiciona la navegació.
+
+Icona renovada: persiana gris fosc, sense text, amb quadre endarrerit respecte del pla de tancament. Actiu WebP de 256 px. El selector interior recorre del 0% obert (413 La Pau) al 100% (434 Trinitat Nova), independentment de la llista d’accessos.

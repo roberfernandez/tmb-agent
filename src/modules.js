@@ -13,7 +13,7 @@ export const modules = [
   { id: 'bustia', name: 'Bústia', initials: '?', description: 'Consultes, errors i peticions', icon: './assets/icons/bustia-192.png' },
   { id: 'permisos', name: 'Permisos TMB', initials: 'PE', description: 'Durada, documentació i condicions dels permisos', icon: './assets/icons/permisos-192.webp' },
   { id: 'ascensors', name: 'Rescat ascensors', initials: 'AS', description: 'Procediments de rescat dels ascensors de L4', icon: './assets/icons/ascensors-256.webp' },
-  { id: 'pae', name: 'PAE (EPAM)', initials: 'PA', description: 'Accionament de portes per estació i accés de L4', icon: './assets/icons/pae.svg?v=door-v2' },
+  { id: 'pae', name: 'PAE (EPAM)', initials: 'PA', description: 'Accionament de portes per estació i accés de L4', icon: './assets/icons/pae-256.webp' },
   { id: 'dossiers', name: 'Dossiers d’emergència', initials: 'DO', description: 'Dossiers oficials de les estacions de L4', icon: './assets/icons/dossiers-256.webp' },
   { id: 'atencio', name: 'Atenció al viatger', initials: 'AV', description: 'Reglament, queixes i al·legacions', icon: './assets/icons/atencio-256.webp' },
   { id: 'farmacioles', name: 'Farmacioles i material d’estació', initials: 'FM', description: 'Avisos i reposició de material de L4', icon: './assets/icons/farmacioles-256.webp' },

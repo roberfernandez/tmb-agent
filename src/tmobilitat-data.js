@@ -53,7 +53,7 @@ export const cases=[...tableCases.map(c=>({...c,title:shortTitles[c.id]||c.title
 export function normalize(text){return String(text).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('ca').replace(/[^a-z0-9]+/g,' ').trim();}
 export function filterCases({query='',category='',type=''}={}){
   const words=normalize(query).split(' ').filter(Boolean);
-  return cases.filter(c=>(!category||c.category===category)&&(!type||normalize(c.type).includes(type))&&words.every(w=>normalize([c.title,c.originalTitle,c.text,c.type,c.solution,...c.notes].join(' ')).includes(w)));
+  return cases.filter(c=>(!category||c.category===category)&&(!type||normalize(c.type).includes(type))&&words.every(w=>normalize([c.title,c.originalTitle,c.original,c.text,c.type,c.solution,...c.notes,guideSearchText(c.guide)].join(' ')).includes(w)));
 }
 export function expiryDate(start,days=30){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!Number.isInteger(days)||days<1) return null;
@@ -80,3 +80,5 @@ export const guides={
     online:{result:'Sol·licitar devolució de compra abans de 24 h per TMBApp, segons el diagrama. Consulteu les condicions de devolució de la pàgina 9.'},
   }},
 };
+
+export function guideSearchText(id){return id?Object.values(guides[id].nodes).flatMap(n=>[n.question,n.result,...(n.options||[]).map(o=>o[0])]).filter(Boolean).join(' · '):'';}

@@ -8,3 +8,5 @@
 
 /* Mateix suport PVC verd, identificació visual pròpia per títol. */
 .tmobilitat .tm-title-choice{flex-direction:column;align-items:center;justify-content:center}.tm-title-choice>img{width:100%;max-width:168px;height:auto;aspect-ratio:203/127;object-fit:contain}.tm-title-choice .tm-plastic-visual{position:relative;display:block;width:100%;max-width:168px;aspect-ratio:203/127;overflow:hidden;border-radius:7px}.tm-plastic-visual img{display:block;width:100%;height:100%;max-width:none;object-fit:fill}.tm-title-choice .tm-plastic-name{position:absolute;top:7%;right:5%;font-size:clamp(9px,2.8vw,13px);line-height:1.2;font-weight:700;color:#fff;text-shadow:0 1px 2px #355f47}.tm-title-choice>span:last-child{font-size:13px;text-align:center}
+
+mark{background:#ffe16b;color:#17202b;border-radius:2px;padding:0 .08em}.perm-search-preview,.tm-search-preview{font-size:14px;line-height:1.5;font-weight:400}

@@ -1,4 +1,5 @@
-import { cases, categories, source, filterCases, expiryDate, guides } from './tmobilitat-data.js';
+import {markText,excerpt} from './text-search.js';
+import { cases, categories, source, filterCases, expiryDate, guides, guideSearchText } from './tmobilitat-data.js';
 import { renderExpiry } from './tmobilitat-expiry.js?v=plastic-v1';
 
 const KEY='tmb-agent-tmobilitat-view-v1';
@@ -41,6 +42,7 @@ function renderActuacions(){
   const lcd=button('',()=>{state.open=!state.open;updateDetail();save();},'tm-lcd');lcd.setAttribute('aria-controls','tm-actuacio');
   const kind=el('span','tm-kind'),message=el('strong','tm-message'),hint=el('span','tm-lcd-hint');lcd.append(kind,message,hint);
   const bottom=el('div','tm-machine-bottom');const nfc=el('span','tm-nfc',')))');nfc.setAttribute('aria-hidden','true');bottom.append(el('span','','PAR'),nfc,el('span','','Personal TMB'));machine.append(top,lcd,bottom);
+  const matchPreview=el('p','tm-search-preview');
   const empty=el('p','notice','No hi ha casos amb aquests filtres. Prova una altra cerca.');
   const pager=el('div','tm-pager');const count=el('span');count.setAttribute('role','status');count.setAttribute('aria-live','polite');
   const prev=button('←',()=>move(-1));prev.setAttribute('aria-label','Cas anterior');const next=button('→',()=>move(1));next.setAttribute('aria-label','Cas següent');pager.append(prev,count,next);
@@ -49,7 +51,7 @@ function renderActuacions(){
   const detail=el('section','tm-detail');detail.id='tm-actuacio';
   const consultes=link('Consultes T-mobilitat ↗',source.consultes,'tm-consultes');
   const refs=el('details','tm-refs');refs.append(el('summary','','Fonts i documentació'));const refsBody=el('div','tm-refs-body');refsBody.append(el('p','tm-small',`Contingut basat en ${source.document}, del ${source.date}. Les notes de context i els circuits resumits s’identifiquen per separat del text transcrit.`),sourceLink(1),link('Manual de títols ↗',source.manual),link('Pàgina corporativa T-mobilitat ↗',source.intranet),el('p','tm-small','La representació del visor PAR és una forma de navegar. Les gestions i els circuits no es presenten com a missatges literals de la porta.'));refs.append(refsBody);
-  root.append(heading,form,machine,pager,pickerLabel,empty,reset,detail,consultes,refs);
+  root.append(heading,form,machine,matchPreview,pager,pickerLabel,empty,reset,detail,consultes,refs);
   let results=[];
   function save(){try{sessionStorage.setItem(KEY,JSON.stringify(state));}catch{}}
   function selected(){return results.find(c=>c.id===state.selected);}
@@ -64,10 +66,13 @@ function renderActuacions(){
     updateScreen();save();
   }
   function updateScreen(){
-    const c=selected();if(!c){detail.hidden=true;return;}
+    const c=selected();if(!c){detail.hidden=true;matchPreview.hidden=true;matchPreview.replaceChildren();return;}
     const index=results.indexOf(c);count.textContent=`${index+1} / ${results.length} casos`;
     kind.textContent=`${categories[c.category]} · ${c.kind==='table'?'Cas del procediment':c.kind==='error-da'?'Error a la DA':'Circuit de consulta'}`;
-    message.textContent=c.title;updateDetail();
+    message.textContent=c.title;markText(message,state.query);
+    matchPreview.replaceChildren();matchPreview.hidden=!state.query.trim();
+    if(state.query.trim()){const texts=[c.text,c.type,c.solution,...c.notes,c.original].filter(Boolean);const matches=texts.filter(t=>{const n=el('p','',t);markText(n,state.query);return n.querySelector('mark')});matchPreview.textContent=matches.length?excerpt(matches.join(' · '),state.query,350):guideSearchText(c.guide)?'Coincidència a la guia pas a pas. Obre l’actuació i segueix les preguntes per veure la resposta que correspon al cas.':c.title;markText(matchPreview,state.query);}
+    updateDetail();
   }
   function updateDetail(){
     const c=selected();detail.replaceChildren();detail.hidden=!c||!state.open;lcd.setAttribute('aria-expanded',String(state.open));hint.textContent=state.open?'Toca per tancar l’actuació':'Toca per veure l’actuació ↗';if(!c||!state.open)return;
@@ -75,22 +80,22 @@ function renderActuacions(){
     const meta=el('dl','tm-meta');for(const [label,value] of [['Tipus d’actuació',c.type],['Solució',c.solution]]){const group=el('div');group.append(el('dt','',label),el('dd','',value));meta.append(group);}detail.append(meta);
     paragraph(detail,c.kind==='table'?'Actuació del personal de TMB':c.kind==='error-da'?'Resposta del procediment':'Circuit del procediment · resum',c.text);
     if(c.notes.length){const notes=el('div','tm-context');notes.append(el('h3','','Condicions i context'));for(const note of c.notes)notes.append(el('p','',note));detail.append(notes);}
-    if(c.guide)detail.append(renderGuide(c.guide,state.guides?.[c.guide],path=>{state.guides||={};state.guides[c.guide]=path;save();}));
+    if(c.guide)detail.append(renderGuide(c.guide,state.guides?.[c.guide],path=>{state.guides||={};state.guides[c.guide]=path;save();},state.query));
     if(c.calculator)detail.append(renderCalculator(state.calculatorDate,date=>{state.calculatorDate=date;save();}));
     if(c.related.length){const related=el('div','tm-related');related.append(el('h3','','Casos relacionats'));for(const id of c.related){const target=cases.find(t=>t.id===id);if(target)related.append(button(target.title+' →',()=>jump(id),'tm-related-button'));}detail.append(related);}
     if(c.original){const original=el('details','tm-original');original.append(el('summary','','Text original del procediment'),el('p','tm-text',c.originalTitle+'\n\n'+c.original));detail.append(original);}
-    detail.append(sourceLink(c.page),el('p','tm-small',`Font del ${source.date}. L’enllaç pot requerir identificació corporativa; localitza la pàgina indicada si el visor no hi salta directament.`));
+    detail.append(sourceLink(c.page),el('p','tm-small',`Font del ${source.date}. L’enllaç pot requerir identificació corporativa; localitza la pàgina indicada si el visor no hi salta directament.`));markText(detail,state.query);
   }
   search.addEventListener('input',()=>{state.query=search.value;state.open=false;update();});category.addEventListener('change',()=>{state.category=category.value;state.open=false;update();});picker.addEventListener('change',()=>choose(picker.value));
   update();return root;
 }
-function renderGuide(id,saved,onChange){
+function renderGuide(id,saved,onChange,query=''){
   const guide=guides[id],box=el('details','tm-guide');box.append(el('summary','','Guia pas a pas'));const body=el('div','tm-guide-body');body.setAttribute('aria-live','polite');let path=[guide.start];
   if(Array.isArray(saved)&&saved[0]===guide.start){for(const next of saved.slice(1,12)){if(!(guide.nodes[path.at(-1)].options||[]).some(([,to])=>to===next))break;path.push(next);}if(path.length>1)box.open=true;}
   function draw(){body.replaceChildren();const current=guide.nodes[path.at(-1)];body.append(el('p','tm-small',`Circuit de la pàgina ${guide.page}`),el('p','',current.question||current.result));
     if(current.options){const options=el('div','tm-guide-options');for(const [label,to] of current.options)options.append(button(label,()=>{path.push(to);onChange([...path]);draw();}));body.append(options);}
     if(path.length>1)body.append(button('← Pas anterior',()=>{path.pop();onChange([...path]);draw();},'tm-reset'));
-    body.append(link('Obrir Consultes ↗',source.consultes));
+    body.append(link('Obrir Consultes ↗',source.consultes));markText(body,query);
   }
   box.append(body);draw();return box;
 }

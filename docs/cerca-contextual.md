@@ -1,0 +1,3 @@
+# Cerca contextual
+Permisos i Actuacions T-mobilitat mostren un fragment coincident abans d’obrir el detall i ressalten les paraules en groc, sense distingir accents ni majúscules. Es preserven els filtres i els textos originals. La cerca inclou controvèrsies i punts pendents dels permisos i el text original i les branques guiades de T-mobilitat. Les respostes de branques només es mostren després de seguir el circuit corresponent.
+Nòmina, al seu repositori, amplia el diccionari a descripcions, fórmules i condicions, amb coincidències visibles a la llista i al detall. No canvia cap regla econòmica.

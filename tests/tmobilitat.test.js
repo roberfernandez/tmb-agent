@@ -44,5 +44,5 @@ test('corporate Consultes remains available within internal module and shell cac
   const module=modules.find(m=>m.id==='t-mobilitat');assert.equal(module.name,'T-mobilitat');assert.equal(module.externalUrl,undefined);
   assert.equal(new URL(source.consultes).hostname,'aplicacions.tmb.cat');
   const sw=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
-  for(const name of ['tmobilitat.js?v=tmobilitat-v2','tmobilitat-data.js','tmobilitat-cases.js','tmobilitat.css?v=tmobilitat-v2'])assert.ok(sw.includes(name));
+  for(const name of ['tmobilitat.js?v=tmobilitat-v3','tmobilitat-data.js','tmobilitat-cases.js','tmobilitat.css?v=tmobilitat-v3'])assert.ok(sw.includes(name));
 });
