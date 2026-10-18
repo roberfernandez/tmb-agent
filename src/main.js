@@ -1,3 +1,4 @@
+import { readOrigin, originUrl, renderMiralin } from './miralin.js';
 import { renderConvenis } from './convenis.js?v=search-v8';
 import { renderVendaDiners } from './venda-diners.js?v=venda-v1';
 import { renderObjectes } from './objectes.js?v=objectes-v1';
@@ -220,7 +221,7 @@ function render() {
     else content.append(element('p', 'notice', 'Accés denegat'));
     return;
   }
-  const destination = shortcutModule?.appUrl || shortcutModule?.externalUrl;
+  const destination = shortcutModule?.id === 'miralin' ? (readOrigin() ? originUrl(readOrigin()) : '') : shortcutModule?.appUrl || shortcutModule?.externalUrl;
   if (destination) { recordOpen(shortcutModule.id); location.replace(destination); return; }
   document.body.classList.toggle('home', route === '/' || location.hash === '#content');
   content.replaceChildren();
@@ -264,8 +265,8 @@ function render() {
 
       const card = element('a', 'card');
       card.dataset.module = module.id;
-      card.href = module.appUrl || module.externalUrl || `#/${module.id}`;
-      if (module.externalUrl) {
+      card.href = module.id === 'miralin' ? (readOrigin() ? originUrl(readOrigin()) : '#/miralin') : module.appUrl || module.externalUrl || `#/${module.id}`;
+      if (module.externalUrl && (module.id !== 'miralin' || readOrigin())) {
         card.target = '_blank';
         card.rel = 'noopener noreferrer';
       }
@@ -281,10 +282,18 @@ function render() {
     lines.src = './assets/metro-lines.svg'; lines.alt = '';
     hero.append(lines);
     content.append(hero, grid);
+    const miralinSettings = element('a', 'back', 'Canviar estació d’origen de Miralín');
+    miralinSettings.href = '#/miralin/config';
+    content.append(miralinSettings);
     enableModuleReorder(grid);
     grid.addEventListener('click', event => { const card = event.target.closest('[data-module]'); if (!event.defaultPrevented && card && card.dataset.module !== 'administracio') recordOpen(card.dataset.module); });
     refreshCQuadreBadges();
   } else {
+    if (route === '/miralin' || route === '/miralin/config') {
+      document.title = 'Origen de Miralín · TMB Agent';
+      content.append(renderMiralin());
+      return;
+    }
     const module = modules.find(item => moduleRoute === `/${item.id}`);
     if (module?.id === 'cquadre') {
       const title = cquadreView === 'cquadre'
