@@ -1,7 +1,7 @@
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=tmobilitat-v2';
+import { modules } from './modules.js?v=tmobilitat-icon-v1';
 import { renderTMobilitat } from './tmobilitat.js?v=tmobilitat-v2';
 import { renderPermisos } from './permisos.js?v=permisos-v3';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
