@@ -1,9 +1,10 @@
+import { renderObjectes } from './objectes.js?v=objectes-v1';
 import { renderFarmacioles } from './farmacioles.js?v=farmacioles-v1';
 import { renderAtencio } from './atencio.js?v=atencio-v1';
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=farmacioles-v1';
+import { modules } from './modules.js?v=objectes-v1';
 import { renderTMobilitat } from './tmobilitat.js?v=tmobilitat-v2';
 import { renderAscensors } from './ascensors.js?v=ascensors-v1';
 import { renderPAE } from './pae.js?v=pae-v2';
@@ -310,6 +311,11 @@ function render() {
     if (module?.id === 't-mobilitat') {
       document.title = 'T-mobilitat · TMB Agent';
       content.append(renderTMobilitat());
+      return;
+    }
+    if (module?.id === 'objectes-perduts') {
+      document.title = 'Objectes perduts · TMB Agent';
+      content.append(renderObjectes());
       return;
     }
     if (module?.id === 'farmacioles') {
