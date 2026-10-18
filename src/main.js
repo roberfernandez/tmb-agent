@@ -1,4 +1,4 @@
-import { readOrigin, originUrl, renderMiralin } from './miralin.js';
+import { readOrigin, originUrl, renderMiralinCard } from './miralin.js?v=corners-v1';
 import { renderConvenis } from './convenis.js?v=search-v8';
 import { renderVendaDiners } from './venda-diners.js?v=venda-v1';
 import { renderObjectes } from './objectes.js?v=objectes-v1';
@@ -211,7 +211,7 @@ function render() {
     : route === '/cquadre/avisos'
       ? 'avisos'
       : 'all';
-  const moduleRoute = route.startsWith('/cquadre/') ? '/cquadre' : route;
+  const moduleRoute = route.startsWith('/miralin') ? '/miralin' : route.startsWith('/cquadre/') ? '/cquadre' : route;
   const shortcutModule = modules.find(module => moduleRoute === `/${module.id}`);
   if (route === '/administracio') {
     document.title = 'Administració · TMB Agent';
@@ -221,7 +221,7 @@ function render() {
     else content.append(element('p', 'notice', 'Accés denegat'));
     return;
   }
-  const destination = shortcutModule?.id === 'miralin' ? (readOrigin() ? originUrl(readOrigin()) : '') : shortcutModule?.appUrl || shortcutModule?.externalUrl;
+  const destination = shortcutModule?.id === 'miralin' ? originUrl(readOrigin() || '413') : shortcutModule?.appUrl || shortcutModule?.externalUrl;
   if (destination) { recordOpen(shortcutModule.id); location.replace(destination); return; }
   document.body.classList.toggle('home', route === '/' || location.hash === '#content');
   content.replaceChildren();
@@ -230,6 +230,7 @@ function render() {
     const grid = element('nav', 'grid');
     grid.setAttribute('aria-label', 'Mòduls');
     orderedModules().filter(module => !module.adminOnly || canAdmin).forEach(module => {
+      if (module.id === 'miralin') { grid.append(renderMiralinCard(module, icon(module))); return; }
       const isCQuadre = module.id === 'cquadre';
 
       if (isCQuadre) {
@@ -282,18 +283,10 @@ function render() {
     lines.src = './assets/metro-lines.svg'; lines.alt = '';
     hero.append(lines);
     content.append(hero, grid);
-    const miralinSettings = element('a', 'back', 'Canviar estació d’origen de Miralín');
-    miralinSettings.href = '#/miralin/config';
-    content.append(miralinSettings);
     enableModuleReorder(grid);
     grid.addEventListener('click', event => { const card = event.target.closest('[data-module]'); if (!event.defaultPrevented && card && card.dataset.module !== 'administracio') recordOpen(card.dataset.module); });
     refreshCQuadreBadges();
   } else {
-    if (route === '/miralin' || route === '/miralin/config') {
-      document.title = 'Origen de Miralín · TMB Agent';
-      content.append(renderMiralin());
-      return;
-    }
     const module = modules.find(item => moduleRoute === `/${item.id}`);
     if (module?.id === 'cquadre') {
       const title = cquadreView === 'cquadre'

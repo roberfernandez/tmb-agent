@@ -15,25 +15,24 @@ export function saveOrigin(id, storage = localStorage) {
   originUrl(id);
   try { storage.setItem(KEY, id); return storage.getItem(KEY) === id; } catch { return false; }
 }
-export function renderMiralin() {
-  const panel = document.createElement('section'); panel.className = 'panel'; panel.lang = 'ca';
-  const title = document.createElement('h1'); title.textContent = 'Origen de Miralín';
-  const text = document.createElement('p'); text.className = 'subtitle';
-  text.textContent = 'Tria la teva estació base. Es recordarà en aquest dispositiu per a les properes obertures.';
-  const form = document.createElement('form');
-  const label = document.createElement('label'); label.textContent = 'Estació d’origen';
-  const select = document.createElement('select'); select.required = true; select.style.cssText = 'display:block;width:100%;margin-top:12px;padding:14px;font:inherit;border-radius:12px';
-  const placeholder = new Option('Selecciona una estació', ''); placeholder.disabled = true; select.append(placeholder);
-  for (const [id, name] of stations) select.append(new Option(`${name} (${id})`, id));
-  select.value = readOrigin(); label.append(select);
-  const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'button'; submit.textContent = 'Desar i obrir Miralín ↗';
-  const status = document.createElement('p'); status.className = 'notice'; status.setAttribute('role', 'status');
-  form.append(label, submit, status);
-  form.addEventListener('submit', event => {
-    event.preventDefault(); if (!select.value) return;
-    if (!saveOrigin(select.value)) { status.textContent = 'No s’ha pogut desar la preferència. Permet l’emmagatzematge del navegador i torna-ho a provar.'; return; }
-    location.replace(originUrl(select.value));
-  });
-  const back = document.createElement('a'); back.href = '#/'; back.className = 'back'; back.textContent = '← Inici';
-  panel.append(back, title, text, form); return panel;
+export function renderMiralinCard(module, image) {
+  const card = document.createElement('div'); card.className = 'card card-miralin'; card.dataset.module = module.id;
+  const visual = document.createElement('div'); visual.className = 'miralin-visual';
+  const center = document.createElement('a'); center.className = 'miralin-center';
+  const setCenter = () => { const id = readOrigin() || '413'; center.href = originUrl(id); center.setAttribute('aria-label', `Obrir Miralín · ${stations.find(([code]) => code === id)[1]}`); };
+  center.target = '_blank'; center.rel = 'noopener noreferrer'; setCenter(); center.append(image);
+  center.addEventListener('click', () => { const id = readOrigin() || '413'; saveOrigin(id); setCenter(); });
+  visual.append(center);
+  for (const [id, name] of stations) {
+    const link = document.createElement('a'); link.className = `miralin-station miralin-station-${id}`;
+    link.href = originUrl(id); link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = id;
+    link.setAttribute('aria-label', `Obrir Miralín des de ${name} (${id})`); link.title = name;
+    link.addEventListener('click', () => { saveOrigin(id); setCenter(); }); visual.append(link);
+  }
+  const copy = document.createElement('a'); copy.className = 'card-copy'; copy.target = '_blank'; copy.rel = 'noopener noreferrer';
+  const title = document.createElement('h2'); title.textContent = module.name; copy.append(title);
+  const syncTitle = () => { copy.href = originUrl(readOrigin() || '413'); }; syncTitle();
+  copy.addEventListener('click', () => { saveOrigin(readOrigin() || '413'); syncTitle(); });
+  for (const link of visual.querySelectorAll('a')) link.addEventListener('click', syncTitle);
+  card.append(visual, copy); return card;
 }
