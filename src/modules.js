@@ -16,5 +16,6 @@ export const modules = [
   { id: 'pae', name: 'PAE (EPAM)', initials: 'PA', description: 'Accionament de portes per estació i accés de L4', icon: './assets/icons/pae.svg?v=door-v2' },
   { id: 'dossiers', name: 'Dossiers d’emergència', initials: 'DO', description: 'Dossiers oficials de les estacions de L4', icon: './assets/icons/dossiers-256.webp' },
   { id: 'atencio', name: 'Atenció al viatger', initials: 'AV', description: 'Reglament, queixes i al·legacions', icon: './assets/icons/atencio-256.webp' },
+  { id: 'farmacioles', name: 'Farmacioles i material d’estació', initials: 'FM', description: 'Avisos i reposició de material de L4', icon: './assets/icons/farmacioles-256.webp' },
   { id: 'administracio', name: 'Administració', initials: 'AD', description: 'Administració privada del launcher', adminOnly: true },
 ];

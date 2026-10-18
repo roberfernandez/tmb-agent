@@ -1,8 +1,9 @@
+import { renderFarmacioles } from './farmacioles.js?v=farmacioles-v1';
 import { renderAtencio } from './atencio.js?v=atencio-v1';
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=atencio-v1';
+import { modules } from './modules.js?v=farmacioles-v1';
 import { renderTMobilitat } from './tmobilitat.js?v=tmobilitat-v2';
 import { renderAscensors } from './ascensors.js?v=ascensors-v1';
 import { renderPAE } from './pae.js?v=pae-v2';
@@ -309,6 +310,11 @@ function render() {
     if (module?.id === 't-mobilitat') {
       document.title = 'T-mobilitat · TMB Agent';
       content.append(renderTMobilitat());
+      return;
+    }
+    if (module?.id === 'farmacioles') {
+      document.title = 'Farmacioles i material d’estació · TMB Agent';
+      content.append(renderFarmacioles());
       return;
     }
     if (module?.id === 'atencio') {
