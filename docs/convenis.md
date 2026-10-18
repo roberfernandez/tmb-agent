@@ -14,7 +14,7 @@ L'inventari d'abril de 2020 només s'indexa a la secció FMB (pàgines 34–38).
 
 ## Funcions
 
-- Documents: tipus i favorits persistents al dispositiu.
+- Documents: filtre per tipus.
 - On està escrit?: cerca accent-insensible per paraules; temes suggerits amb equivalents català/castellà. Resultats per pàgina, no respostes jurídiques generades.
 - Compara: dues fonts independents, fragments i enllaços a les pàgines originals. Sense afirmacions automàtiques sobre derogació, substitució o evolució de drets.
 - Cronologia: períodes documentals i accés a antecedents.

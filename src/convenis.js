@@ -10,21 +10,16 @@ const sources = [
 ];
 export function renderConvenis() {
   const root = document.createElement('section'); root.className = 'cv'; root.lang = 'ca';
-  let state = { tab:'documents', query:'', kind:'', left:'c2016', right:'c2023', saved:[], limit:20 };
+  let state = { tab:'documents', query:'', kind:'', left:'c2016', right:'c2023', limit:20 };
   try { const old = JSON.parse(sessionStorage.getItem(KEY)); if(old && typeof old === 'object') state = {...state,...old}; } catch {}
-  try { state.saved = JSON.parse(localStorage.getItem(KEY+'-saved') || '[]'); } catch { state.saved=[]; }
-  if(!Array.isArray(state.saved))state.saved=[];
+  if(state.kind==='Desats')state.kind='';
+  delete state.saved;
   let docs = [];
   const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls)e.className=cls; if(text)e.textContent=text; return e; };
   const button = (text, fn, cls='cv-button') => { const b=el('button',cls,text); b.type='button'; b.onclick=fn; return b; };
   const link = (text, url, cls='cv-link') => {const a=el('a',cls,text); a.href=url; a.target='_blank'; a.rel='noopener noreferrer'; return a;};
-  const save = () => {try{sessionStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(KEY+'-saved',JSON.stringify(state.saved));}catch{}};
+  const save = () => {try{sessionStorage.setItem(KEY,JSON.stringify(state));}catch{}};
   const expandedQuery = () => topics.find(([label])=>normalize(label)===normalize(state.query))?.[1] || state.query;
-  const favorite = id => {
-    const selected = state.saved.includes(id);
-    const b=button(selected?'★ Desat':'☆ Desa',()=>{state.saved=selected?state.saved.filter(x=>x!==id):[...state.saved,id];save();draw();},'cv-save');
-    b.setAttribute('aria-pressed',String(selected)); return b;
-  };
   const heading=el('header','cv-heading'), icon=el('img'); icon.src='./assets/icons/convenis-256.webp';icon.alt='';icon.width=80;icon.height=80;
   const title=el('div');title.append(el('h1','','Convenis'),el('p','','Troba el document. Compara el text.'));heading.append(icon,title);
   const tabs=el('nav','cv-tabs');tabs.setAttribute('aria-label','Apartats de Convenis');
@@ -34,7 +29,7 @@ export function renderConvenis() {
     return box;
   }
   function docCard(doc){
-    const card=el('article','cv-card'), top=el('div','cv-card-top'); top.append(el('span','cv-tag',doc.kind),favorite(doc.id));
+    const card=el('article','cv-card'), top=el('div','cv-card-top'); top.append(el('span','cv-tag',doc.kind));
     card.append(top,el('h2','',doc.title),el('p','cv-meta',`${doc.source}${doc.pageCount?' · '+doc.pageCount+' pàgines':''}`));
     if(doc.note)card.append(el('p','cv-note',doc.note));
     if(!doc.pages.length)card.append(el('p','cv-note','PDF escanejat: cerca de text no disponible.'));
@@ -57,10 +52,10 @@ export function renderConvenis() {
     if(state.tab==='documents'){
       body.append(el('p','cv-intro','Convenis, pròrrogues i acords de Metro Barcelona (FMB).'));
       const label=el('label','cv-filter','Tipus de document '), select=el('select');
-      for(const kind of ['',...new Set(docs.map(d=>d.kind)),'Desats']){const o=el('option','',kind||'Tots');o.value=kind;select.append(o);}select.value=state.kind;
+      for(const kind of ['',...new Set(docs.map(d=>d.kind))]){const o=el('option','',kind||'Tots');o.value=kind;select.append(o);}select.value=state.kind;
       select.onchange=()=>{state.kind=select.value;save();draw();};label.append(select);body.append(label);
-      const grid=el('div','cv-grid');const filtered=docs.filter(d=>!state.kind||(state.kind==='Desats'?state.saved.includes(d.id):d.kind===state.kind)).sort((a,b)=>Number(b.id==='c2023')-Number(a.id==='c2023'));
-      for(const doc of filtered)grid.append(docCard(doc));body.append(grid);if(!filtered.length)body.append(el('p','cv-empty','Encara no tens documents desats.'));
+      const grid=el('div','cv-grid');const filtered=docs.filter(d=>!state.kind||d.kind===state.kind).sort((a,b)=>Number(b.id==='c2023')-Number(a.id==='c2023'));
+      for(const doc of filtered)grid.append(docCard(doc));body.append(grid);if(!filtered.length)body.append(el('p','cv-empty','No hi ha documents d’aquest tipus.'));
     }else if(state.tab==='cerca'){
       body.append(el('h2','','On està escrit?'),el('p','cv-intro','Cerca dins dels documents amb text disponible. Pots cercar en català o castellà; els temes suggerits inclouen totes dues llengües.'));searchBox();
       if(state.query){
