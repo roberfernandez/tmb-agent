@@ -33,7 +33,7 @@ export function renderConvenis() {
     card.append(top,el('h2','',doc.title),el('p','cv-meta',`${doc.source}${doc.pageCount?' · '+doc.pageCount+' pàgines':''}`));
     if(doc.note)card.append(el('p','cv-note',doc.note));
     if(!doc.pages.length)card.append(el('p','cv-note','PDF escanejat: cerca de text no disponible.'));
-    card.append(link('Consulta el document ↗',doc.url));return card;
+    card.append(link('Consulta el document ↗',doc.fileUrl || doc.url));if(doc.fileUrl)card.append(link('Font original · '+doc.source+' ↗',doc.url,'cv-source-original'));return card;
   }
   function searchBox(){
     const form=el('form','cv-search'),label=el('label','','Paraula o expressió');label.htmlFor='cv-query';
@@ -73,7 +73,7 @@ export function renderConvenis() {
         const column=el('section','cv-column'),field=el('label','cv-filter',label),select=el('select');
         for(const doc of docs.filter(d=>d.kind!=='Inventari')){const o=el('option','',doc.title);o.value=doc.id;select.append(o);}select.value=state[key];
         select.onchange=()=>{state[key]=select.value;save();draw();};field.append(select);column.append(field);
-        const doc=docs.find(d=>d.id===state[key]);if(doc){column.append(link('Obre el document complet ↗',doc.url));
+        const doc=docs.find(d=>d.id===state[key]);if(doc){column.append(link('Obre el document complet ↗',doc.fileUrl || doc.url));
           if(!doc.pages.length)column.append(el('p','cv-empty','Aquest PDF és un escaneig. Obre’l per comparar-lo visualment.'));
           else if(!state.query)column.append(el('p','cv-empty','Tria un tema o escriu una expressió per començar.'));
           else{const matches=matchingPages(doc,expandedQuery());column.append(el('p','cv-meta',`${matches.length} pàgines amb coincidències`));const passages=el('div','cv-passages');passages.tabIndex=0;passages.setAttribute('aria-label','Fragments de '+doc.title);for(const page of matches.slice(0,state.limit))passages.append(snippet(doc,page));if(matches.length>state.limit)passages.append(button('Mostra més fragments',()=>{state.limit+=20;save();draw();}));if(!matches.length)passages.append(el('p','cv-empty','Sense coincidències textuals. Això no acredita que el dret no existís.'));column.append(passages);}
@@ -81,7 +81,7 @@ export function renderConvenis() {
       }body.append(columns);
     }else if(state.tab==='cronologia'){
       body.append(el('h2','','Cronologia documental'),el('p','cv-intro','Els períodes identifiquen els documents. No equivalen a una validació de la vigència de cada clàusula.'));
-      for(const doc of [...docs].filter(d=>d.kind!=='Inventari').sort((a,b)=>a.year-b.year)){const row=el('article','cv-timeline');row.append(el('strong','',String(doc.year)),link(doc.title+' ↗',doc.url),el('small','',doc.kind));body.append(row);}
+      for(const doc of [...docs].filter(d=>d.kind!=='Inventari').sort((a,b)=>a.year-b.year)){const row=el('article','cv-timeline');row.append(el('strong','',String(doc.year)),link(doc.title+' ↗',doc.fileUrl || doc.url),el('small','',doc.kind));body.append(row);}
       const old=el('details','cv-card');old.append(el('summary','','Antecedents des de 1961 i altres pactes'));
       old.append(el('p','','L’inventari d’abril de 2020 recull convenis, normes de compliment obligatori, el laude de 1979, l’arbitratge de 1981 i acords específics sobre organització, vacances, contractació, Non Stop i jubilació parcial. Són referències històriques: no tots els textos individuals estan disponibles.'));
       old.append(link('Consulta la secció FMB · pàg. 34 ↗',pageUrl(docs.find(d=>d.id==='inventari2020'),34)));body.append(old);

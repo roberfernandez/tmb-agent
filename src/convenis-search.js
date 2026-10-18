@@ -24,5 +24,6 @@ export function excerpt(text, query, length = 520) {
   return `${start ? '…' : ''}${text.slice(start, start + length)}${start + length < text.length ? '…' : ''}`;
 }
 export function pageUrl(doc, page) {
-  const url = new URL(doc.url); url.hash = `page=${page}`; return url.href;
+  const base = typeof document !== 'undefined' ? document.baseURI : 'https://roberfernandez.github.io/tmb-agent/';
+  const url = new URL(doc.fileUrl || doc.url, base); url.hash = `page=${page}`; return url.href;
 }

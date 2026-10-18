@@ -6,7 +6,7 @@ Implementació interna de TMB Agent, en català, amb la mateixa ruta protegida i
 
 Catàleg: `public/assets/convenis/index.json`. 15 documents individuals i un inventari històric oficial. Els enllaços provenen del BOPB, TMB, CGT i CCOO. Fonts sindicals addicionals accessibles des de la pantalla Fonts: CIM, UGT i Solidaritat Obrera.
 
-Revisió documental: 18/10/2026. No hi ha actualització automàtica. Els textos dels PDF públics s'han extret amb PyMuPDF, conservant el número físic de pàgina del PDF i normalitzant només els espais. L'original continua accessible al servidor de la font; no es redistribueixen els PDF dins de l'app.
+Revisió documental: 18/10/2026. No hi ha actualització automàtica. Els textos dels PDF públics s'han extret amb PyMuPDF, conservant el número físic de pàgina del PDF i normalitzant només els espais. L'original continua accessible al servidor de la font; excepte les còpies dels convenis XX i XVI descrites al final.
 
 Hi ha 6 escanejos sense text extraïble: XXII, XXIII, XXV i pròrrogues 2012–2013, 2013–2014, 2014–2015. Es poden consultar, però no generen resultats de cerca ni fragments inventats. No s'ha fet OCR. La resta té text extraïble, que pot no reproduir perfectament la disposició visual o totes les taules.
 
@@ -25,3 +25,7 @@ La pàgina indicada al fragment és física; el visor extern pot ignorar `#page`
 ## Validació
 
 Proves de cerca, accents, escanejos, pàgines, inventari FMB i integració amb el catàleg general. Revisió visual a 390 píxels i comprovació de la comparació de vacances entre XXVI i XXVII. Compilació estàtica amb el procés existent. Sense publicació ni migracions.
+
+## Disponibilitat dels convenis XX i XVI
+
+Els enllaços originals de CCOO han deixat de respondre en les comprovacions del 18/10/2026. Les còpies públiques descarregades durant la recerca s’inclouen sense modificacions a assets/convenis (14 i 8 pàgines), amb l’enllaç original conservat. La cerca, la comparació i la cronologia obren aquestes còpies. Només aquests dos PDF estan disponibles també a la memòria cau de la PWA.

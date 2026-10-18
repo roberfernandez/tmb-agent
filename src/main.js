@@ -1,4 +1,4 @@
-import { renderConvenis } from './convenis.js?v=convenis-v2';
+import { renderConvenis } from './convenis.js?v=convenis-v3';
 import { renderVendaDiners } from './venda-diners.js?v=venda-v1';
 import { renderObjectes } from './objectes.js?v=objectes-v1';
 import { renderFarmacioles } from './farmacioles.js?v=farmacioles-v1';
@@ -6,7 +6,7 @@ import { renderAtencio } from './atencio.js?v=atencio-v1';
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=convenis-v2';
+import { modules } from './modules.js?v=convenis-v3';
 import { renderTMobilitat } from './tmobilitat.js?v=tmobilitat-v2';
 import { renderAscensors } from './ascensors.js?v=ascensors-v1';
 import { renderPAE } from './pae.js?v=pae-v2';

@@ -24,3 +24,15 @@ test('empty and punctuation-only queries yield no results; excerpts remain verba
  assert.deepEqual(matchingPages(d,''),[]);assert.deepEqual(matchingPages(d,'!!!'),[]);
  assert.ok(excerpt(d.pages[0].text,'jornada').includes('La jornada anual'));
 });
+
+test('XX and XVI open bundled unchanged PDFs, including search page links',async()=>{
+ for(const id of ['c1993','c1985']){
+  const d=docs.find(d=>d.id===id);
+  assert.ok(d.fileUrl.startsWith('./assets/convenis/'));
+  const bytes=await readFile(new URL('../public/'+d.fileUrl.slice(2),import.meta.url));
+  assert.equal(bytes.subarray(0,5).toString(),'%PDF-');
+  assert.ok(pageUrl(d,2).includes('/tmb-agent/assets/convenis/'));
+  assert.ok(pageUrl(d,2).endsWith('#page=2'));
+  assert.equal(new URL(d.url).hostname,'ccoo.app');
+ }
+});
