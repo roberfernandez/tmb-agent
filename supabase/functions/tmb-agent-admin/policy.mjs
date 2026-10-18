@@ -1,4 +1,4 @@
-export const MODULE_IDS = ['computo','incidencias','nomina','dea','bobines','miralin','t-mobilitat','mapa-metro','cquadre','cinta-metrica','bustia','permisos','ascensors','pae','dossiers'];
+export const MODULE_IDS = ['computo','incidencias','nomina','dea','bobines','miralin','t-mobilitat','mapa-metro','cquadre','cinta-metrica','bustia','permisos','ascensors','pae','dossiers','atencio'];
 export function authorize(user, approved, action) {
   if (!user?.id) return 401;
   if (!approved) return 403;
