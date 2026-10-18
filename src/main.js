@@ -1,10 +1,11 @@
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
-import { modules } from './modules.js?v=pae-v2';
+import { modules } from './modules.js?v=dossiers-v1';
 import { renderTMobilitat } from './tmobilitat.js?v=tmobilitat-v2';
 import { renderAscensors } from './ascensors.js?v=ascensors-v1';
 import { renderPAE } from './pae.js?v=pae-v2';
+import { renderDossiers } from './dossiers.js?v=dossiers-v1';
 import { renderPermisos } from './permisos.js?v=permisos-v3';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCounts } from './cquadre.js?v=cquadre-manual-v1';
@@ -307,6 +308,11 @@ function render() {
     if (module?.id === 't-mobilitat') {
       document.title = 'T-mobilitat · TMB Agent';
       content.append(renderTMobilitat());
+      return;
+    }
+    if (module?.id === 'dossiers') {
+      document.title = 'Dossiers d’emergència · TMB Agent';
+      content.append(renderDossiers());
       return;
     }
     if (module?.id === 'pae') {
