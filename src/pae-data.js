@@ -6,7 +6,7 @@ export const stations=[
   [
    {
     "name": "Rambla Guipúscoa / Ca n’Oliva",
-    "url": null
+    "url": "https://tmbbcn.sharepoint.com/sites/SEEpublic/SEEDocuments/PAES/PAES_L-4/414-BES%C3%92S_GranVia-PereIV_ACCIONAMENT_PAE_Persiana.pdf"
    }
   ]
  ],
@@ -20,7 +20,7 @@ export const stations=[
    },
    {
     "name": "TRAM Besòs",
-    "url": null
+    "url": "https://tmbbcn.sharepoint.com/sites/SEEpublic/SEEDocuments/PAES/PAES_L-4/414-BES%C3%92S_GranVia-PereIV_ACCIONAMENT_PAE_Persiana.pdf"
    }
   ]
  ],
@@ -289,3 +289,7 @@ export const stations=[
   ]
  ]
 ];
+
+// La Pau i TRAM Besòs: manual de persiana assignat per indicació de l’usuari.
+// Besòs: tots dos accessos són V.0 segons l’usuari; no es mostren etiquetes V.
+export function vestibuleLabel(code,count,index){return count===2&&code!==414?`V.${index} · `:"";}

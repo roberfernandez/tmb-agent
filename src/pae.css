@@ -37,3 +37,7 @@
 @media(max-width:360px){#pae-shutter-demo .ps-selector{grid-template-columns:61px minmax(0,1fr) 146px;gap:6px}#pae-shutter-demo .ps-real-panel{border-width:7px}#pae-shutter-demo .ps-service{left:6px}#pae-shutter-demo .ps-stop{left:12px}#pae-shutter-demo .ps-rearm{left:7px}}
 
 #pae-shutter-demo{padding:0}#pae-shutter-demo .ps-phone{border:0;border-radius:0;box-shadow:none;background:transparent;overflow:visible}#pae-shutter-demo .ps-body{padding:8px 0 0}#pae-shutter-demo a.ps-access{text-decoration:none}#pae-shutter-demo .ps-access.ps-unavailable{color:#bdcbd8}#pae-shutter-demo .ps-access.ps-unavailable small{white-space:normal;color:#bdcbd8;font-size:11px}#pae-shutter-demo .ps-source{padding:12px;min-height:44px;margin-bottom:12px}#pae-shutter-demo .ps-access small{font-size:12px}#pae-shutter-demo button,#pae-shutter-demo a,#pae-shutter-demo select{touch-action:manipulation}#pae-shutter-demo #ps-wheel,#pae-shutter-demo #ps-range{touch-action:none}
+
+/* La porta ocupa l’espai restant; el quadre manté els controls accessibles. */
+#pae-shutter-demo .ps-selector{grid-template-columns:minmax(0,1fr) 24px 158px;gap:8px}
+@media(max-width:360px){#pae-shutter-demo .ps-selector{grid-template-columns:minmax(0,1fr) 22px 146px;gap:6px}}

@@ -13,6 +13,6 @@ export const modules = [
   { id: 'bustia', name: 'Bústia', initials: '?', description: 'Consultes, errors i peticions', icon: './assets/icons/bustia-192.png' },
   { id: 'permisos', name: 'Permisos TMB', initials: 'PE', description: 'Durada, documentació i condicions dels permisos', icon: './assets/icons/permisos-192.webp' },
   { id: 'ascensors', name: 'Rescat ascensors', initials: 'AS', description: 'Procediments de rescat dels ascensors de L4', icon: './assets/icons/ascensors-256.webp' },
-  { id: 'pae', name: 'PAE (EPAM)', initials: 'PA', description: 'Accionament de portes per estació i accés de L4', icon: './assets/icons/pae.svg' },
+  { id: 'pae', name: 'PAE (EPAM)', initials: 'PA', description: 'Accionament de portes per estació i accés de L4', icon: './assets/icons/pae.svg?v=door-v2' },
   { id: 'administracio', name: 'Administració', initials: 'AD', description: 'Administració privada del launcher', adminOnly: true },
 ];
