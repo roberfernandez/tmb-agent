@@ -8,7 +8,34 @@ function readState(){try{const s=JSON.parse(sessionStorage.getItem(KEY));return 
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text)n.textContent=text;return n;};
 function link(label,url,cls='tm-link'){const a=el('a',cls,label);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
 function button(label,fn,cls='tm-button'){const b=el('button',cls,label);b.type='button';b.addEventListener('click',fn);return b;}
-function sourceLink(page){return link(`${source.document} · pàgina ${page} ↗`,`${source.url}#page=${page}`,'tm-source-link');}
+function sourceLink(page){
+  const a=link(`${source.document} · pàgina ${page}`,`${source.url}#page=${page}`,'tm-source-link');
+  a.removeAttribute('target');
+  a.addEventListener('click',event=>{if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();openSourcePage(page,a);});
+  return a;
+}
+function openSourcePage(initialPage,opener){
+  const dialog=el('dialog','tm-pdf-dialog');dialog.setAttribute('aria-label',source.document);
+  const toolbar=el('div','tm-pdf-toolbar'),status=el('span');status.setAttribute('aria-live','polite');
+  const viewport=el('div','tm-pdf-viewport'),image=el('img','tm-pdf-page');
+  const error=el('p','notice','No s’ha pogut carregar la pàgina. Torna-ho a provar o obre el PDF complet.');error.hidden=true;
+  let page=initialPage,zoom=1;
+  const previous=button('←',()=>draw(page-1)),next=button('→',()=>draw(page+1));
+  previous.setAttribute('aria-label','Pàgina anterior');next.setAttribute('aria-label','Pàgina següent');
+  const shrink=button('−',()=>resize(-0.5)),grow=button('+',()=>resize(0.5));
+  shrink.setAttribute('aria-label','Reduir');grow.setAttribute('aria-label','Ampliar');
+  const close=button('Tancar',()=>dialog.close());
+  function resize(delta){zoom=Math.min(4,Math.max(1,zoom+delta));image.style.width=`${zoom*100}%`;shrink.disabled=zoom===1;grow.disabled=zoom===4;}
+  function draw(value){page=Math.max(1,Math.min(SOURCE_PAGE_COUNT,value));error.hidden=true;image.alt=`${source.document} · pàgina ${page}`;image.src=`./assets/tmobilitat/pages/page-${page}.webp`;status.textContent=`Pàgina ${page} / ${SOURCE_PAGE_COUNT}`;previous.disabled=page===1;next.disabled=page===SOURCE_PAGE_COUNT;zoom=1;resize(0);viewport.scrollTo(0,0);}
+  image.addEventListener('error',()=>{error.hidden=false;});
+  toolbar.append(previous,status,next,shrink,grow,close);
+  const footer=el('div','tm-pdf-footer');footer.append(button('Tornar a carregar',()=>draw(page)),link('Obrir PDF complet ↗',source.url));
+  viewport.append(image,error);dialog.append(toolbar,viewport,footer);document.body.append(dialog);
+  dialog.addEventListener('close',()=>{dialog.remove();if(opener.isConnected)opener.focus();},{once:true});
+  dialog.showModal();draw(page);close.focus();
+}
+const SOURCE_PAGE_COUNT=22;
+
 function paragraph(parent,title,text){parent.append(el('h3','',title),el('p','tm-text',text));}
 export function renderTMobilitat(){
   const shell=el('div','tm-shell');const key='tmb-agent-tmobilitat-screen-v1';let screen='home';try{screen=sessionStorage.getItem(key)||'home';}catch{}
@@ -84,7 +111,7 @@ function renderActuacions(){
     if(c.calculator)detail.append(renderCalculator(state.calculatorDate,date=>{state.calculatorDate=date;save();}));
     if(c.related.length){const related=el('div','tm-related');related.append(el('h3','','Casos relacionats'));for(const id of c.related){const target=cases.find(t=>t.id===id);if(target)related.append(button(target.title+' →',()=>jump(id),'tm-related-button'));}detail.append(related);}
     if(c.original){const original=el('details','tm-original');original.append(el('summary','','Text original del procediment'),el('p','tm-text',c.originalTitle+'\n\n'+c.original));detail.append(original);}
-    detail.append(sourceLink(c.page),el('p','tm-small',`Font del ${source.date}. Còpia incorporada a l’app. Si el visor no hi salta directament, selecciona la pàgina indicada.`));markText(detail,state.query);
+    detail.append(sourceLink(c.page),el('p','tm-small',`Font del ${source.date}. Còpia incorporada a l’app. Obre l’enllaç per veure directament la pàgina original.`));markText(detail,state.query);
   }
   search.addEventListener('input',()=>{state.query=search.value;state.open=false;update();});category.addEventListener('change',()=>{state.category=category.value;state.open=false;update();});picker.addEventListener('change',()=>choose(picker.value));
   update();return root;

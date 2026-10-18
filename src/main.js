@@ -8,7 +8,7 @@ import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from '
 let canAdmin = false;
 import { renderMap } from './map.js?v=ca-mapa-v1';
 import { modules } from './modules.js?v=search-v8';
-import { renderTMobilitat } from './tmobilitat.js?v=tmobilitat-v3';
+import { renderTMobilitat } from './tmobilitat.js?v=tmobilitat-pages-v1';
 import { renderAscensors } from './ascensors.js?v=ascensors-v1';
 import { renderPAE } from './pae.js?v=pae-v3';
 import { renderDossiers } from './dossiers.js?v=dossiers-v1';
