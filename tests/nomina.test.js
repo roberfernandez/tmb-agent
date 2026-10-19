@@ -8,7 +8,7 @@ test('Nòmina is linked with its real icon; original destinations and first card
   const n=modules.find(m=>m.id==='nomina');
   assert.equal(n.appUrl,'https://roberfernandez.github.io/nomina/');
   assert.ok((await readFile(new URL('../public/'+n.icon,import.meta.url))).length>0);
-  assert.equal(modules.filter(m=>!m.adminOnly).length,21);
+  assert.equal(modules.filter(m=>!m.adminOnly).length,22);
   assert.ok(modules.some(m=>m.id==='cquadre'));
   const bustia=modules.find(m=>m.id==='bustia');
   assert.equal(bustia.icon,'./assets/icons/bustia-192.png');
