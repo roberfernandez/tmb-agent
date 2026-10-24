@@ -15,6 +15,7 @@ class Element {
 }
 const descendants = node => [node, ...node.children.flatMap(descendants)];
 const byClass = (root, name) => descendants(root).filter(node => node.className === name);
+
 function fixture(kind = 'cquadre', count = 3, fail = false) {
   const original = globalThis.document;
   globalThis.document = { createElement: tag => new Element(tag) };
@@ -32,62 +33,73 @@ function fixture(kind = 'cquadre', count = 3, fail = false) {
   });
   return { render, saved, counts, restore() { globalThis.document = original; } };
 }
-test('one left control marks an individual complement immediately; no right control', async () => {
+
+test('visualitzar un document no el marca com a llegit', () => {
   const t = fixture();
   try {
     const section = t.render();
-    assert.equal(byClass(section, 'cquadre-left-action').length, 3);
-    assert.equal(byClass(section, 'cquadre-read-button').length, 0);
-    assert.equal(byClass(section, 'cquadre-link').length, 3);
-    assert.equal(byClass(section, 'cquadre-bulk-tools')[0].hidden, true);
-    await byClass(section, 'cquadre-left-action')[0].listeners.click();
-    assert.deepEqual([...t.saved], [1]);
-    assert.equal(byClass(section, 'cquadre-item').length, 2);
-    assert.deepEqual(t.counts, [2]);
-    assert.equal(byClass(t.render(), 'cquadre-item').length, 2);
+    const link = byClass(section, 'cquadre-link')[0];
+    assert.equal(link.listeners.click, undefined);
+    assert.equal(t.saved.size, 0);
+    assert.equal(byClass(section, 'cquadre-toolbar')[0].hidden, true);
   } finally { t.restore(); }
 });
-test('multi selection does not save until confirmed and can select just two complements', async () => {
+
+test('la selecció és directa i el botó de llegits només apareix quan hi ha selecció', async () => {
   const t = fixture();
   try {
     const section = t.render();
-    byClass(section, 'cquadre-mode-toggle')[0].listeners.click();
-    assert.equal(byClass(section, 'cquadre-bulk-tools')[0].hidden, false);
+    const toolbar = byClass(section, 'cquadre-toolbar')[0];
     const actions = byClass(section, 'cquadre-left-action');
-    await actions[0].listeners.click(); await actions[2].listeners.click();
+    const mark = byClass(section, 'button cquadre-mark-selected')[0];
+
+    assert.equal(byClass(section, 'cquadre-mode-toggle').length, 0);
+    assert.equal(toolbar.hidden, true);
+
+    actions[0].listeners.click();
+    assert.equal(toolbar.hidden, false);
+    assert.equal(actions[0].attributes['aria-pressed'], 'true');
+    assert.equal(mark.textContent, 'Marca com a llegits');
+
+    actions[2].listeners.click();
     assert.equal(t.saved.size, 0);
-    assert.match(byClass(section, 'button cquadre-mark-selected')[0].textContent, /\(2\)/);
-    await byClass(section, 'button cquadre-mark-selected')[0].listeners.click();
+
+    await mark.listeners.click();
     assert.deepEqual([...t.saved], [1, 3]);
     assert.equal(byClass(section, 'cquadre-item').length, 1);
-    assert.equal(byClass(section, 'cquadre-bulk-tools')[0].hidden, true);
-    await byClass(section, 'cquadre-left-action')[0].listeners.click();
-    assert.equal(t.saved.size, 3);
-    assert.equal(byClass(section, 'cquadre-item').length, 0);
+    assert.equal(toolbar.hidden, true);
+    assert.deepEqual(t.counts, [2, 1]);
   } finally { t.restore(); }
 });
-test('Avisos multi selection select-all, deselect one, and retain one as unread after reload', async () => {
+
+test('Avisos permet seleccionar diversos elements sense mode especial', async () => {
   const t = fixture('avisos', 4);
   try {
     const section = t.render();
-    byClass(section, 'cquadre-mode-toggle')[0].listeners.click();
-    byClass(section, 'cquadre-select-all')[0].listeners.click();
-    await byClass(section, 'cquadre-left-action')[3].listeners.click();
-    assert.equal(t.saved.size, 0);
+    const actions = byClass(section, 'cquadre-left-action');
+    actions[0].listeners.click();
+    actions[1].listeners.click();
+    actions[2].listeners.click();
+
     await byClass(section, 'button cquadre-mark-selected')[0].listeners.click();
     assert.deepEqual([...t.saved], [1, 2, 3]);
     assert.equal(byClass(section, 'cquadre-item').length, 1);
     assert.equal(byClass(t.render(), 'cquadre-item').length, 1);
-    assert.deepEqual(t.counts, [3, 2, 1]);
   } finally { t.restore(); }
 });
-test('failed read retains the item and its unread count', async () => {
+
+test('si falla el marcatge, els elements continuen pendents i seleccionables', async () => {
   const t = fixture('avisos', 3, true);
   try {
     const section = t.render();
-    await byClass(section, 'cquadre-left-action')[0].listeners.click();
+    byClass(section, 'cquadre-left-action')[0].listeners.click();
+    const toolbar = byClass(section, 'cquadre-toolbar')[0];
+    assert.equal(toolbar.hidden, false);
+
+    await byClass(section, 'button cquadre-mark-selected')[0].listeners.click();
     assert.equal(byClass(section, 'cquadre-item').length, 3);
     assert.equal(t.saved.size, 0);
-    assert.match(byClass(section, 'cquadre-status')[0].textContent, /No s’ha pogut/);
+    assert.equal(toolbar.hidden, false);
+    assert.match(byClass(section, 'cquadre-status')[0].textContent, /No s’han pogut marcar/);
   } finally { t.restore(); }
 });
