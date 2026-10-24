@@ -29,22 +29,18 @@ export function renderPendingSection({
   section.append(heading);
 
   const toolbar = node('div', 'cquadre-toolbar');
-  const modeButton = node('button', 'cquadre-mode-toggle', 'Selecció múltiple');
-  modeButton.type = 'button';
-  const bulkTools = node('div', 'cquadre-bulk-tools');
-  const selectAll = node('button', 'cquadre-select-all', 'Selecciona tots');
-  selectAll.type = 'button';
-  const markSelected = node('button', 'button cquadre-mark-selected', 'Marca seleccionats');
+  const markSelected = node('button', 'button cquadre-mark-selected', 'Marca com a llegits');
   markSelected.type = 'button';
-  bulkTools.append(selectAll, markSelected);
-  toolbar.append(modeButton, bulkTools);
+  toolbar.append(markSelected);
+
   const status = node('p', 'cquadre-status');
   status.setAttribute('role', 'status');
   const list = node('div', 'cquadre-list');
   section.append(toolbar, status, list);
 
-  const rows = new Map(), selected = new Set();
-  let busy = false, multiple = false;
+  const rows = new Map();
+  const selected = new Set();
+  let busy = false;
 
   function refresh(notify = false) {
     const remaining = rows.size;
@@ -52,72 +48,39 @@ export function renderPendingSection({
     summary.textContent = remaining
       ? `${remaining} pendent${remaining === 1 ? '' : 's'} de llegir`
       : '✓ Estàs al dia. No tens pendents.';
-    toolbar.hidden = remaining === 0;
-    modeButton.textContent = multiple ? 'Cancel·la la selecció' : 'Selecció múltiple';
-    modeButton.disabled = busy || remaining === 0;
-    bulkTools.hidden = !multiple;
-    selectAll.textContent = selected.size === remaining && remaining > 0
-      ? 'Desmarca tots' : 'Selecciona tots';
-    selectAll.disabled = busy || !remaining;
-    markSelected.textContent = selected.size
-      ? `Marca seleccionats (${selected.size})` : 'Marca seleccionats';
+
+    toolbar.hidden = remaining === 0 || selected.size === 0;
     markSelected.disabled = busy || selected.size === 0;
+
     for (const [id, entry] of rows) {
-      const chosen = multiple && selected.has(id);
-      entry.action.textContent = multiple ? (chosen ? '☑' : '☐') : '✓';
+      const chosen = selected.has(id);
+      entry.action.textContent = chosen ? '☑' : '☐';
       entry.action.disabled = busy;
-      entry.action.setAttribute('aria-label', multiple
-        ? `${chosen ? 'Desselecciona' : 'Selecciona'}: ${entry.title}`
-        : `Marca com a llegit: ${entry.title}`);
+      entry.action.setAttribute('aria-label',
+        `${chosen ? 'Desselecciona' : 'Selecciona'}: ${entry.title}`);
       entry.action.setAttribute('aria-pressed', chosen ? 'true' : 'false');
       entry.row.classList.toggle('cquadre-selected', chosen);
     }
+
     if (notify) onUnreadChange(kind, remaining);
   }
+
   function removeRead(id) {
     const entry = rows.get(id);
     if (!entry) return;
     entry.row.remove();
     rows.delete(id);
     selected.delete(id);
-    if (!rows.size) multiple = false;
     refresh(true);
   }
-  async function readOne(id) {
-    if (busy || !rows.has(id)) return;
-    status.textContent = '';
-    busy = true;
-    refresh();
-    try {
-      await markReadItem(Number(id));
-      removeRead(id);
-    } catch {
-      status.textContent = 'No s’ha pogut marcar com a llegit. Torna-ho a provar.';
-    } finally {
-      busy = false;
-      refresh();
-    }
-  }
-  modeButton.addEventListener('click', () => {
-    if (busy) return;
-    multiple = !multiple;
-    selected.clear();
-    status.textContent = multiple ? 'Selecciona els elements i prem «Marca seleccionats».' : '';
-    refresh();
-  });
-  selectAll.addEventListener('click', () => {
-    if (busy || !multiple) return;
-    const clear = selected.size === rows.size;
-    selected.clear();
-    if (!clear) for (const id of rows.keys()) selected.add(id);
-    refresh();
-  });
+
   markSelected.addEventListener('click', async () => {
-    if (busy || !multiple || !selected.size) return;
+    if (busy || !selected.size) return;
     const ids = [...selected];
     status.textContent = '';
     busy = true;
     refresh();
+
     let failed = 0;
     for (const id of ids) {
       try {
@@ -127,11 +90,9 @@ export function renderPendingSection({
         failed += 1;
       }
     }
+
     busy = false;
-    if (!failed) {
-      multiple = false;
-      selected.clear();
-    } else {
+    if (failed) {
       status.textContent = `No s’han pogut marcar ${failed} element${failed === 1 ? '' : 's'}. Torna-ho a provar.`;
     }
     refresh();
@@ -140,13 +101,14 @@ export function renderPendingSection({
   items.filter(item => !item.llegit).forEach(item => {
     const id = String(item.id);
     const row = node('div', 'cquadre-item');
-    const action = node('button', 'cquadre-left-action', '✓');
+
+    const action = node('button', 'cquadre-left-action', '☐');
     action.type = 'button';
-    action.addEventListener('click', async () => {
+    action.addEventListener('click', () => {
       if (busy) return;
-      if (!multiple) return readOne(id);
       if (selected.has(id)) selected.delete(id);
       else selected.add(id);
+      status.textContent = '';
       refresh();
     });
 
@@ -154,6 +116,8 @@ export function renderPendingSection({
     link.href = item.enlace;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
+    link.setAttribute('aria-label', `Visualitza document: ${item.titulo}`);
+
     const copy = node('span', 'cquadre-item-copy');
     copy.append(node('strong', '', item.titulo));
     const meta = [];
@@ -161,11 +125,12 @@ export function renderPendingSection({
     if (kind === 'avisos' && item.interessa) meta.push(item.interessa);
     if (meta.length) copy.append(node('span', 'cquadre-date', meta.join(' · ')));
     link.append(copy, node('span', 'cquadre-arrow', '↗'));
-    link.addEventListener('click', () => { if (!multiple) void readOne(id); });
+
     row.append(action, link);
     list.append(row);
     rows.set(id, { row, action, title: item.titulo });
   });
+
   refresh();
 
   const all = node('a', 'button cquadre-all', allLabel);
@@ -175,6 +140,7 @@ export function renderPendingSection({
   section.append(all);
   return section;
 }
+
 export async function renderCQuadre(onUnreadChange = () => {}, view = 'all') {
   const container = node('section', 'cquadre');
   container.append(node('p', 'notice', 'Carregant C.Quadre i Avisos…'));
