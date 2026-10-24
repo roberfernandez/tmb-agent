@@ -6,8 +6,7 @@ export function renderObjectes(){
  <img class="op-hero" src="./assets/objectes/objectes-400.webp" alt="Cartera amb una targeta T-mobilitat i un mòbil">
  <section aria-labelledby="op-agent"><h2 id="op-agent">Procediment de l’agent</h2>
  <a class="op-action" href="${PROCEDURE_URL}" target="_blank" rel="noopener noreferrer"><strong>Obre el procediment oficial ↗</strong><small>Instrucció AAC I i II · lectura i esquema d’actuació</small></a>
- <p class="op-note">Dues pàgines d’instruccions després de la portada. Canvia de diapositiva i amplia-la al visor de TMB. Requereix accés corporatiu.</p>
- <div class="op-contacts"><span>CCM · <strong>19493</strong></span><span>CSPC · <strong>88038</strong></span></div>
+ <div class="op-contacts"><span>CCM-<strong>19493</strong></span><span>CSPC-<strong>88038</strong></span></div>
  </section>
  <section aria-labelledby="op-tramit"><h2 id="op-tramit">Tràmit Objecte perdut</h2>
  <a class="op-action op-primary" href="${PUBLIC_URL}" target="_blank" rel="noopener noreferrer"><strong>Tràmit Objecte perdut ↗</strong><small>Formulari públic de TMB per al viatger</small></a>
