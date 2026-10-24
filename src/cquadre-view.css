@@ -1,17 +1,23 @@
-
-/* Acció única a l'esquerra i selecció múltiple independent */
-.cquadre-mode-toggle,.cquadre-left-action{
+/* Selecció directa: visualitzar no marca com a llegit */
+.cquadre-left-action{
+  display:grid;place-items:center;flex:0 0 42px;width:42px;min-height:42px;
   border:1px solid #56728f;border-radius:10px;background:#17283e;
-  color:#e4eef9;font:650 14px system-ui,sans-serif;cursor:pointer
+  color:#e4eef9;font:650 21px system-ui,sans-serif;cursor:pointer
 }
-.cquadre-mode-toggle{min-height:42px;padding:9px 14px}
-.cquadre-left-action{display:grid;place-items:center;flex:0 0 42px;width:42px;min-height:42px;font-size:21px}
-.cquadre-left-action:hover,.cquadre-mode-toggle:hover{border-color:#98c5e0;background:#233a53}
-.cquadre-left-action:disabled,.cquadre-mode-toggle:disabled{opacity:.5;cursor:wait}
-.cquadre-bulk-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.cquadre-bulk-tools[hidden],.cquadre-toolbar[hidden]{display:none}
-.cquadre-toolbar{align-items:center}
+.cquadre-left-action:hover{border-color:#98c5e0;background:#233a53}
+.cquadre-left-action[aria-pressed="true"]{
+  border-color:#98c5e0;background:#264765;color:#fff
+}
+.cquadre-left-action:disabled{opacity:.5;cursor:wait}
+.cquadre-toolbar{
+  display:flex;justify-content:flex-end;align-items:center;
+  margin:0 0 12px
+}
+.cquadre-toolbar[hidden]{display:none}
+.cquadre-mark-selected{min-height:42px;margin:0;padding:10px 14px}
 @media(max-width:560px){
   .cquadre-item{display:flex;align-items:center}
   .cquadre-left-action{flex:0 0 42px}
+  .cquadre-toolbar{justify-content:stretch}
+  .cquadre-mark-selected{width:100%}
 }
