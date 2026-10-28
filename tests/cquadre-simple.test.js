@@ -34,14 +34,58 @@ function fixture(kind = 'cquadre', count = 3, fail = false) {
   return { render, saved, counts, restore() { globalThis.document = original; } };
 }
 
-test('visualitzar un document no el marca com a llegit', () => {
+for (const kind of ['cquadre', 'avisos']) {
+  test(`obrir un document de ${kind} el marca llegit i persisteix el comptador`, async () => {
+    const t = fixture(kind);
+    try {
+      const section = t.render();
+      const link = byClass(section, 'cquadre-link')[0];
+      assert.equal(link.target, '_blank');
+      assert.equal(link.href, 'https://example.org/1');
+      await link.listeners.click();
+      assert.deepEqual([...t.saved], [1]);
+      assert.deepEqual(t.counts, [2]);
+      assert.equal(byClass(section, 'cquadre-item').length, 2);
+      assert.equal(byClass(t.render(), 'cquadre-item').length, 2);
+      assert.equal(byClass(section, 'cquadre-toolbar')[0].hidden, true);
+    } finally { t.restore(); }
+  });
+}
+
+test('si falla la lectura en obrir, conserva el pendent i informa', async () => {
+  const t = fixture('avisos', 3, true);
+  try {
+    const section = t.render();
+    await byClass(section, 'cquadre-link')[0].listeners.click();
+    assert.equal(t.saved.size, 0);
+    assert.equal(byClass(section, 'cquadre-item').length, 3);
+    assert.deepEqual(t.counts, []);
+    assert.match(byClass(section, 'cquadre-status')[0].textContent, /No s’ha pogut/);
+  } finally { t.restore(); }
+});
+
+test('obrir diversos documents durant un marcatge no perd lectures', async () => {
+  const t = fixture();
+  try {
+    const section = t.render();
+    byClass(section, 'cquadre-left-action')[0].listeners.click();
+    const bulk = byClass(section, 'button cquadre-mark-selected')[0].listeners.click();
+    const links = byClass(section, 'cquadre-link');
+    await Promise.all([bulk, links[0].listeners.click(), links[1].listeners.click()]);
+    assert.deepEqual([...t.saved], [1, 2]);
+    assert.deepEqual(t.counts, [2, 1]);
+  } finally { t.restore(); }
+});
+
+test('el botó central marca llegit; el dret no', async () => {
   const t = fixture();
   try {
     const section = t.render();
     const link = byClass(section, 'cquadre-link')[0];
-    assert.equal(link.listeners.click, undefined);
+    await link.listeners.auxclick({ button: 2 });
     assert.equal(t.saved.size, 0);
-    assert.equal(byClass(section, 'cquadre-toolbar')[0].hidden, true);
+    await link.listeners.auxclick({ button: 1 });
+    assert.deepEqual([...t.saved], [1]);
   } finally { t.restore(); }
 });
 

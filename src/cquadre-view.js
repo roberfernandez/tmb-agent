@@ -41,6 +41,7 @@ export function renderPendingSection({
   const rows = new Map();
   const selected = new Set();
   let busy = false;
+  const pendingReads = new Map();
 
   function refresh(notify = false) {
     const remaining = rows.size;
@@ -74,6 +75,26 @@ export function renderPendingSection({
     refresh(true);
   }
 
+  function saveRead(id) {
+    if (pendingReads.has(id)) return pendingReads.get(id);
+    if (!rows.has(id)) return Promise.resolve();
+    const saving = Promise.resolve()
+      .then(() => markReadItem(Number(id)))
+      .then(() => removeRead(id))
+      .finally(() => pendingReads.delete(id));
+    pendingReads.set(id, saving);
+    return saving;
+  }
+
+  async function readOnOpen(id) {
+    status.textContent = '';
+    try {
+      await saveRead(id);
+    } catch {
+      status.textContent = 'No s’ha pogut marcar com a llegit. Torna-ho a provar.';
+    }
+  }
+
   markSelected.addEventListener('click', async () => {
     if (busy || !selected.size) return;
     const ids = [...selected];
@@ -84,8 +105,7 @@ export function renderPendingSection({
     let failed = 0;
     for (const id of ids) {
       try {
-        await markReadItem(Number(id));
-        removeRead(id);
+        await saveRead(id);
       } catch {
         failed += 1;
       }
@@ -116,6 +136,10 @@ export function renderPendingSection({
     link.href = item.enlace;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
+    link.addEventListener('click', () => readOnOpen(id));
+    link.addEventListener('auxclick', event => {
+      if (event.button === 1) return readOnOpen(id);
+    });
     link.setAttribute('aria-label', `Visualitza document: ${item.titulo}`);
 
     const copy = node('span', 'cquadre-item-copy');

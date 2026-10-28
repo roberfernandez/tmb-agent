@@ -15,7 +15,7 @@ import { renderDossiers } from './dossiers.js?v=dossiers-v1';
 import { renderPermisos } from './permisos.js?v=permisos-v4';
 import { checkSession, loginUrl, SESSION_KEY } from './session.js';
 import { getUnreadCounts } from './cquadre.js?v=cquadre-manual-v1';
-import { renderCQuadre } from './cquadre-view.js?v=cquadre-simple-v3';
+import { renderCQuadre } from './cquadre-view.js?v=cquadre-open-read-v4';
 import { renderBustia } from './bustia.js?v=administracio-v1';
 
 const content = document.querySelector('main');

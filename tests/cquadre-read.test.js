@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderCQuadre } from '../src/cquadre.js';
+import { renderCQuadre as renderCurrentView } from '../src/cquadre-view.js';
 import { SESSION_KEY } from '../src/session.js';
 
 class Element {
@@ -132,5 +133,28 @@ test('failed write leaves pending item visible and reports the error', async () 
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(elements(section, 'cquadre-item').length, 2);
     assert.match(elements(section, 'cquadre-status')[0].textContent, /No s’ha pogut/);
+  } finally { fixture.restore(); }
+});
+
+test('current view saves opened documents per user and keeps Avisos and C.Quadre independent', async () => {
+  const fixture = makeFixture();
+  try {
+    const counts = {};
+    const root = await renderCurrentView((kind, count) => { counts[kind] = count; });
+    const sections = elements(root, 'pending-section');
+    await elements(sections[0], 'cquadre-link')[0].listeners.click();
+    assert.deepEqual(counts, { cquadre: 1 });
+    assert.deepEqual(fixture.writes[0], {
+      table: 'complements_quadre_llegits', row: { user_id: 'test-user', complement_id: 1 },
+    });
+    assert.equal(elements(sections[1], 'cquadre-item').length, 1);
+    await elements(sections[1], 'cquadre-link')[0].listeners.click();
+    assert.deepEqual(counts, { cquadre: 1, avisos: 0 });
+    assert.deepEqual(fixture.writes[1], {
+      table: 'avisos_tmb_llegits', row: { user_id: 'test-user', aviso_id: 5 },
+    });
+    const reloaded = elements(await renderCurrentView(), 'pending-section');
+    assert.equal(elements(reloaded[0], 'cquadre-item').length, 1);
+    assert.equal(elements(reloaded[1], 'cquadre-item').length, 0);
   } finally { fixture.restore(); }
 });
