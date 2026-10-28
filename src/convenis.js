@@ -1,4 +1,4 @@
-import { openConvenisReader } from './convenis-reader.js';
+import { openConvenisReader } from './convenis-reader.js?v=readable-v2';
 import { topics, normalize, matchingPages, excerpt, pageUrl, highlightedParts } from './convenis-search.js?v=highlight-v1';
 const KEY = 'tmb-agent-convenis-v1';
 const sources = [

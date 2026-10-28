@@ -1,3 +1,5 @@
+import { documentBlocks } from './convenis-format.js';
+
 export function documentMatches(text, query) {
   function fold(value) {
     let text='', offsets=[];let position=0;
@@ -28,16 +30,33 @@ export function openConvenisReader(doc,initialPage=1,initialQuery='') {
   const content=el('div','cv-reader-content');content.tabIndex=0;
   const note=el('p','cv-ocr-note','Lectura del text del document. Els escanejos poden contenir errors d’OCR i pàgines sense text; comprova el PDF original.');
   const original=el('a','cv-link','Obre el PDF original ↗');original.href=doc.fileUrl||doc.url;original.target='_blank';original.rel='noopener noreferrer';
-  const pages=(doc.pages||[]).map(page=>{const box=el('section','cv-reader-page');box.append(el('h3','',`Pàgina ${page.page}`));const text=el('p','cv-reader-text');box.append(text);content.append(box);return {page,box,text};});
+  const pages=(doc.pages||[]).map(page=>{const box=el('section','cv-reader-page');box.append(el('h3','',`Pàgina ${page.page}`));const text=el('div','cv-reader-text');box.append(text);content.append(box);return {page,box,text,blocks:documentBlocks(page.text)};});
   if(!pages.length)content.append(el('p','cv-empty','Aquest document no té text disponible. Consulta el PDF original.'));
   let matches=[],index=-1;
   function update(){previous.disabled=next.disabled=!matches.length;status.textContent=matches.length?`${index+1} de ${matches.length}`:input.value.trim()?'Cap coincidència':'Escriu per cercar';}
-  function activate(value,scroll=true){if(!matches.length){index=-1;update();return;}matches[index]?.classList.remove('cv-reader-current');index=(value+matches.length)%matches.length;const mark=matches[index];mark.classList.add('cv-reader-current');update();if(scroll)mark.scrollIntoView({block:'center',behavior:'auto'});}
+  function activate(value,scroll=true){if(!matches.length){index=-1;update();return;}matches[index]?.forEach(mark=>mark.classList.remove('cv-reader-current'));index=(value+matches.length)%matches.length;const group=matches[index];group.forEach(mark=>mark.classList.add('cv-reader-current'));const mark=group[0];update();if(scroll)mark.scrollIntoView({block:'center',behavior:'auto'});}
   function move(delta){activate(index+delta);}
   function search(){matches=[];index=-1;
-    for(const {page,text} of pages){text.replaceChildren();let start=0;
-      for(const [a,b] of documentMatches(page.text,input.value)){text.append(document.createTextNode(page.text.slice(start,a)));const mark=el('mark','',page.text.slice(a,b));text.append(mark);matches.push(mark);start=b;}
-      text.append(document.createTextNode(page.text.slice(start)));
+    for(const {page,text,blocks} of pages){
+      text.replaceChildren();
+      const ranges=documentMatches(page.text,input.value);
+      const groups=ranges.map(()=>[]);
+      let firstRange=0;
+      for(const block of blocks){
+        const tag=block.type==='chapter'?'h4':block.type==='heading'?'h5':'p';
+        const paragraph=el(tag,'cv-reader-block cv-reader-'+block.type);
+        let cursor=block.start;
+        while(firstRange<ranges.length && ranges[firstRange][1]<=block.start)firstRange++;
+        for(let i=firstRange;i<ranges.length && ranges[i][0]<block.end;i++){
+          const start=Math.max(block.start,ranges[i][0]),end=Math.min(block.end,ranges[i][1]);
+          paragraph.append(document.createTextNode(page.text.slice(cursor,start)));
+          const mark=el('mark','',page.text.slice(start,end));
+          paragraph.append(mark);groups[i].push(mark);cursor=end;
+        }
+        paragraph.append(document.createTextNode(page.text.slice(cursor,block.end)));
+        text.append(paragraph);
+      }
+      matches.push(...groups);
     }activate(0);update();
   }
   input.addEventListener('input',search);form.onsubmit=e=>{e.preventDefault();move(e.shiftKey?-1:1);};

@@ -45,3 +45,11 @@ La pròrroga 2012–2013 conté també, des de la pàgina 8, una còpia del XXV 
 ## Cerca amb ressaltat
 
 On està escrit? i Compara actualitzen els resultats mentre s’escriu (espera breu de 180 ms, sense substituir el camp ni perdre el focus). Les coincidències es mostren amb mark groc, inclosos equivalents dels temes suggerits i accents. El text s’insereix com a text DOM, mai com HTML de la consulta. Les etiquetes OCR i els enllaços a la pàgina original es conserven.
+
+## Lector amb format de lectura
+
+El lector reconeix capítols, articles, clàusules i apartats numerats; separa passatges llargs en punts de frase i afegeix espai, sangries i un ample de lectura limitat. És una reconstrucció visual conservadora del text extret, no una reproducció de la maquetació del PDF. Les taules i els escanejos poden mantenir limitacions.
+
+El catàleg i els PDF no es modifiquen. Cada bloc conserva els offsets exactes del text original. La cerca es calcula sobre tota la pàgina abans de repartir els ressaltats entre blocs: una coincidència que travessa un títol i un paràgraf continua comptant una sola vegada, amb totes les parts ressaltades. Es mantenen accents, navegació anterior/següent, pàgines d’origen i l’enllaç al PDF.
+
+Validació: integritat caràcter a caràcter de tots els documents, mostres reals de títols i llistes, cerca entre blocs, navegació, neteja i retorn al document original.
