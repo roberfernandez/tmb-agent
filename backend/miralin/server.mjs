@@ -5,7 +5,28 @@ let snapshot = {}, receivedAt = 0, connected = false, running = false, lastUse =
 let controller;
 const PUSH_TEST_MS = 5 * 60 * 1000;
 let testWatchUntil = 0;
-function watchNeeded(now=Date.now()) { return now-lastUse<120000 || now<testWatchUntil; }
+const stationWatches=new Map();
+let previousMap=null,previousMapAt=0;
+function stationPasses(trains,now=Date.now()) {
+ const previous=previousMap;const fresh=previous&&now-previousMapAt<45000;
+ previousMap=trains;previousMapAt=now;
+ for(const [endpoint,w] of stationWatches){
+  if(now>=w.until){stationWatches.delete(endpoint);continue}
+  if(!fresh)continue;
+  for(const [id,t] of Object.entries(trains)){
+   const old=previous[id];if(!old)continue;
+   const via=Number(old.platformTrack??old.track);
+   const atSelva=x=>String(x?.estacion||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().includes("selva de mar");
+   const next=String(t.estacion||"").toLowerCase();
+   const passed=atSelva(old)&&!atSelva(t)&&Number(t.platformTrack??t.track)===via&&((via===1&&next.includes("poblenou"))||(via===2&&(next.includes("maresme")||next.includes("forum")||next.includes("fòrum"))));
+   if(!passed)continue;
+   const key=id+":"+via;if(now-(w.sent.get(key)||0)<120000)continue;
+   w.sent.set(key,now);
+   void webpush.sendNotification(w.subscription,JSON.stringify({title:"Selva de Mar · Tren "+id+" · via "+via,body:"Pas detectat segons el canvi d’estació de Miralin. Recepció "+new Date(now).toLocaleTimeString("ca-ES",{timeZone:"Europe/Madrid"})+".",url:"/tmb-agent/proves/servei/"}),{TTL:60,urgency:"high",timeout:15000}).catch(e=>{console.warn("Station push failed",e.statusCode||e.message);if(e.statusCode===410||e.statusCode===404)stationWatches.delete(endpoint)});
+  }
+ }
+}
+function watchNeeded(now=Date.now()) { return now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until); }
 function testTrainState(now=Date.now()) {
  const ageSeconds=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  return {active:!!(now<testWatchUntil&&connected&&ageSeconds!==null&&ageSeconds<45&&snapshot['403']),ageSeconds};
@@ -45,6 +66,7 @@ function start() {
             else if (packet.startsWith('42')) {
               const [event, data] = JSON.parse(packet.slice(2));
               if (event === 'mapUpdate' && data?.L4?.trains) {
+                stationPasses(data.L4.trains);
                 snapshot = data.L4.trains;
                 receivedAt = Date.now();
                 connected = true;
@@ -81,14 +103,24 @@ async function pushRoute(req,res,url){
  if(url.pathname==='/api/push-key'&&req.method==='GET'){
   res.writeHead(vapid?200:503);res.end(JSON.stringify(vapid?{publicKey:vapid.publicKey}:{error:'Cal instal·lar dependències a Render: npm install'}));return;
  }
- if(url.pathname!=='/api/push-test'||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
+ if(!['/api/push-test','/api/push-station'].includes(url.pathname)||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
  if(!webpush){res.writeHead(503);res.end(JSON.stringify({error:'Push no disponible. Revisa el Build Command.'}));return}
  try{
   let body='';for await(const chunk of req){body+=chunk;if(body.length>8192)throw Error('Peticio massa gran')}
-  const {subscription}=JSON.parse(body);
+  const {subscription,until}=JSON.parse(body);
   const endpoint=new URL(subscription?.endpoint);
   const allowed=endpoint.hostname==='fcm.googleapis.com'||endpoint.hostname==='updates.push.services.mozilla.com'||endpoint.hostname.endsWith('.push.apple.com')||endpoint.hostname==='web.push.apple.com';
   if(endpoint.protocol!=='https:'||endpoint.port||endpoint.username||endpoint.password||!allowed||!subscription?.keys?.p256dh||!subscription?.keys?.auth)throw Error('Subscripció push no vàlida');
+  if(url.pathname==='/api/push-station'){
+   const end=Date.parse(until);
+   // This pilot has one explicitly agreed deadline, in Barcelona time.
+   const deadline=Date.parse('2026-10-31T00:57:00+01:00');
+   if(!Number.isFinite(end)||end>Date.now()+9*3600000||end>deadline||end<=Date.now())throw Error('La prova ha de finalitzar com a màxim a les 00:57 del 31/10.');
+   if(!stationWatches.has(endpoint.href)&&stationWatches.size>=10)throw Error('Massa proves actives');
+   stationWatches.set(endpoint.href,{subscription,until:end,sent:new Map()});
+   lastUse=Date.now();start();
+   res.writeHead(202);res.end(JSON.stringify({until:new Date(end).toISOString(),station:417,tracks:[1,2],temporary:true}));return;
+  }
   if(pendingPush.size>=10||pendingPush.has(endpoint.href))throw Error('Ja hi ha una prova pendent. Espera que acabi la prova de cinc minuts.');
   const scheduledAt=Date.now()+PUSH_TEST_MS;
   testWatchUntil=Math.max(testWatchUntil,scheduledAt+20000);
