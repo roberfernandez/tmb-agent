@@ -1,13 +1,14 @@
 <!doctype html><html lang="ca"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080f1c"><meta name="robots" content="noindex,nofollow"><title>El meu servei · Proves</title>
 <style>*{box-sizing:border-box}body{margin:0;background:#080f1c;color:#eef3fa;font:16px system-ui,sans-serif}main{max-width:760px;margin:auto;padding:20px 16px 50px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:30px}a{color:#f4d000}h1{font-size:27px;margin:6px 0}h2{font-size:18px;margin:0 0 14px}p{line-height:1.5}.muted,small{color:#a9b8cb}.tag{font-size:12px;letter-spacing:1px;color:#f4d000}.card{background:#111e30;border:1px solid #28394e;border-radius:18px;padding:20px;margin:14px 0}.hero{border-top:4px solid #f4d000}.time{font-size:44px;font-weight:750;letter-spacing:-2px}.train{display:inline-block;background:#f4d000;color:#101720;padding:5px 12px;border-radius:8px;font-weight:800}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spread{justify-content:space-between}button,input,select,textarea{font:inherit;border-radius:9px;border:1px solid #41516a;padding:11px;background:#182940;color:#fff;max-width:100%}button{cursor:pointer}button.primary{background:#f4d000;color:#111;border:0;font-weight:700}button:disabled{opacity:.5}label{display:block;margin:12px 0 5px;font-size:14px}select,textarea{width:100%}textarea{min-height:210px;font-family:monospace;font-size:13px}details summary{cursor:pointer;font-weight:650}.item{border-left:3px solid #334963;padding:10px 12px;margin:12px 0}.item.active{border-color:#f4d000;background:#1c2c40}.item.done{opacity:.55}.notice{padding:12px;background:#273020;border-radius:10px;font-size:14px}#toast{position:fixed;bottom:20px;left:5%;width:90%;padding:18px;background:#f4d000;color:#111;border-radius:12px;display:none;z-index:10}img{max-width:100%;max-height:350px;object-fit:contain;border-radius:10px}input[type=date]{width:170px}button:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:3px}@media(max-width:420px){.time{font-size:38px}.card{padding:16px}}</style>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.4</span></header><h1>El meu servei</h1><p class="muted">La teva jornada, la propera presa i el lloc on ets.</p><div class="notice">Seguiment connectat a Miralin.cat · Els avisos continuen sent de l’horari previst. Mantén aquesta pantalla oberta durant la prova.</div>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.5</span></header><h1>El meu servei</h1><p class="muted">La teva jornada, la propera presa i el lloc on ets.</p><p><button id="openImport" class="primary">Carregar captura o foto del servei</button></p><div class="notice">Seguiment connectat a Miralin.cat · Els avisos continuen sent de l’horari previst. Mantén aquesta pantalla oberta durant la prova.</div>
 <section class="card"><div class="row spread"><h2>Circulació · L4</h2><button id="refreshLive">Actualitzar</button></div><p id="liveStatus" role="status">Connectant amb el servidor…</p><div id="liveTrains"></div><small>Estació i estat comunicats per Miralin. La recepció recent no garanteix la mateixa antiguitat a la font. Encara no es calcula l’arribada al teu relleu.</small></section><section class="card hero"><div class="row spread"><span class="tag">PROPERA PRESA</span><span id="clock"></span></div><div id="next"></div><div class="row"><button id="taken" class="primary">He pres el tren</button><a href="https://miralin.cat/" target="_blank" rel="noopener">Obrir Miralin ↗</a></div></section>
 <section class="card"><h2>On soc?</h2><p id="expected" class="muted"></p><label for="location">Confirma o canvia la ubicació</label><select id="location"></select><div class="row" style="margin-top:12px"><button id="confirm" class="primary">Soc aquí</button><button id="auto">Seguir el previst</button></div><p id="confirmed" aria-live="polite"></p></section>
 <section class="card"><h2>Prova amb el mòbil bloquejat</h2><p>Aquesta prova envia una notificació des del servidor al cap de cinc minuts. No activa alarmes de relleu ni vigilància permanent.</p><button id="pushTest" class="primary">Provar seguiment del 403 · 5 minuts</button><p id="pushStatus" role="status"></p><p id="watchState" role="status">Inactiu</p><small>Prova temporal: si Render es reinicia, es cancel·la. «Actiu» només amb dades recents del 403; l’indicador de pantalla no es refresca amb la miniapp suspesa. Permet les notificacions. En iPhone, obre la PWA instal·lada a la pantalla d’inici.</small></section><section class="card"><h2>Avisos del servei</h2><label for="margin">Antelació abans de cada presa i deixa</label><select id="margin"><option value="2">2 minuts</option><option value="5">5 minuts</option><option value="10">10 minuts</option></select><div class="row" style="margin-top:14px"><button id="enable" class="primary">Activar avisos</button><button id="test">Provar so</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>No són avisos d’arribada real. Canviar de pestanya o bloquejar el mòbil pot interrompre’ls.</small></section>
 <section class="card"><details><summary>Observació del tren · manual</summary><p class="muted">Anota el que veus a Miralin. Aquesta observació no calcula una arribada ni genera avisos de circulació.</p><label for="train">Tren</label><input id="train" inputmode="numeric" value="403"><label for="station">Estació</label><select id="station"></select><label for="track">Via</label><select id="track"><option>1</option><option>2</option></select><button id="saveObservation" style="margin-top:12px">Desar observació</button><p id="observation"></p></details></section>
 <section class="card"><h2>La jornada</h2><div id="timeline"></div></section>
-<section class="card"><details><summary>Editar o carregar un servei</summary><label for="date">Data d’inici de la jornada</label><input type="date" id="date"><label for="photo">Foto de referència (només en aquest dispositiu)</label><input id="photo" type="file" accept="image/*"><p><img id="photoPreview" hidden alt="Foto del servei per consultar durant la transcripció"></p><p class="muted">En aquesta primera versió la foto és una referència visual: transcriu o corregeix les files abans de desar. Encara no hi ha lectura automàtica.</p><label for="editor">Inici | Final | Tipus | Origen | Destinació | Tren | Via inicial | Via final</label><p><small>Tipus: TRA, EST o CON. Hores fins a 47:59. RET a la via final indica retirada.</small></p><textarea id="editor" spellcheck="false"></textarea><div class="row"><button id="save" class="primary">Validar i desar</button><button id="reset">Restaurar exemple del 30/10</button></div><p id="error" role="alert"></p></details></section><p class="muted"><small>Les dades del servei es desen en aquest navegador. Pàgina de proves accessible per enllaç, sense control d’accés.</small></p></main><div id="toast" role="alert"></div>
-<script>
+<section class="card"><details><summary>Carregar foto o editar el servei</summary><label for="date">Data d’inici de la jornada</label><input type="date" id="date"><label for="photo">Captura de pantalla o foto del servei</label><input id="photo" type="file" accept="image/*"><p><img id="photoPreview" hidden alt="Foto del servei per consultar durant la transcripció"></p><p class="muted">Inclou la data, les set columnes i totes les files. La imatge es llegeix en aquest dispositiu i no s’envia al servidor. La primera lectura descarrega el motor de reconeixement.</p><div class="row"><button id="rotatePhoto" type="button" disabled>Girar 90°</button><button id="readPhoto" class="primary" type="button" disabled>Interpretar servei</button></div><p id="ocrStatus" role="status"></p><details><summary>Text reconegut</summary><pre id="ocrRaw" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details><label id="reviewLabel" hidden><input type="checkbox" id="reviewOCR"> He revisat la data i totes les files amb la imatge.</label><label for="editor">Inici | Final | Tipus | Origen | Destinació | Tren | Via inicial | Via final</label><p><small>Tipus: TRA, EST o CON. Hores fins a 47:59. RET a la via final indica retirada.</small></p><textarea id="editor" spellcheck="false"></textarea><div class="row"><button id="save" class="primary">Validar i desar</button><button id="reset">Restaurar exemple del 30/10</button></div><p id="error" role="alert"></p></details></section><p class="muted"><small>Les dades del servei es desen en aquest navegador. Pàgina de proves accessible per enllaç, sense control d’accés.</small></p></main><div id="toast" role="alert"></div>
+<script type="module">
+import {interpretSchedule} from './schedule-ocr.js?v=1';
 'use strict';
 const names=['La Pau','Besòs','Besòs Mar','El Maresme | Fòrum','Selva de Mar','Poblenou','Llacuna','Bogatell','Ciutadella | Vila Olímpica','Barceloneta','Jaume I','Urquinaona','Passeig de Gràcia','Girona','Verdaguer','Joanic','Alfons X','Guinardó | Hospital de Sant Pau','Maragall','Llucmajor','Via Júlia','Trinitat Nova'];
 const stations=Object.fromEntries(names.map((n,i)=>[413+i,n]));const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -35,7 +36,7 @@ $('taken').onclick=()=>{let r=rows.find(r=>r.i===Number($('taken').dataset.index
 $('saveObservation').onclick=()=>{if(!/^4\d{2}$/.test($('train').value)){notify('Introdueix un tren L4 vàlid.');return}state.observation={train:$('train').value,station:$('station').value,track:$('track').value,time:Date.now()};persist();render()};
 $('margin').onchange=()=>{state.margin=Number($('margin').value);persist()};$('test').onclick=()=>notify('Prova de so · El meu servei');
 $('enable').onclick=async()=>{enabled=!enabled;if(enabled){sound();if('Notification'in window&&Notification.permission==='default')try{await Notification.requestPermission()}catch{}}$('enable').textContent=enabled?'Desactivar avisos':'Activar avisos';$('alarmStatus').textContent=enabled?'Avisos actius només amb la pantalla oberta.':'Avisos desactivats.';render()};
-$('save').onclick=()=>{try{let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Selecciona una data.');state.date=$('date').value;state.text=$('editor').value;state.taken=[];state.location=null;rows=parsed;fired.clear();persist();$('error').textContent='Servei validat i desat.';render()}catch(e){$('error').textContent=e.message}};
+$('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Selecciona una data.');state.date=$('date').value;state.text=$('editor').value;state.taken=[];state.location=null;rows=parsed;fired.clear();persist();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render();refreshLive(true)}catch(e){$('error').textContent=e.message}};
 $('reset').onclick=()=>{state.date='2026-10-30';state.text=sample;state.taken=[];state.location=null;fired.clear();persist();load()};let photoURL=null;$('photo').onchange=()=>{let f=$('photo').files[0];if(!f)return;if(photoURL)URL.revokeObjectURL(photoURL);photoURL=URL.createObjectURL(f);$('photoPreview').src=photoURL;$('photoPreview').hidden=false};
 try{load()}catch{state.text=sample;state.date='2026-10-30';load();$('error').textContent='S’ha recuperat el servei d’exemple.'}setInterval(render,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
 
@@ -104,6 +105,58 @@ $('pushTest').onclick=async()=>{
   $('pushStatus').textContent='Prova programada per a les '+new Date(result.scheduledAt).toLocaleTimeString('ca-ES')+'. Ara minimitza la miniapp i bloqueja el mòbil. Mantén-la en segon pla durant cinc minuts sense tornar a obrir-la. No és una alarma de relleu.';
  }catch(e){$('pushStatus').textContent=e.message}
  finally{button.disabled=false}
+};
+
+
+let ocrDraft=false,ocrImage=null,ocrRotation=0,ocrBusy=false;
+$('openImport').onclick=()=>{const details=$('photo').closest('details');details.open=true;details.scrollIntoView({behavior:'smooth',block:'start'})};
+function photoCanvas(){
+ const canvas=document.createElement('canvas'),rotated=ocrRotation%180!==0;
+ let w=rotated?ocrImage.height:ocrImage.width,h=rotated?ocrImage.width:ocrImage.height;
+ const scale=Math.min(2,2400/Math.max(w,h));
+ canvas.width=Math.round(w*scale);canvas.height=Math.round(h*scale);
+ const context=canvas.getContext('2d');context.fillStyle='white';context.fillRect(0,0,canvas.width,canvas.height);
+ context.translate(canvas.width/2,canvas.height/2);context.rotate(ocrRotation*Math.PI/180);
+ context.drawImage(ocrImage,-ocrImage.width*scale/2,-ocrImage.height*scale/2,ocrImage.width*scale,ocrImage.height*scale);
+ return canvas;
+}
+$('photo').onchange=async()=>{
+ const f=$('photo').files[0];if(!f)return;
+ if(f.size>20*1024*1024){$('ocrStatus').textContent='La imatge supera 20 MB. Redueix-la o fes una captura.';return}
+ try{
+  if(ocrImage?.close)ocrImage.close();
+  ocrImage=null;$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;
+  ocrImage=await createImageBitmap(f);ocrRotation=0;
+  $('photoPreview').src=photoCanvas().toDataURL('image/png');$('photoPreview').hidden=false;
+  $('readPhoto').disabled=false;$('rotatePhoto').disabled=false;
+  $('ocrStatus').textContent='Imatge preparada. Comprova que estigui dreta i prem Interpretar servei.';
+ }catch{$('ocrStatus').textContent='No es pot obrir la imatge. Prova JPG o PNG.'}
+};
+$('rotatePhoto').onclick=()=>{if(!ocrImage||ocrBusy)return;ocrRotation=(ocrRotation+90)%360;$('photoPreview').src=photoCanvas().toDataURL('image/png')};
+let enginePromise;
+function loadOCR(){
+ if(window.Tesseract)return Promise.resolve(window.Tesseract);
+ if(!enginePromise)enginePromise=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  script.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(Error('Motor no disponible'));
+  script.onerror=()=>{enginePromise=null;reject(Error('No s’ha pogut descarregar el motor. Comprova internet i torna-ho a provar.'))};document.head.append(script);
+ });
+ return enginePromise;
+}
+$('readPhoto').onclick=async()=>{
+ if(!ocrImage||ocrBusy)return;ocrBusy=true;$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;$('photo').disabled=true;
+ let worker;
+ try{
+  $('ocrStatus').textContent='Carregant el lector…';const engine=await loadOCR();
+  worker=await engine.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')$('ocrStatus').textContent='Llegint… '+Math.round((m.progress||0)*100)+'%'}});
+  const {data}=await worker.recognize(photoCanvas());$('ocrRaw').textContent=data.text||'';
+  const result=interpretSchedule(data);
+  $('editor').value=result.text;if(result.date)$('date').value=result.date;
+  ocrDraft=true;$('reviewOCR').checked=false;$('reviewLabel').hidden=false;
+  let validation='';try{parse(result.text)}catch(e){validation=e.message}
+  $('ocrStatus').textContent=result.count+' files interpretades. '+(result.issues.length?result.issues.join(' ')+' ':'')+(validation?validation+' ':'')+(!result.date?'Selecciona la data manualment. ':'')+'Revisa totes les dades i confirma abans de desar. El servei desat encara no ha canviat.';
+ }catch(e){$('ocrStatus').textContent=e.message+' El servei desat no ha canviat.'}
+ finally{if(worker)await worker.terminate().catch(()=>{});ocrBusy=false;$('readPhoto').disabled=!ocrImage;$('rotatePhoto').disabled=!ocrImage;$('photo').disabled=false}
 };
 
 </script></html>
