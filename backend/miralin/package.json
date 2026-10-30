@@ -1,0 +1,11 @@
+{
+  "name": "tmb-servei-pilot",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "web-push": "3.6.7"
+  }
+}
