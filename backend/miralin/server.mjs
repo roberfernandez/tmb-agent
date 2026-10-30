@@ -62,6 +62,41 @@ function start() {
     running = false;
   })();
 }
+
+let webpush=null,vapid=null;
+try {
+ webpush=(await import('web-push')).default;
+ vapid=webpush.generateVAPIDKeys();
+ webpush.setVapidDetails('https://roberfernandez.github.io/tmb-agent/',vapid.publicKey,vapid.privateKey);
+} catch { console.warn('Push test unavailable: install dependencies with npm install'); }
+const pendingPush=new Map();
+async function pushRoute(req,res,url){
+ if(url.pathname==='/api/push-key'&&req.method==='GET'){
+  res.writeHead(vapid?200:503);res.end(JSON.stringify(vapid?{publicKey:vapid.publicKey}:{error:'Cal instal·lar dependències a Render: npm install'}));return;
+ }
+ if(url.pathname!=='/api/push-test'||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
+ if(!webpush){res.writeHead(503);res.end(JSON.stringify({error:'Push no disponible. Revisa el Build Command.'}));return}
+ try{
+  let body='';for await(const chunk of req){body+=chunk;if(body.length>8192)throw Error('Peticio massa gran')}
+  const {subscription}=JSON.parse(body);
+  const endpoint=new URL(subscription?.endpoint);
+  const allowed=endpoint.hostname==='fcm.googleapis.com'||endpoint.hostname==='updates.push.services.mozilla.com'||endpoint.hostname.endsWith('.push.apple.com')||endpoint.hostname==='web.push.apple.com';
+  if(endpoint.protocol!=='https:'||endpoint.port||endpoint.username||endpoint.password||!allowed||!subscription?.keys?.p256dh||!subscription?.keys?.auth)throw Error('Subscripció push no vàlida');
+  if(pendingPush.size>=10||pendingPush.has(endpoint.href))throw Error('Ja hi ha una prova pendent. Espera un minut.');
+  const timer=setTimeout(async()=>{
+   try{
+    const t=snapshot['403'],fresh=connected&&receivedAt&&Date.now()-receivedAt<45000;
+    const body=fresh&&t?'Prova en segon pla · 403: '+t.estacion+' · via '+t.track:'Prova en segon pla rebuda. Seguiment inactiu: sense dades recents del tren.';
+    await webpush.sendNotification(subscription,JSON.stringify({title:'El meu servei · Prova push',body,url:'/tmb-agent/proves/servei/'}),{TTL:120,urgency:'high',timeout:15000});
+    console.log('Push test accepted by delivery service');
+   }catch(e){console.warn('Push test failed:',e.statusCode||e.message)}
+   finally{pendingPush.delete(endpoint.href)}
+  },60000);
+  pendingPush.set(endpoint.href,timer);lastUse=Date.now();start();
+  res.writeHead(202);res.end(JSON.stringify({scheduledAt:new Date(Date.now()+60000).toISOString(),temporary:true}));
+ }catch(e){res.writeHead(400);res.end(JSON.stringify({error:e.message}))}
+}
+
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin;
   res.setHeader('Cache-Control', 'no-store');
@@ -71,8 +106,15 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify({error:'Origin not allowed'}));
   }
   if (origin) res.setHeader('Access-Control-Allow-Origin', ORIGIN);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  if (req.method === 'OPTIONS') { res.setHeader('Access-Control-Allow-Headers','Content-Type'); res.writeHead(204); return res.end(); }
+  res.setHeader('Access-Control-Allow-Headers','Content-Type');
+  const pushUrl=new URL(req.url,'http://localhost');
+  if(pushUrl.pathname.startsWith('/api/push-')){
+    res.setHeader('Content-Type','application/json; charset=utf-8');
+    if(req.method==='POST'&&origin!==ORIGIN){res.writeHead(403);return res.end('{}')}
+    void pushRoute(req,res,pushUrl);return;
+  }
   if (req.method !== 'GET') { res.writeHead(405); return res.end(); }
   const url = new URL(req.url, 'http://localhost');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
