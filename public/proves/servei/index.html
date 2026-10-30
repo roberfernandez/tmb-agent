@@ -1,6 +1,6 @@
 <!doctype html><html lang="ca"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080f1c"><meta name="robots" content="noindex,nofollow"><title>El meu servei · Proves</title>
 <style>*{box-sizing:border-box}body{margin:0;background:#080f1c;color:#eef3fa;font:16px system-ui,sans-serif}main{max-width:760px;margin:auto;padding:20px 16px 50px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:30px}a{color:#f4d000}h1{font-size:27px;margin:6px 0}h2{font-size:18px;margin:0 0 14px}p{line-height:1.5}.muted,small{color:#a9b8cb}.tag{font-size:12px;letter-spacing:1px;color:#f4d000}.card{background:#111e30;border:1px solid #28394e;border-radius:18px;padding:20px;margin:14px 0}.hero{border-top:4px solid #f4d000}.time{font-size:44px;font-weight:750;letter-spacing:-2px}.train{display:inline-block;background:#f4d000;color:#101720;padding:5px 12px;border-radius:8px;font-weight:800}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spread{justify-content:space-between}button,input,select,textarea{font:inherit;border-radius:9px;border:1px solid #41516a;padding:11px;background:#182940;color:#fff;max-width:100%}button{cursor:pointer}button.primary{background:#f4d000;color:#111;border:0;font-weight:700}button:disabled{opacity:.5}label{display:block;margin:12px 0 5px;font-size:14px}select,textarea{width:100%}textarea{min-height:210px;font-family:monospace;font-size:13px}details summary{cursor:pointer;font-weight:650}.item{border-left:3px solid #334963;padding:10px 12px;margin:12px 0}.item.active{border-color:#f4d000;background:#1c2c40}.item.done{opacity:.55}.notice{padding:12px;background:#273020;border-radius:10px;font-size:14px}#toast{position:fixed;bottom:20px;left:5%;width:90%;padding:18px;background:#f4d000;color:#111;border-radius:12px;display:none;z-index:10}img{max-width:100%;max-height:350px;object-fit:contain;border-radius:10px}input[type=date]{width:170px}button:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:3px}@media(max-width:420px){.time{font-size:38px}.card{padding:16px}}</style>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.2</span></header><h1>El meu servei</h1><p class="muted">La teva jornada, la propera presa i el lloc on ets.</p><div class="notice">Seguiment connectat a Miralin.cat · Els avisos continuen sent de l’horari previst. Mantén aquesta pantalla oberta durant la prova.</div>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.2.1</span></header><h1>El meu servei</h1><p class="muted">La teva jornada, la propera presa i el lloc on ets.</p><div class="notice">Seguiment connectat a Miralin.cat · Els avisos continuen sent de l’horari previst. Mantén aquesta pantalla oberta durant la prova.</div>
 <section class="card"><div class="row spread"><h2>Circulació · L4</h2><button id="refreshLive">Actualitzar</button></div><p id="liveStatus" role="status">Connectant amb el servidor…</p><div id="liveTrains"></div><small>Estació i estat comunicats per Miralin. La recepció recent no garanteix la mateixa antiguitat a la font. Encara no es calcula l’arribada al teu relleu.</small></section><section class="card hero"><div class="row spread"><span class="tag">PROPERA PRESA</span><span id="clock"></span></div><div id="next"></div><div class="row"><button id="taken" class="primary">He pres el tren</button><a href="https://miralin.cat/" target="_blank" rel="noopener">Obrir Miralin ↗</a></div></section>
 <section class="card"><h2>On soc?</h2><p id="expected" class="muted"></p><label for="location">Confirma o canvia la ubicació</label><select id="location"></select><div class="row" style="margin-top:12px"><button id="confirm" class="primary">Soc aquí</button><button id="auto">Seguir el previst</button></div><p id="confirmed" aria-live="polite"></p></section>
 <section class="card"><h2>Avisos del servei</h2><label for="margin">Antelació abans de cada presa i deixa</label><select id="margin"><option value="2">2 minuts</option><option value="5">5 minuts</option><option value="10">10 minuts</option></select><div class="row" style="margin-top:14px"><button id="enable" class="primary">Activar avisos</button><button id="test">Provar so</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>No són avisos d’arribada real. Canviar de pestanya o bloquejar el mòbil pot interrompre’ls.</small></section>
@@ -40,7 +40,7 @@ $('reset').onclick=()=>{state.date='2026-10-30';state.text=sample;state.taken=[]
 try{load()}catch{state.text=sample;state.date='2026-10-30';load();$('error').textContent='S’ha recuperat el servei d’exemple.'}setInterval(render,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
 
 const FEED='https://tmb-servei-proves.onrender.com/api/trains';
-let liveData=null,liveFetchedAt=0,liveBusy=false,liveFailed=false;
+let liveData=null,liveFetchedAt=0,liveBusy=false,liveFailed=false,liveController=null,liveGeneration=0;
 function liveIds(){return [...new Set(rows.filter(r=>r.type==='CON').map(r=>r.train))]}
 function renderLive(){
  const ids=liveIds(), age=liveData?.receivedAt?Math.max(0,Math.floor((Date.now()-Date.parse(liveData.receivedAt))/1000)):null;
@@ -53,21 +53,30 @@ function renderLive(){
   return '<div class="item"><span class="train">'+esc(id)+'</span><p>'+esc(t.station)+' · via '+esc(t.platformTrack??t.track)+'</p><small>'+esc(states[t.status]||t.status)+' · destinació '+esc(t.destination)+(t.turnaround?' · canvi de sentit':'')+(stale?' · DADA ANTIGA':'')+'</small></div>';
  }).join('');
 }
-async function refreshLive(){
- if(liveBusy||document.hidden)return;
+async function refreshLive(force=false){
+ if(document.hidden)return;
+ if(liveBusy&&!force)return;
+ if(force){liveGeneration++;liveController?.abort();liveBusy=false;liveFailed=true;}
+ const generation=++liveGeneration;
+ liveController=new AbortController();
+ const signal=AbortSignal.any([liveController.signal,AbortSignal.timeout(75000)]);
  const ids=liveIds();if(!ids.length){$('liveStatus').textContent='No hi ha trens de conducció al servei.';$('liveTrains').innerHTML='';return}
  liveBusy=true;renderLive();
  try{
-  const response=await fetch(FEED+'?ids='+encodeURIComponent(ids.join(',')),{cache:'no-store',signal:AbortSignal.timeout(75000)});
+  const response=await fetch(FEED+'?ids='+encodeURIComponent(ids.join(',')),{cache:'no-store',signal});
   const data=await response.json();
   if(!data||typeof data.trains!=='object')throw Error('Resposta no vàlida');
+  if(generation!==liveGeneration)return;
   liveData=data;liveFetchedAt=Date.now();liveFailed=!response.ok||data.stale;
- }catch{liveFailed=true}finally{liveBusy=false;renderLive()}
+ }catch{if(generation===liveGeneration)liveFailed=true}finally{if(generation===liveGeneration){liveBusy=false;renderLive()}}
 }
-$('refreshLive').onclick=refreshLive;
+$('refreshLive').onclick=()=>refreshLive(true);
 setInterval(refreshLive,10000);
 setInterval(renderLive,1000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLive()});
+function resumeLive(){if(!document.hidden){renderLive();refreshLive(true)}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){liveGeneration++;liveController?.abort();liveBusy=false;liveFailed=true;}else resumeLive()});
+window.addEventListener('pageshow',resumeLive);
+window.addEventListener('online',resumeLive);
 refreshLive();
 
 </script></html>
