@@ -43,3 +43,16 @@ test('offline Auth navigation never receives the launcher HTML', async () => {
   assert.equal(response.type, 'error');
   assert.equal(w.matches.length, 1);
 });
+
+test('install deduplicates shared files added by the build', async () => {
+  let install;
+  let urls;
+  vm.runInNewContext(source.replace('const FILES = [', "const FILES = ['src/session.js','src/session.js',"), {
+    self: { registration: { scope }, addEventListener: (name, handler) => { if (name === 'install') install = handler; } },
+    caches: { open: async () => ({ addAll: async items => { urls = items; } }) }, URL,
+  });
+  let done;
+  install({ waitUntil: value => done = value });
+  await done;
+  assert.equal(urls.length, new Set(urls).size);
+});
