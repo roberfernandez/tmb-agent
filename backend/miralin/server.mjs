@@ -1,4 +1,10 @@
 import http from 'node:http';
+import {createHash,randomUUID} from 'node:crypto';
+const bootId=randomUUID();
+function diagnostic(event,details={}) { console.log(JSON.stringify({at:new Date().toISOString(),bootId,event,...details})); }
+const watchId=endpoint=>createHash('sha256').update(endpoint).digest('hex').slice(0,12);
+let clientRequests=0,lastClientRequestAt=0,mapUpdates=0;
+diagnostic('server_boot');
 const UPSTREAM = 'https://miralin.cat/socket.io/';
 const ORIGIN = 'https://roberfernandez.github.io';
 let snapshot = {}, receivedAt = 0, connected = false, running = false, lastUse = Date.now(), stopping = false;
@@ -11,7 +17,7 @@ function stationPasses(trains,now=Date.now()) {
  const previous=previousMap;const fresh=previous&&now-previousMapAt<45000;
  previousMap=trains;previousMapAt=now;
  for(const [endpoint,w] of stationWatches){
-  if(now>=w.until){stationWatches.delete(endpoint);continue}
+  if(now>=w.until){diagnostic('station_watch_expired',{watchId:watchId(endpoint)});stationWatches.delete(endpoint);continue}
   if(!fresh)continue;
   for(const [id,t] of Object.entries(trains)){
    const old=previous[id];if(!old)continue;
@@ -22,7 +28,8 @@ function stationPasses(trains,now=Date.now()) {
    if(!passed)continue;
    const key=id+":"+via;if(now-(w.sent.get(key)||0)<120000)continue;
    w.sent.set(key,now);
-   void webpush.sendNotification(w.subscription,JSON.stringify({title:"Selva de Mar · Tren "+id+" · via "+via,body:"Pas detectat segons el canvi d’estació de Miralin. Recepció "+new Date(now).toLocaleTimeString("ca-ES",{timeZone:"Europe/Madrid"})+".",url:"/tmb-agent/proves/servei/"}),{TTL:60,urgency:"high",timeout:15000}).catch(e=>{console.warn("Station push failed",e.statusCode||e.message);if(e.statusCode===410||e.statusCode===404)stationWatches.delete(endpoint)});
+   diagnostic('station_pass_detected',{watchId:watchId(endpoint),train:id,via,station:417});
+   void webpush.sendNotification(w.subscription,JSON.stringify({title:"Selva de Mar · Tren "+id+" · via "+via,body:"Pas detectat segons el canvi d’estació de Miralin. Recepció "+new Date(now).toLocaleTimeString("ca-ES",{timeZone:"Europe/Madrid"})+".",url:"/tmb-agent/proves/servei/"}),{TTL:60,urgency:"high",timeout:15000}).then(result=>diagnostic('station_push_accepted',{watchId:watchId(endpoint),train:id,via,statusCode:result.statusCode})).catch(e=>{diagnostic('station_push_failed',{watchId:watchId(endpoint),train:id,via,statusCode:e.statusCode||null,errorName:e.name});if(e.statusCode===410||e.statusCode===404)stationWatches.delete(endpoint)});
   }
  }
 }
@@ -44,6 +51,7 @@ async function request(params, body, signal) {
 function start() {
   if (running || stopping) return;
   running = true;
+  diagnostic('upstream_loop_started');
   void (async () => {
     let retry = 2000;
     while (!stopping && watchNeeded()) {
@@ -68,6 +76,8 @@ function start() {
               if (event === 'mapUpdate' && data?.L4?.trains) {
                 stationPasses(data.L4.trains);
                 snapshot = data.L4.trains;
+                if(!connected||!receivedAt||Date.now()-receivedAt>45000)diagnostic('upstream_data_resumed',{previousAgeSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null});
+                mapUpdates++;
                 receivedAt = Date.now();
                 connected = true;
                 retry = 2000;
@@ -77,7 +87,7 @@ function start() {
         }
       } catch (e) {
         connected = false;
-        if (!stopping) console.warn('Connection interrupted:', e.message);
+        if (!stopping) { console.warn('Connection interrupted:', e.message); diagnostic('upstream_interrupted',{errorName:e.name}); }
       } finally {
         if (params && !signal.aborted) {
           try { await request(params, '41', signal); } catch {}
@@ -89,6 +99,7 @@ function start() {
       }
     }
     running = false;
+    diagnostic('upstream_loop_stopped',{stopping,watchNeeded:watchNeeded()});
   })();
 }
 
@@ -118,6 +129,7 @@ async function pushRoute(req,res,url){
    if(!Number.isFinite(end)||end>Date.now()+9*3600000||end>deadline||end<=Date.now())throw Error('La prova ha de finalitzar com a màxim a les 00:57 del 31/10.');
    if(!stationWatches.has(endpoint.href)&&stationWatches.size>=10)throw Error('Massa proves actives');
    stationWatches.set(endpoint.href,{subscription,until:end,sent:new Map()});
+   diagnostic('station_watch_registered',{watchId:watchId(endpoint.href),until:new Date(end).toISOString(),station:417,tracks:[1,2]});
    lastUse=Date.now();start();
    res.writeHead(202);res.end(JSON.stringify({until:new Date(end).toISOString(),station:417,tracks:[1,2],temporary:true}));return;
   }
@@ -161,6 +173,8 @@ const server = http.createServer((req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   if (url.pathname === '/health') return res.end(JSON.stringify({ok:true, connected}));
   if (!['/', '/api/trains'].includes(url.pathname)) { res.writeHead(404); return res.end(JSON.stringify({error:'Not found'})); }
+  lastClientRequestAt=Date.now();clientRequests++;
+  diagnostic('client_train_request',{count:clientRequests});
   lastUse = Date.now(); start();
   const ageSeconds = receivedAt ? Math.floor((Date.now()-receivedAt)/1000) : null;
   const stale = !connected || ageSeconds === null || ageSeconds > 45;
@@ -179,5 +193,14 @@ const server = http.createServer((req, res) => {
     ageSeconds, pushTest:{until:testWatchUntil?new Date(testWatchUntil).toISOString():null,...testTrainState()}, note:'Reception time is not the source measurement time. secondsLeft is not necessarily time to your relief.',trains}));
 });
 server.listen(Number(process.env.PORT || 10000), '0.0.0.0', () => console.log('Service listening'));
-function shutdown() { stopping=true; controller?.abort(); server.close(); setTimeout(()=>process.exit(0),1500).unref(); }
+function shutdown() { diagnostic('server_shutdown');stopping=true; controller?.abort(); server.close(); setTimeout(()=>process.exit(0),1500).unref(); }
 process.on('SIGTERM',shutdown); process.on('SIGINT',shutdown);
+
+setInterval(()=>{
+ diagnostic('watch_heartbeat',{
+  connected,running,mapUpdates,
+  receptionAgeSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null,
+  clientRequests,lastClientRequestAt:lastClientRequestAt?new Date(lastClientRequestAt).toISOString():null,
+  stationWatches:[...stationWatches].filter(([,w])=>w.until>Date.now()).map(([endpoint,w])=>({watchId:watchId(endpoint),until:new Date(w.until).toISOString()}))
+ });
+},60000).unref();
