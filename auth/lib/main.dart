@@ -29,9 +29,9 @@ Future<void> main() async {
   );
   if (hasCallback) {
     try {
-      final response = await Supabase.instance.client.auth
+      await Supabase.instance.client.auth
           .getSessionFromUrl(callback).timeout(const Duration(seconds: 20));
-      recoveryReady = response.session != null;
+      recoveryReady = true;
     } catch (_) {
       callbackError = 'L’enllaç no és vàlid o ha caducat. Demana’n un de nou.';
     }
