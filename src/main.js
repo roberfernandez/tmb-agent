@@ -447,12 +447,6 @@ function startApp() {
     else authorizedRender();
   });
   setInterval(() => { if (!document.hidden) authorizedRender(); }, 3600000);
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {
-        document.querySelector('footer').append(element('p', 'notice', 'El mode sense connexió no està disponible en aquest navegador.'));
-      });
-    });
-  }
+
 }
 startApp();

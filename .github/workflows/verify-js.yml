@@ -15,3 +15,25 @@ jobs:
       - run: node --check src/cquadre.js
       - run: node --check src/main.js
       - run: node --test tests/*.test.js
+
+  flutter-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: auth
+      - run: flutter analyze lib test
+        working-directory: auth
+      - run: flutter test
+        working-directory: auth
+      - run: flutter build web --release --base-href /tmb-agent/auth/ --pwa-strategy none --no-web-resources-cdn
+        working-directory: auth
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run build

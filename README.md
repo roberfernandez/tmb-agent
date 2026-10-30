@@ -37,7 +37,7 @@ El launcher usa Node 22 o posterior para la exportación.
 GitHub Pages usa GitHub Actions y publica al subir a `main`.
 URL: https://roberfernandez.github.io/tmb-agent/
 
-El service worker conserva únicamente archivos públicos de la base para abrirla sin conexión después de la primera visita. No almacena perfiles ni credenciales. Los destinos externos requieren su propia conexión.
+El service worker conserva únicamente archivos públicos de la base para reducir descargas después de la primera visita. El acceso requiere Internet para validar la sesión y la aprobación; no se ofrece acceso sin conexión. No almacena perfiles ni credenciales. Los destinos externos requieren su propia conexión.
 
 La autenticación reutiliza Supabase Auth, usuarios y aprobación manual de Incidencias L4. Consulta `docs/autenticacion.md`. Los demás módulos mantienen sus placeholders.
 

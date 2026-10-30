@@ -29,7 +29,7 @@ jobs:
           cache: true
       - run: flutter pub get
         working-directory: auth
-      - run: flutter test test/sesion_guardada_test.dart
+      - run: flutter test
         working-directory: auth
       - run: flutter build web --release --base-href /tmb-agent/auth/ --pwa-strategy none --no-web-resources-cdn
         working-directory: auth

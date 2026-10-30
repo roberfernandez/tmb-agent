@@ -13,9 +13,14 @@ async function digest(path) {
     else { hash.update(file); hash.update(await readFile(file)); }
   }
 }
-await digest('src'); await digest('public'); hash.update(await readFile('index.html'));
+await digest('src'); await digest('public'); await digest('auth/build/web'); hash.update(await readFile('index.html'));
 const version = hash.digest('hex').slice(0, 12);
-await writeFile('dist/sw.js', (await readFile('public/sw.js', 'utf8')).replace('__VERSION__', version));
+// Include every launcher module, including its imported dependencies. Versioned
+// URLs fall back to these canonical paths only within this build's cache.
+const appFiles = (await readdir('src')).filter(file => /\.(js|css)$/.test(file)).map(file => `src/${file}`);
+await writeFile('dist/sw.js', (await readFile('public/sw.js', 'utf8'))
+  .replace('__VERSION__', version)
+  .replace('const FILES = [', `const FILES = [${appFiles.map(file => JSON.stringify(file)).join(',')},`));
 await writeFile('dist/index.html', (await readFile('index.html', 'utf8')).replace('Versió de desenvolupament', `Versió ${version.slice(0, 8)}`));
 await writeFile('dist/version.json', JSON.stringify({ version: version.slice(0, 8) }));
 await writeFile('dist/.nojekyll', '');

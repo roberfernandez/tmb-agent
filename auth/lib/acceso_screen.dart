@@ -3,11 +3,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AccesoScreen extends StatefulWidget {
   final Widget pantallaPrincipal;
+  final String? initialMessage;
   final Future<String?> Function()? comprobarSesionGuardada;
 
   const AccesoScreen({
     super.key,
     required this.pantallaPrincipal,
+    this.initialMessage,
     this.comprobarSesionGuardada,
   });
 
@@ -17,8 +19,6 @@ class AccesoScreen extends StatefulWidget {
 
 class _AccesoScreenState extends State<AccesoScreen> {
   SupabaseClient get supabase => Supabase.instance.client;
-
-  static const String emailAdmin = 'elodcoliv36@gmail.com';
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -34,6 +34,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
   @override
   void initState() {
     super.initState();
+    mensaje = widget.initialMessage;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) recuperarSesion();
     });
@@ -92,7 +93,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
   bool _emailPermitido(String email) {
     final normalizado = email.trim().toLowerCase();
 
-    return normalizado.endsWith('@tmb.cat') || normalizado == emailAdmin;
+    return RegExp(r'^[^@\s]+@tmb\.cat$').hasMatch(normalizado);
   }
 
   Future<String?> _estadoAcceso() async {
@@ -177,7 +178,7 @@ class _AccesoScreenState extends State<AccesoScreen> {
         } else if (estado == 'rechazado') {
           error = 'La teva sol·licitud d’accés ha estat rebutjada.';
         } else {
-          error = 'Aquest usuari encara no té l’accés autoritzat.';
+          error = 'Prem SOL·LICITAR ACCÉS per enviar la teva petició d’autorització.';
         }
       });
     } on AuthException {
@@ -194,6 +195,37 @@ class _AccesoScreenState extends State<AccesoScreen> {
         cargando = false;
         error = 'No s’ha pogut comprovar l’accés.';
       });
+    }
+  }
+
+  DateTime? _proximoEnvio;
+
+  Future<void> recuperarContrasenya() async {
+    final email = emailController.text.trim().toLowerCase();
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      setState(() { error = 'Introdueix un correu electrònic vàlid.'; mensaje = null; });
+      return;
+    }
+    if (_proximoEnvio != null && DateTime.now().isBefore(_proximoEnvio!)) {
+      setState(() { error = 'Espera un minut abans de tornar a demanar l’enllaç.'; });
+      return;
+    }
+    setState(() { cargando = true; error = null; mensaje = null; });
+    _proximoEnvio = DateTime.now().add(const Duration(minutes: 1));
+    try {
+      await supabase.auth.resetPasswordForEmail(email,
+        redirectTo: 'https://roberfernandez.github.io/tmb-agent/auth/?recovery=1');
+      if (!mounted) return;
+      setState(() { mensaje = 'Si el compte existeix, rebràs un enllaç per canviar la contrasenya. Revisa també el correu brossa.'; });
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() { error = e.statusCode == '429'
+        ? 'S’ha arribat al límit d’enviaments. Espera una estona i torna-ho a provar.'
+        : 'No s’ha pogut enviar l’enllaç. Torna-ho a provar més tard o contacta amb l’administrador.'; });
+    } catch (_) {
+      if (mounted) setState(() { error = 'Revisa la connexió i torna-ho a provar.'; });
+    } finally {
+      if (mounted) setState(() => cargando = false);
     }
   }
 
@@ -246,12 +278,16 @@ class _AccesoScreenState extends State<AccesoScreen> {
         final respuesta = await supabase.auth.signUp(
           email: email,
           password: password,
+          emailRedirectTo: 'https://roberfernandez.github.io/tmb-agent/auth/',
         );
 
         if (respuesta.session == null && supabase.auth.currentSession == null) {
-          throw const AuthException(
-            'No s’ha pogut iniciar la sessió del nou usuari.',
-          );
+          if (!mounted) return;
+          setState(() {
+            cargando = false;
+            mensaje = 'Revisa el teu correu i confirma l’adreça. Després torna aquí i prem SOL·LICITAR ACCÉS amb la mateixa contrasenya.';
+          });
+          return;
         }
       }
 
@@ -579,6 +615,10 @@ class _AccesoScreenState extends State<AccesoScreen> {
                               ),
                             ),
                     ),
+                  ),
+                  TextButton(
+                    onPressed: cargando ? null : recuperarContrasenya,
+                    child: const Text('He oblidat la contrasenya'),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
