@@ -29,8 +29,8 @@
  <h2>Segueix el servei</h2><p>Seguiment automàtic del tren que correspon segons l’horari carregat.</p>
  <div class="row"><button id="startServiceEye" class="primary"><span aria-hidden="true">👁</span> Activa l’ull</button><button id="stopServiceEye" hidden>Atura</button></div>
  <p id="serviceEyeStatus" role="status" class="muted">Seguiment automàtic desactivat.</p>
- <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/latest/download/Miralin-Tren-Ull.apk">Android · baixa l’APK</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · versió web</a></div>
- <p class="muted" id="platformTitle"></p><p class="muted" id="iosInstructions">A l’iPhone o l’iPad, obre la pàgina amb Safari i tria <strong>Compartir → Afegir a pantalla d’inici</strong>. El seguiment funciona amb la pàgina oberta.</p>
+ <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/latest/download/Miralin-Tren-Ull.apk">Android · baixa l’APK</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
+ <p class="muted" id="platformTitle"></p><p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
 </section>
 <section class="card">
  <h2>Segueix un tren</h2><p>Escull manualment el tren que vols seguir. Aquest mode atura el seguiment automàtic del servei.</p>
@@ -156,20 +156,21 @@ function showFollowMode(mode){
  if(mode!=='service'&&mode!=='manual'){$('startTrainWatch').disabled=false;$('watchTrain').disabled=false}
 }
 function serviceScheduleParam(){return rows.filter(r=>r.type==='CON').map(r=>[r.a,r.b,r.train].join(',')).join(';')}
-async function stopNativeEye(){if(isAndroid){location.href='tmbservei://stop';await new Promise(r=>setTimeout(r,450))}}
+async function stopNativeEye(){if(isAndroid){location.href='tmbservei://stop';await new Promise(r=>setTimeout(r,450))}else if(isIOS){location.href='tmbservei-ios://stop';await new Promise(r=>setTimeout(r,450))}}
 $('startServiceEye').onclick=async()=>{
  $('startServiceEye').disabled=true;
  const stopped=await stopTrainPushWatch();
  if(!stopped){$('startServiceEye').disabled=false;$('serviceEyeStatus').textContent='No s’ha pogut aturar el seguiment manual.';return}
  if(!isAndroid&&!rows.some(r=>r.type==='CON')){$('serviceEyeStatus').textContent='Carrega un servei amb trams de conducció.';$('startServiceEye').disabled=false;return}
  showFollowMode('service');
- if(isAndroid){const query=new URLSearchParams({mode:'service',date:state.date,schedule:serviceScheduleParam()});location.href='tmbservei://watch?'+query.toString()}
+ const query=new URLSearchParams({mode:'service',date:state.date,schedule:serviceScheduleParam()});if(isAndroid)location.href='tmbservei://watch?'+query.toString();else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString()
  $('startServiceEye').disabled=false;
 };
 $('stopServiceEye').onclick=async()=>{showFollowMode('');await stopNativeEye()};
 $('stopTrainWatch').onclick=async()=>{const ok=await stopTrainPushWatch();if(ok){showFollowMode('');await stopNativeEye()}};
 $('startTrainWatch').onclick=async()=>{
  if(!/^4\d{2}$/.test($('watchTrain').value||'')){$('trainWatchStatus').textContent='Tria primer un tren de la L4.';return}
+ if(isIOS){showFollowMode('manual');location.href='tmbservei-ios://watch?'+new URLSearchParams({mode:'manual',train:$('watchTrain').value}).toString();return}
  await stopNativeEye();showFollowMode('manual');await activateTrainWatch(false)
 };
 const androidEyeButton=$('openAndroidOverlay');
