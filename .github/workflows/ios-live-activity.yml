@@ -25,6 +25,6 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
-        run: xcodegen generate --spec ios/project.yml --project ios/TMBTrainLive.xcodeproj
+        run: xcodegen generate --spec ios/project.yml --project ios
       - name: Build app and Live Activity widget
         run: xcodebuild -project ios/TMBTrainLive.xcodeproj -scheme TMBTrainLive -sdk iphonesimulator -configuration Debug -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO APS_ENVIRONMENT=development build
