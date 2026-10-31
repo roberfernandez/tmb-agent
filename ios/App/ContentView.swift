@@ -144,7 +144,7 @@ struct ContentView: View {
                 await previous.end(nil, dismissalPolicy: .immediate)
             }
 
-            let initialTrain = mode == "manual" ? train : scheduledTrain(at: Date()) ?? firstScheduledTrain() ?? train
+            let initialTrain = mode == "manual" ? train : scheduledTrain(at: Date(), serviceDate: serviceDate, schedule: schedule) ?? firstScheduledTrain(schedule) ?? train
             let attributes = TrainActivityAttributes(mode: mode, serviceDate: serviceDate, schedule: schedule, startedAt: Date().timeIntervalSince1970)
             let initial = TrainActivityAttributes.ContentState(
                 train: initialTrain,
