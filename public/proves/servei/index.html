@@ -3,7 +3,7 @@
 
 #photoViewport{width:min(100%,420px);height:auto;max-height:none;aspect-ratio:1/1;overflow:hidden;margin:14px auto;background:#080f1c}.photo-stage{width:100%;height:100%;aspect-ratio:1/1}.photo-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.photo-overlay{pointer-events:auto}#activePhotoRow{pointer-events:none}.photo-overlay .photo-row-hit{fill:transparent;stroke:transparent;pointer-events:all;cursor:pointer}.photo-overlay .photo-row-hit:focus{stroke:#fff;stroke-width:4;vector-effect:non-scaling-stroke}#serviceNow{margin:8px 0;font-weight:650}.service-current{color:#f4d000}.service-manual{color:#a9b8cb;font-size:13px}#resumeAuto{margin-bottom:8px} .file-picker{position:relative;display:inline-flex;align-items:center;overflow:hidden;margin:0;padding:11px 14px;border:1px solid #41516a;border-radius:9px;cursor:pointer;font:inherit;line-height:1.2}.file-picker:focus-within{outline:3px solid #fff;outline-offset:3px}.file-picker[hidden]{display:none!important}.file-picker.primary{background:#f4d000;color:#111;border:0;font-weight:700}.file-picker.secondary{background:#182940;color:#fff}.file-picker:focus-visible{outline:3px solid #fff;outline-offset:3px}.file-input{position:absolute;inset:0;width:100%;height:100%;padding:0;margin:0;opacity:0;border:0;cursor:pointer;z-index:1}
 </style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.15.5</span></header><h1>El meu servei</h1>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.15.6</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
@@ -59,7 +59,7 @@ else if(isAndroid){$('iosOption').hidden=true;$('iosInstructions').hidden=true;$
 let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,manualRowIndex:null,manualSince:null};
 let rows=[],manualRowIndex=null,manualSince=0,enabled=false,audioCtx=null;
 const fired=new Set();
-let ocrImage=null,ocrRotation=0,ocrRowBounds=null,photoRowsReady=false,photoSize=null,lastPhotoRow=null,ocrDraft=false,ocrBusy=false,photoObjectUrl=null;try{Object.assign(state,JSON.parse(localStorage.getItem('tmb-servei-v01')||'{}'))}catch{}
+let ocrImage=null,ocrRotation=0,ocrRowBounds=null,photoRowsReady=false,photoSize=null,lastPhotoRow=null,ocrDraft=false,ocrBusy=false;try{Object.assign(state,JSON.parse(localStorage.getItem('tmb-servei-v01')||'{}'))}catch{}
 function persist(){try{localStorage.setItem('tmb-servei-v01',JSON.stringify(state))}catch{$('error').textContent='No s’ha pogut desar al navegador.'}}
 function minutes(s){if(!/^\d{2}:[0-5]\d$/.test(s)||Number(s.slice(0,2))>47)throw Error('Hora no vàlida: '+s);return Number(s.slice(0,2))*60+Number(s.slice(3))}
 function parse(text){let previous=-1;return text.trim().split('\n').filter(l=>l.trim()).map((l,i)=>{let [start,end,type,from,to,train='',via='',out='']=l.split('|').map(s=>s.trim());let a=minutes(start),b=minutes(end);if(b<=a||a<previous)throw Error('Fila '+(i+1)+': horari solapat o final anterior a inici.');if(!['TRA','EST','CON'].includes(type)||!stations[from]||!stations[to])throw Error('Fila '+(i+1)+': tipus o estació no vàlids.');if(type==='CON'&&(!/^4\d{2}$/.test(train)||!['1','2'].includes(via)||!['1','2','RET'].includes(out)))throw Error('Fila '+(i+1)+': revisa tren i vies.');previous=b;return {start,end,type,from,to,train,via,out,a,b,i}})}
@@ -245,7 +245,16 @@ if(/^4\d{2}$/.test(selectedTrainFromPush||'')){$('watchTrain').value=selectedTra
 
 
 $('photo').addEventListener('click',e=>{e.currentTarget.value=''});$('cameraPhoto').addEventListener('click',e=>{e.currentTarget.value=''});
-function imageFromFile(file){if(photoObjectUrl)URL.revokeObjectURL(photoObjectUrl);photoObjectUrl=URL.createObjectURL(file);return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error('El navegador no ha pogut descodificar la imatge seleccionada'));image.src=photoObjectUrl})}
+async function imageFromFile(file){
+ if(typeof createImageBitmap==='function'){try{return await createImageBitmap(file)}catch{}}
+ return new Promise((resolve,reject)=>{
+  if(typeof FileReader!=='function'){reject(Error('Aquest navegador no permet llegir imatges locals'));return}
+  const reader=new FileReader();
+  reader.onerror=()=>reject(Error('No s’ha pogut llegir el fitxer seleccionat'));
+  reader.onload=()=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error('El navegador no ha pogut descodificar la imatge'));image.src=String(reader.result)};
+  reader.readAsDataURL(file);
+ });
+}
 function photoCanvas(){
  const canvas=document.createElement('canvas'),rotated=ocrRotation%180!==0;
  let w=rotated?ocrImage.height:ocrImage.width,h=rotated?ocrImage.width:ocrImage.height;
