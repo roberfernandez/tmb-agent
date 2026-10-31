@@ -23,6 +23,9 @@ public class MainActivity extends Activity {
     private Spinner trainPicker;
     private TextView status;
     private String pendingTrain;
+    private String pendingMode = "manual";
+    private String pendingDate;
+    private String pendingSchedule;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -62,20 +65,20 @@ public class MainActivity extends Activity {
         root.addView(trainPicker, pickerLp);
 
         Button start = new Button(this);
-        start.setText("Activar ojo superpuesto");
+        start.setText("Activa l’ull superposat");
         LinearLayout.LayoutParams startLp = matchWrap();
         startLp.topMargin = dp(18);
         root.addView(start, startLp);
         start.setOnClickListener(v -> startOverlayFor(String.valueOf(trainPicker.getSelectedItem())));
 
         Button stop = new Button(this);
-        stop.setText("Desactivar ojo");
+        stop.setText("Desactiva l’ull");
         LinearLayout.LayoutParams stopLp = matchWrap();
         stopLp.topMargin = dp(8);
         root.addView(stop, stopLp);
         stop.setOnClickListener(v -> {
             stopService(new Intent(this, TrainOverlayService.class));
-            status.setText("Seguimiento superpuesto detenido.");
+            status.setText("Seguiment superposat aturat.");
         });
 
         status = text("Prueba Android. La app consulta Miralin.cat mediante el servidor Render.", 14, 0xffa9b8cb, false);
@@ -88,9 +91,32 @@ public class MainActivity extends Activity {
     private void handleIntent(Intent intent) {
         Uri data = intent == null ? null : intent.getData();
         if (data == null || !"tmbservei".equals(data.getScheme())) return;
+        if ("stop".equals(data.getHost())) {
+            stopService(new Intent(this, TrainOverlayService.class));
+            finish();
+            return;
+        }
+        String mode = data.getQueryParameter("mode");
+        if ("service".equals(mode)) {
+            String date = data.getQueryParameter("date");
+            String schedule = data.getQueryParameter("schedule");
+            if (date == null || schedule == null || schedule.isEmpty()) {
+                status.setText("Carrega un servei amb trams de conducció abans d’activar l’ull.");
+                return;
+            }
+            pendingMode = "service";
+            pendingDate = date;
+            pendingSchedule = schedule;
+            pendingTrain = schedule.split(";")[0].split(",")[2];
+            startPendingOverlay();
+            return;
+        }
         String train = data.getQueryParameter("train");
         if (train != null && train.matches("4\\d{2}") && Integer.parseInt(train) >= 401 && Integer.parseInt(train) <= 415) {
             selectTrain(train);
+            pendingMode = "manual";
+            pendingDate = null;
+            pendingSchedule = null;
             startOverlayFor(train);
         }
     }
@@ -103,6 +129,13 @@ public class MainActivity extends Activity {
 
     private void startOverlayFor(String train) {
         pendingTrain = train;
+        pendingMode = "manual";
+        pendingDate = null;
+        pendingSchedule = null;
+        startPendingOverlay();
+    }
+
+    private void startPendingOverlay() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFICATIONS);
             return;
@@ -128,9 +161,13 @@ public class MainActivity extends Activity {
 
     private void launchOverlayService() {
         if (pendingTrain == null) return;
-        Intent service = new Intent(this, TrainOverlayService.class).putExtra(TrainOverlayService.EXTRA_TRAIN, pendingTrain);
+        Intent service = new Intent(this, TrainOverlayService.class)
+            .putExtra(TrainOverlayService.EXTRA_TRAIN, pendingTrain)
+            .putExtra(TrainOverlayService.EXTRA_MODE, pendingMode)
+            .putExtra(TrainOverlayService.EXTRA_SERVICE_DATE, pendingDate)
+            .putExtra(TrainOverlayService.EXTRA_SCHEDULE, pendingSchedule);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
-        status.setText("Ull actiu per al tren " + pendingTrain + ". Pots tornar a la PWA o obrir una altra aplicació.");
+        status.setText(pendingMode.equals("service") ? "Ull actiu: segueix el tren previst pel servei." : "Ull actiu per al tren " + pendingTrain + ". Pots tornar a la PWA o obrir una altra aplicació.");
     }
 
     @Override

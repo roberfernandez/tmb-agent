@@ -23,6 +23,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tmbservei" android:host="watch" />
+                <data android:scheme="tmbservei" android:host="stop" />
             </intent-filter>
         </activity>
         <service

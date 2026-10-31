@@ -35,6 +35,9 @@ import java.util.concurrent.Executors;
 
 public class TrainOverlayService extends Service {
     public static final String EXTRA_TRAIN = "train";
+    public static final String EXTRA_MODE = "mode";
+    public static final String EXTRA_SERVICE_DATE = "serviceDate";
+    public static final String EXTRA_SCHEDULE = "schedule";
     private static final String CHANNEL_ID = "train_eye_overlay";
     private static final int NOTIFICATION_ID = 9413;
     private static final String API = "https://tmb-servei-proves.onrender.com/api/trains?ids=";
@@ -50,6 +53,9 @@ public class TrainOverlayService extends Service {
     private int downX, downY;
     private boolean dragging;
     private String train = "401";
+    private String mode = "manual";
+    private String serviceDate = "";
+    private String schedule = "";
     private String station = "connectant…";
     private String track = "—";
     private int ageAtFetch = -1;
@@ -59,6 +65,7 @@ public class TrainOverlayService extends Service {
 
     private final Runnable poll = new Runnable() {
         @Override public void run() {
+            applyScheduledTrain(false);
             fetchTrain();
             handler.postDelayed(this, 15000);
         }
@@ -66,6 +73,7 @@ public class TrainOverlayService extends Service {
 
     private final Runnable ageTicker = new Runnable() {
         @Override public void run() {
+            applyScheduledTrain(true);
             updateLine();
             handler.postDelayed(this, 1000);
         }
@@ -80,16 +88,25 @@ public class TrainOverlayService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && intent.hasExtra(EXTRA_TRAIN)) {
-            train = intent.getStringExtra(EXTRA_TRAIN);
-            getSharedPreferences("overlay", MODE_PRIVATE).edit().putString(EXTRA_TRAIN, train).apply();
-        } else if (intent == null) {
-            train = getSharedPreferences("overlay", MODE_PRIVATE).getString(EXTRA_TRAIN, "401");
-        }
         if (intent != null && "STOP".equals(intent.getAction())) {
             stopSelf();
             return START_NOT_STICKY;
         }
+        android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
+        if (intent != null) {
+            train = intent.getStringExtra(EXTRA_TRAIN) == null ? train : intent.getStringExtra(EXTRA_TRAIN);
+            mode = intent.getStringExtra(EXTRA_MODE) == null ? "manual" : intent.getStringExtra(EXTRA_MODE);
+            serviceDate = intent.getStringExtra(EXTRA_SERVICE_DATE) == null ? "" : intent.getStringExtra(EXTRA_SERVICE_DATE);
+            schedule = intent.getStringExtra(EXTRA_SCHEDULE) == null ? "" : intent.getStringExtra(EXTRA_SCHEDULE);
+            prefs.edit().putString(EXTRA_TRAIN, train).putString(EXTRA_MODE, mode)
+                .putString(EXTRA_SERVICE_DATE, serviceDate).putString(EXTRA_SCHEDULE, schedule).apply();
+        } else {
+            train = prefs.getString(EXTRA_TRAIN, "401");
+            mode = prefs.getString(EXTRA_MODE, "manual");
+            serviceDate = prefs.getString(EXTRA_SERVICE_DATE, "");
+            schedule = prefs.getString(EXTRA_SCHEDULE, "");
+        }
+        applyScheduledTrain(false);
         startAsForeground();
         if (!android.provider.Settings.canDrawOverlays(this)) {
             stopSelf();
@@ -250,10 +267,11 @@ public class TrainOverlayService extends Service {
     private void fetchTrain() {
         if (requestInFlight) return;
         requestInFlight = true;
+        final String requestedTrain = train;
         network.execute(() -> {
             HttpURLConnection connection = null;
             try {
-                connection = (HttpURLConnection) new URL(API + train).openConnection();
+                connection = (HttpURLConnection) new URL(API + requestedTrain).openConnection();
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(10000);
                 connection.setRequestMethod("GET");
@@ -265,15 +283,17 @@ public class TrainOverlayService extends Service {
                     while ((line = reader.readLine()) != null) raw.append(line);
                 }
                 JSONObject response = new JSONObject(raw.toString());
-                JSONObject item = response.optJSONObject("trains") == null ? null : response.optJSONObject("trains").optJSONObject(train);
+                JSONObject item = response.optJSONObject("trains") == null ? null : response.optJSONObject("trains").optJSONObject(requestedTrain);
                 String newStation = item == null ? "sense dades" : item.optString("station", "sense dades");
                 String newTrack = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
                 int newAge = response.isNull("ageSeconds") ? -1 : response.optInt("ageSeconds", -1);
                 synchronized (this) {
-                    station = newStation;
-                    track = newTrack;
-                    ageAtFetch = newAge;
-                    fetchedAt = System.currentTimeMillis();
+                    if (train.equals(requestedTrain)) {
+                        station = newStation;
+                        track = newTrack;
+                        ageAtFetch = newAge;
+                        fetchedAt = System.currentTimeMillis();
+                    }
                 }
             } catch (Exception ignored) {
                 synchronized (this) {
@@ -285,6 +305,51 @@ public class TrainOverlayService extends Service {
                 handler.post(this::updateLine);
             }
         });
+    }
+
+    private void applyScheduledTrain(boolean refreshNow) {
+        if (!"service".equals(mode) || schedule == null || schedule.isEmpty()) return;
+        String selected = null;
+        int now = serviceMinutesNow();
+        int bestUpcoming = Integer.MAX_VALUE;
+        String latestTrain = null;
+        int latestEnd = -1;
+        for (String entry : schedule.split(";")) {
+            String[] parts = entry.split(",");
+            if (parts.length != 3) continue;
+            try {
+                int start = Integer.parseInt(parts[0]);
+                int end = Integer.parseInt(parts[1]);
+                String candidate = parts[2];
+                if (!candidate.matches("4\\d{2}")) continue;
+                if (now >= start && now < end) { selected = candidate; break; }
+                if (start > now && start < bestUpcoming) { bestUpcoming = start; selected = candidate; }
+                if (end > latestEnd) { latestEnd = end; latestTrain = candidate; }
+            } catch (NumberFormatException ignored) {}
+        }
+        if (selected == null) selected = latestTrain;
+        if (selected != null && !selected.equals(train)) {
+            train = selected;
+            station = "connectant…";
+            track = "—";
+            ageAtFetch = -1;
+            fetchedAt = 0;
+            getSharedPreferences("overlay", MODE_PRIVATE).edit().putString(EXTRA_TRAIN, train).apply();
+            startAsForeground();
+            if (refreshNow) fetchTrain();
+        }
+    }
+
+    private int serviceMinutesNow() {
+        try {
+            java.time.LocalDate date = java.time.LocalDate.parse(serviceDate);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            long minutes = java.time.Duration.between(date.atStartOfDay(), now).toMinutes();
+            return (int) Math.max(-1, Math.min(2879, minutes));
+        } catch (Exception ignored) {
+            java.util.Calendar c = java.util.Calendar.getInstance();
+            return c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE);
+        }
     }
 
     private void updateLine() {
