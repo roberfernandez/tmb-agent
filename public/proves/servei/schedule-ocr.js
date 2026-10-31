@@ -2,7 +2,7 @@
 const HEADERS=['HI','EI','VI','TE','HF','EF','VF'];
 const normalize=s=>String(s).toUpperCase().replace(/[^A-Z0-9]/g,'');
 const time=s=>{const m=String(s).replace(/\s/g,'').match(/^(\d{1,2})[:.](\d{2})$/);return m&&+m[1]<=47&&+m[2]<60?m[1].padStart(2,'0')+':'+m[2]:''};
-export function interpretSchedule(data){
+export function interpretSchedule(data,imageSize={}){
  const words=(data.words||data.blocks?.flatMap(b=>b.paragraphs?.flatMap(p=>p.lines?.flatMap(l=>l.words||[])||[])||[])||[]).filter(w=>w.text?.trim()&&w.bbox);
  if(!words.length)throw Error('No s’han reconegut les columnes. Prova una captura més nítida.');
  const groups=[];
@@ -18,7 +18,7 @@ export function interpretSchedule(data){
   if(hits.every(Boolean)){header={y:g.y,x:hits.map(w=>(w.bbox.x0+w.bbox.x1)/2)};break}
  }
  if(!header)throw Error('No es veuen bé HI, EI, VI, T/E, HF, EF i VF. Inclou la capçalera sencera.');
- const result=[],issues=[];
+ const result=[],issues=[],rowGeometry=[];
  for(const g of groups.filter(g=>g.y>header.y+g.h)){
   const cells=HEADERS.map(()=>[]);
   for(const w of g.words){const x=(w.bbox.x0+w.bbox.x1)/2;let i=0;for(let j=1;j<7;j++)if(Math.abs(x-header.x[j])<Math.abs(x-header.x[i]))i=j;cells[i].push(w)}
@@ -35,6 +35,7 @@ export function interpretSchedule(data){
   const validStations=/^4\d{2}$/.test(from)&&+from>=413&&+from<=434&&/^4\d{2}$/.test(to)&&+to>=413&&+to<=434;
   if(!start||!end||!type||!validStations||(type==='CON'&&(!['1','2'].includes(via)||!['1','2','RET'].includes(out))))issues.push('Fila '+(result.length+1)+': revisa hores, estacions, tren o vies.');
   if(cells.flat().some(w=>Number(w.confidence)<70))issues.push('Fila '+(result.length+1)+': lectura de baixa confiança.');
+  rowGeometry.push({center:g.y,height:g.h});
   result.push(line);
  }
  if(!result.length)throw Error('No s’han pogut identificar files d’activitat.');
@@ -42,5 +43,17 @@ export function interpretSchedule(data){
  const months={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
  const dateMatch=text.toLowerCase().match(/(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})/);
  const date=dateMatch&&months[dateMatch[2]]?dateMatch[3]+'-'+String(months[dateMatch[2]]).padStart(2,'0')+'-'+dateMatch[1].padStart(2,'0'):null;
- return {text:result.join('\n'),issues:[...new Set(issues)],count:result.length,date};
+ const width=Number(imageSize.width)||Math.max(...words.map(w=>w.bbox.x1));
+ const height=Number(imageSize.height)||Math.max(...words.map(w=>w.bbox.y1));
+ const columnStep=header.x[1]-header.x[0];
+ const rowLeft=Math.max(0,header.x[0]-columnStep/2);
+ const rowRight=Math.min(width,header.x[6]+(header.x[6]-header.x[5])/2);
+ const rowBounds=rowGeometry.map((row,i)=>{
+  const previous=rowGeometry[i-1],next=rowGeometry[i+1];
+  const top=previous?(previous.center+row.center)/2:next?row.center-(next.center-row.center)/2:row.center-row.height;
+  const bottom=next?(row.center+next.center)/2:previous?row.center+(row.center-previous.center)/2:row.center+row.height;
+  const y=Math.max(0,Math.floor(top)),end=Math.min(height,Math.ceil(bottom));
+  return {x:Math.round(rowLeft),y,width:Math.max(1,Math.round(rowRight-rowLeft)),height:Math.max(1,end-y)};
+ });
+ return {text:result.join('\n'),issues:[...new Set(issues)],count:result.length,date,rowBounds,imageSize:{width,height}};
 }
