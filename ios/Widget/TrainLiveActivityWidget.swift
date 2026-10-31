@@ -5,7 +5,7 @@ import WidgetKit
 struct TrainLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrainActivityAttributes.self) { context in
-            LockScreenActivityView(state: context.state)
+            LockScreenActivityView(state: context.state, activityIsStale: context.isStale)
                 .activityBackgroundTint(Color(red: 0.04, green: 0.10, blue: 0.18))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
@@ -30,7 +30,7 @@ struct TrainLiveActivityWidget: Widget {
                         Text(context.state.station)
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
-                        freshness(context.state)
+                        freshness(context.state, activityIsStale: context.isStale)
                     }
                 }
             } compactLeading: {
@@ -50,6 +50,7 @@ struct TrainLiveActivityWidget: Widget {
 
 private struct LockScreenActivityView: View {
     let state: TrainActivityAttributes.ContentState
+    let activityIsStale: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -75,8 +76,8 @@ private struct LockScreenActivityView: View {
 }
 
 @ViewBuilder
-private func freshness(_ state: TrainActivityAttributes.ContentState) -> some View {
-    if state.stale {
+private func freshness(_ state: TrainActivityAttributes.ContentState, activityIsStale: Bool = false) -> some View {
+    if state.stale || activityIsStale {
         Text("Dades antigues · darrera recepció")
             .font(.caption2)
             .foregroundStyle(.orange)
