@@ -17,6 +17,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
@@ -42,7 +43,12 @@ public class TrainOverlayService extends Service {
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WindowManager windowManager;
     private View overlay;
+    private TextView trainLine;
     private TextView statusLine;
+    private WindowManager.LayoutParams overlayParams;
+    private float downRawX, downRawY;
+    private int downX, downY;
+    private boolean dragging;
     private String train = "401";
     private String station = "connectant…";
     private String track = "—";
@@ -131,50 +137,109 @@ public class TrainOverlayService extends Service {
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setPadding(dp(4), dp(3), dp(4), dp(3));
+        bar.setPadding(dp(5), dp(4), dp(5), dp(4));
         GradientDrawable background = new GradientDrawable();
         background.setColor(0xff111e30);
-        background.setCornerRadius(dp(18));
+        background.setCornerRadius(dp(14));
         background.setStroke(dp(1), 0xfff4d000);
         bar.setBackground(background);
 
         TrainEyeIcon eye = new TrainEyeIcon(this);
-        bar.addView(eye, new LinearLayout.LayoutParams(dp(30), dp(30)));
+        bar.addView(eye, new LinearLayout.LayoutParams(dp(32), dp(32)));
 
+        LinearLayout details = new LinearLayout(this);
+        details.setOrientation(LinearLayout.VERTICAL);
+        details.setPadding(dp(6), 0, dp(2), 0);
+        trainLine = new TextView(this);
+        trainLine.setTextColor(0xfff4d000);
+        trainLine.setTextSize(12);
+        trainLine.setTypeface(null, android.graphics.Typeface.BOLD);
+        trainLine.setSingleLine(true);
+        trainLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        trainLine.setMaxWidth(dp(220));
+        details.addView(trainLine, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
+
+        LinearLayout secondLine = new LinearLayout(this);
+        secondLine.setGravity(Gravity.CENTER_VERTICAL);
+        secondLine.setOrientation(LinearLayout.HORIZONTAL);
         statusLine = new TextView(this);
-        statusLine.setTextColor(0xffeef3fa);
-        statusLine.setTextSize(11);
+        statusLine.setTextColor(0xffdce5ef);
+        statusLine.setTextSize(10);
         statusLine.setSingleLine(true);
         statusLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        statusLine.setPadding(dp(5), 0, dp(4), 0);
-        statusLine.setMaxWidth(dp(240));
-        bar.addView(statusLine, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
+        statusLine.setMaxWidth(dp(155));
+        secondLine.addView(statusLine, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
 
         TextView close = new TextView(this);
         close.setText("×");
-        close.setTextSize(19);
+        close.setTextSize(18);
         close.setTextColor(0xfff4d000);
         close.setGravity(Gravity.CENTER);
-        bar.addView(close, new LinearLayout.LayoutParams(dp(28), dp(32)));
+        close.setMinWidth(dp(28));
+        close.setMinHeight(dp(24));
+        secondLine.addView(close, new LinearLayout.LayoutParams(dp(30), dp(24)));
         close.setOnClickListener(v -> stopSelf());
-        eye.setOnClickListener(v -> {
-            expanded = !expanded;
-            statusLine.setVisibility(expanded ? View.VISIBLE : View.GONE);
-        });
+
+        details.addView(secondLine, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
+        LinearLayout.LayoutParams detailsLp = new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP);
+        detailsLp.gravity = Gravity.CENTER_VERTICAL;
+        bar.addView(details, detailsLp);
+
+        View.OnTouchListener dragListener = (view, event) -> {
+            if (overlayParams == null || overlay == null) return false;
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    downRawX = event.getRawX();
+                    downRawY = event.getRawY();
+                    downX = overlayParams.x;
+                    downY = overlayParams.y;
+                    dragging = false;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    float deltaX = event.getRawX() - downRawX;
+                    float deltaY = event.getRawY() - downRawY;
+                    if (!dragging && (Math.abs(deltaX) > dp(5) || Math.abs(deltaY) > dp(5))) dragging = true;
+                    if (dragging) {
+                        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+                        overlayParams.x = Math.max(0, Math.min(metrics.widthPixels - overlay.getWidth(), downX + Math.round(deltaX)));
+                        overlayParams.y = Math.max(0, Math.min(metrics.heightPixels - overlay.getHeight(), downY + Math.round(deltaY)));
+                        try { windowManager.updateViewLayout(overlay, overlayParams); } catch (Exception ignored) {}
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (dragging) {
+                        getSharedPreferences("overlay", MODE_PRIVATE).edit()
+                            .putInt("overlay_x", overlayParams.x)
+                            .putInt("overlay_y", overlayParams.y)
+                            .apply();
+                    }
+                    dragging = false;
+                    return true;
+                default:
+                    return true;
+            }
+        };
+        bar.setOnTouchListener(dragListener);
+        eye.setOnTouchListener(dragListener);
+        details.setOnTouchListener(dragListener);
+        trainLine.setOnTouchListener(dragListener);
+        statusLine.setOnTouchListener(dragListener);
         overlay = bar;
 
         int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
-        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+        overlayParams = new WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
-            dp(38),
+            WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         );
-        params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-        params.y = dp(30);
+        overlayParams.gravity = Gravity.TOP | Gravity.START;
+        overlayParams.x = getSharedPreferences("overlay", MODE_PRIVATE).getInt("overlay_x", dp(12));
+        overlayParams.y = getSharedPreferences("overlay", MODE_PRIVATE).getInt("overlay_y", dp(38));
         try {
-            windowManager.addView(overlay, params);
+            windowManager.addView(overlay, overlayParams);
             updateLine();
         } catch (Exception ignored) {
             stopSelf();
@@ -222,7 +287,7 @@ public class TrainOverlayService extends Service {
     }
 
     private void updateLine() {
-        if (statusLine == null) return;
+        if (trainLine == null || statusLine == null) return;
         int age;
         String currentStation;
         String currentTrack;
@@ -232,7 +297,8 @@ public class TrainOverlayService extends Service {
             currentTrack = track;
         }
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
-        statusLine.setText(train + " · " + compactStation(currentStation) + " · v" + currentTrack + " · " + ageText);
+        trainLine.setText(train + " · " + compactStation(currentStation));
+        statusLine.setText("v" + currentTrack + " · " + ageText);
     }
 
     private String compactStation(String value) {
