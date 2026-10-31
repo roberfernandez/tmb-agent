@@ -77,7 +77,7 @@ function stationPasses(trains,now=Date.now()) {
   }
  }
 }
-function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until) || [...liveActivityWatches.values()].some(w=>now<w.until); }
+function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until) || (apnsConfigured && [...liveActivityWatches.values()].some(w=>now<w.until)); }
 function testTrainState(now=Date.now()) {
  const ageSeconds=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  return {active:!!(now<testWatchUntil&&connected&&ageSeconds!==null&&ageSeconds<45&&snapshot['403']),ageSeconds};
@@ -389,6 +389,7 @@ setInterval(()=>{
   receptionAgeSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null,
   clientRequests,lastClientRequestAt:lastClientRequestAt?new Date(lastClientRequestAt).toISOString():null,
   stationWatches:[...stationWatches].filter(([,w])=>w.until>Date.now()).map(([endpoint,w])=>({watchId:watchId(endpoint),until:new Date(w.until).toISOString()})),
-  trainWatches:[...trainWatches].map(([endpoint,w])=>({watchId:watchId(endpoint),train:w.train,mode:w.mode,updates:w.count,nextAt:new Date(w.nextAt).toISOString()}))
+  trainWatches:[...trainWatches].map(([endpoint,w])=>({watchId:watchId(endpoint),train:w.train,mode:w.mode,updates:w.count,nextAt:new Date(w.nextAt).toISOString()})),
+  liveActivities:[...liveActivityWatches].map(([id,w])=>({watchId:watchId(id),mode:w.mode,train:w.train,until:new Date(w.until).toISOString()}))
  });
 },60000).unref();
