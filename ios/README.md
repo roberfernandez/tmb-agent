@@ -9,7 +9,7 @@ Requiere macOS con Xcode y XcodeGen:
 ```sh
 brew install xcodegen
 cd ios
-xcodegen generate --spec project.yml --project TMBTrainLive.xcodeproj
+xcodegen generate --spec project.yml --project .
 xcodebuild -project TMBTrainLive.xcodeproj -scheme TMBTrainLive -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO APS_ENVIRONMENT=development build
 ```
 
