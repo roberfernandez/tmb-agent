@@ -150,6 +150,7 @@ public class TrainOverlayService extends Service {
         LinearLayout details = new LinearLayout(this);
         details.setOrientation(LinearLayout.VERTICAL);
         details.setPadding(dp(6), 0, dp(2), 0);
+        details.setMinimumWidth(dp(175));
         trainLine = new TextView(this);
         trainLine.setTextColor(0xfff4d000);
         trainLine.setTextSize(12);
@@ -168,7 +169,7 @@ public class TrainOverlayService extends Service {
         statusLine.setSingleLine(true);
         statusLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
         statusLine.setMaxWidth(dp(155));
-        secondLine.addView(statusLine, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
+        secondLine.addView(statusLine, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1f));
 
         TextView close = new TextView(this);
         close.setText("×");
@@ -180,7 +181,7 @@ public class TrainOverlayService extends Service {
         secondLine.addView(close, new LinearLayout.LayoutParams(dp(30), dp(24)));
         close.setOnClickListener(v -> stopSelf());
 
-        details.addView(secondLine, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
+        details.addView(secondLine, new LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP));
         LinearLayout.LayoutParams detailsLp = new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP);
         detailsLp.gravity = Gravity.CENTER_VERTICAL;
         bar.addView(details, detailsLp);
