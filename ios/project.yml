@@ -1,0 +1,64 @@
+name: TMBTrainLive
+options:
+  deploymentTarget:
+    iOS: "16.2"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: 5.9
+    IPHONEOS_DEPLOYMENT_TARGET: 16.2
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  TMBTrainLive:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Shared
+    dependencies:
+      - target: TrainLiveActivityWidget
+        embed: true
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Miralin Tren Ull
+        CFBundleURLTypes:
+          - CFBundleURLName: cat.tmbagent.trainlive
+            CFBundleURLSchemes:
+              - tmbservei-ios
+        NSSupportsLiveActivities: true
+        UILaunchScreen: {}
+    entitlements:
+      path: App/TMBTrainLive.entitlements
+      properties:
+        aps-environment: $(APS_ENVIRONMENT)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cat.tmbagent.trainlive
+        GENERATE_INFOPLIST_FILE: true
+      configs:
+        Debug:
+          settings:
+            APS_ENVIRONMENT: development
+        Release:
+          settings:
+            APS_ENVIRONMENT: production
+  TrainLiveActivityWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+      - path: Shared
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Tren en directe
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cat.tmbagent.trainlive.widget
+        GENERATE_INFOPLIST_FILE: true
+        APPLICATION_EXTENSION_API_ONLY: true
+        SKIP_INSTALL: true

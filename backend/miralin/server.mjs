@@ -1,5 +1,6 @@
 import http from 'node:http';
-import {createHash,randomUUID} from 'node:crypto';
+import {createHash,randomUUID,createSign} from 'node:crypto';
+import http2 from 'node:http2';
 const bootId=randomUUID();
 function diagnostic(event,details={}) { console.log(JSON.stringify({at:new Date().toISOString(),bootId,event,...details})); }
 const watchId=endpoint=>createHash('sha256').update(endpoint).digest('hex').slice(0,12);
@@ -14,6 +15,7 @@ let testWatchUntil = 0;
 const stationWatches=new Map();
 const enduranceWatches=new Map();
 const trainWatches=new Map();
+const liveActivityWatches=new Map();
 const ENDURANCE_INTERVAL=10*60*1000,ENDURANCE_COUNT=48;
 const TRAIN_WATCH_INTERVAL=5*60*1000,TRAIN_WATCH_COUNT=4;
 function enduranceBody(w,now=Date.now()){
@@ -75,7 +77,7 @@ function stationPasses(trains,now=Date.now()) {
   }
  }
 }
-function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until); }
+function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until) || (apnsConfigured && [...liveActivityWatches.values()].some(w=>now<w.until)); }
 function testTrainState(now=Date.now()) {
  const ageSeconds=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  return {active:!!(now<testWatchUntil&&connected&&ageSeconds!==null&&ageSeconds<45&&snapshot['403']),ageSeconds};
@@ -225,6 +227,115 @@ async function pushRoute(req,res,url){
  }catch(e){res.writeHead(400);res.end(JSON.stringify({error:e.message}))}
 }
 
+
+const APNS_KEY_ID=process.env.APNS_KEY_ID||'';
+const APNS_TEAM_ID=process.env.APNS_TEAM_ID||'';
+const APNS_BUNDLE_ID=process.env.APNS_BUNDLE_ID||'cat.tmbagent.trainlive';
+const APNS_PRIVATE_KEY=(process.env.APNS_PRIVATE_KEY||'').replace(/\\n/g,'\n');
+const APNS_ENVIRONMENT=process.env.APNS_ENVIRONMENT==='sandbox'?'sandbox':'production';
+const apnsConfigured=!!(APNS_KEY_ID&&APNS_TEAM_ID&&APNS_PRIVATE_KEY);
+let cachedApnsJwt='',cachedApnsJwtAt=0;
+function b64url(value){return Buffer.from(value).toString('base64url')}
+function apnsJwt(){
+ const now=Math.floor(Date.now()/1000);
+ if(cachedApnsJwt&&now-cachedApnsJwtAt<45*60)return cachedApnsJwt;
+ const header=b64url(JSON.stringify({alg:'ES256',kid:APNS_KEY_ID}));
+ const claims=b64url(JSON.stringify({iss:APNS_TEAM_ID,iat:now}));
+ const message=header+'.'+claims;
+ const signature=createSign('SHA256').update(message).end().sign({key:APNS_PRIVATE_KEY,dsaEncoding:'ieee-p1363'});
+ cachedApnsJwt=message+'.'+signature.toString('base64url');cachedApnsJwtAt=now;
+ return cachedApnsJwt;
+}
+function sendActivityPush(token,environment,state){
+ const host=environment==='sandbox'?'https://api.sandbox.push.apple.com':'https://api.push.apple.com';
+ const client=http2.connect(host);
+ const topic=APNS_BUNDLE_ID+'.push-type.liveactivity';
+ const now=Math.floor(Date.now()/1000);
+ const payload={aps:{timestamp:now,event:'update','stale-date':now+90,'content-state':state}};
+ return new Promise((resolve,reject)=>{
+  let code=0,raw='';
+  const req=client.request({':method':'POST',':path':'/3/device/'+token,authorization:'bearer '+apnsJwt(),'apns-topic':topic,'apns-push-type':'liveactivity','apns-priority':'5','apns-expiration':'0','content-type':'application/json'});
+  req.setEncoding('utf8');
+  req.on('response',headers=>{code=Number(headers[':status']||0)});
+  req.on('data',chunk=>{raw+=chunk});
+  req.on('end',()=>{client.close();if(code===200)resolve({code});else reject(Object.assign(new Error(raw||'APNs rejected update'),{statusCode:code,apnsBody:raw}))});
+  req.on('error',error=>{client.close();reject(error)});
+  req.end(JSON.stringify(payload));
+ });
+}
+function serviceMinute(w,now=new Date()){
+ const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now);
+ const get=k=>Number(parts.find(p=>p.type===k)?.value||0);
+ const today=Date.UTC(get('year'),get('month')-1,get('day'));
+ const base=w.date.split('-').map(Number);
+ if(base.length!==3||base.some(n=>!n))return get('hour')*60+get('minute');
+ return Math.round((today-Date.UTC(base[0],base[1]-1,base[2]))/86400000)*1440+get('hour')*60+get('minute');
+}
+function activityTrain(w,now=new Date()){
+ if(w.mode==='manual')return w.train;
+ const minute=serviceMinute(w,now);
+ const entries=w.schedule.split(';').map(part=>part.split(',')).filter(a=>a.length===3)
+  .map(a=>({start:Number(a[0]),end:Number(a[1]),train:a[2]}))
+  .filter(a=>Number.isInteger(a.start)&&Number.isInteger(a.end)&&a.end>a.start&&/^4\d{2}$/.test(a.train));
+ const active=entries.find(a=>minute>=a.start&&minute<a.end);
+ if(active)return active.train;
+ return entries.find(a=>a.start>minute)?.train||entries.at(-1)?.train||w.train;
+}
+function activityContent(w,now=new Date()){
+ const train=activityTrain(w,now),age=receivedAt?Math.max(0,Math.floor((now.getTime()-receivedAt)/1000)):null;
+ const item=snapshot[train],stale=!connected||age===null||age>45||!item,raw=item?.status||'';
+ const status=stale?'Dades antigues':raw==='arriving'?'Aproximació':raw==='en_route'?'En circulació':raw==='waiting_departure'?'Esperant sortida':raw||'Estat desconegut';
+ return {train,station:item?.estacion||'Sense dades',track:String(item?.platformTrack??item?.track??'—'),status,destination:item?.destiLabel||'—',updatedAt:receivedAt?Math.floor(receivedAt/1000):Math.floor(now.getTime()/1000),stale};
+}
+async function liveActivityTick(id,w,now=Date.now()){
+ if(liveActivityWatches.get(id)!==w||now>=w.until||!apnsConfigured||w.busy)return;
+ const state=activityContent(w,new Date(now));
+ const key=JSON.stringify([state.train,state.station,state.track,state.status,state.destination,state.stale]);
+ const changed=key!==w.lastKey;
+ if(!changed&&now-w.lastPushAt<5*60*1000)return;
+ if(changed&&w.lastPushAt&&now-w.lastPushAt<20000)return;
+ w.busy=true;w.lastKey=key;w.lastPushAt=now;
+ try{
+  const result=await sendActivityPush(w.token,w.environment,state);
+  diagnostic('live_activity_update_sent',{watchId:watchId(id),train:state.train,changed,stale:state.stale,statusCode:result.code});
+ }catch(e){
+  diagnostic('live_activity_update_failed',{watchId:watchId(id),train:state.train,statusCode:e.statusCode||null,errorName:e.name,apnsBody:e.apnsBody||null});
+  if(e.statusCode===410||e.statusCode===400)liveActivityWatches.delete(id);
+ }finally{w.busy=false}
+}
+async function liveActivityRoute(req,res,url){
+ try{
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>16000)throw Error('Petició massa gran')}
+  const data=JSON.parse(raw||'{}'),id=String(data.activityId||'');
+  if(url.pathname==='/api/live-activity/stop'){if(id)liveActivityWatches.delete(id);res.writeHead(200);res.end(JSON.stringify({stopped:true}));return}
+  if(url.pathname!=='/api/live-activity/start')throw Error('Ruta no vàlida');
+  if(!/^[A-Za-z0-9-]{1,80}$/.test(id))throw Error('Identificador d’activitat no vàlid.');
+  if(!/^[a-f0-9]{64,256}$/i.test(String(data.token||'')))throw Error('Token APNs no vàlid.');
+  if(!['service','manual'].includes(data.mode))throw Error('Mode no vàlid.');
+  const train=String(data.train||'');
+  if(!/^4\d{2}$/.test(train)||Number(train)<401||Number(train)>415)throw Error('Tren L4 no vàlid.');
+  const date=String(data.date||''),schedule=String(data.schedule||'');
+  if(data.mode==='service'){
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!schedule||schedule.length>4096)throw Error('Falta la data o el servei.');
+   const entries=schedule.split(';');
+   if(entries.length>60||entries.some(e=>!/^\d{1,4},\d{1,4},4\d{2}$/.test(e)))throw Error('Horari del servei no vàlid.');
+  }
+  if(!liveActivityWatches.has(id)&&liveActivityWatches.size>=10)throw Error('Ja hi ha deu activitats de prova actives.');
+  const until=Date.now()+8*60*60*1000;
+  liveActivityWatches.set(id,{token:data.token,environment:data.environment==='sandbox'?'sandbox':'production',mode:data.mode,train,date,schedule,until,lastKey:'',lastPushAt:0,busy:false});
+  lastUse=Date.now();if(apnsConfigured)start();
+  diagnostic('live_activity_registered',{watchId:watchId(id),mode:data.mode,train,remoteUpdatesConfigured:apnsConfigured,until:new Date(until).toISOString()});
+  res.writeHead(202);res.end(JSON.stringify({accepted:true,remoteUpdatesConfigured:apnsConfigured,until:new Date(until).toISOString()}));
+ }catch(e){res.writeHead(400);res.end(JSON.stringify({error:e.message}))}
+}
+setInterval(()=>{
+ const now=Date.now();
+ for(const [id,w] of liveActivityWatches){
+  if(now>=w.until){liveActivityWatches.delete(id);diagnostic('live_activity_expired',{watchId:watchId(id)});continue}
+  void liveActivityTick(id,w,now);
+ }
+},15000).unref();
+
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin;
   res.setHeader('Cache-Control', 'no-store');
@@ -238,6 +349,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.setHeader('Access-Control-Allow-Headers','Content-Type'); res.writeHead(204); return res.end(); }
   res.setHeader('Access-Control-Allow-Headers','Content-Type');
   const pushUrl=new URL(req.url,'http://localhost');
+  if(pushUrl.pathname.startsWith('/api/live-activity/')){res.setHeader('Content-Type','application/json; charset=utf-8');if(req.method!=='POST'){res.writeHead(405);return res.end('{}')}void liveActivityRoute(req,res,pushUrl);return;}
   if(pushUrl.pathname.startsWith('/api/push-')){
     res.setHeader('Content-Type','application/json; charset=utf-8');
     if(req.method==='POST'&&origin!==ORIGIN){res.writeHead(403);return res.end('{}')}
@@ -277,6 +389,7 @@ setInterval(()=>{
   receptionAgeSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null,
   clientRequests,lastClientRequestAt:lastClientRequestAt?new Date(lastClientRequestAt).toISOString():null,
   stationWatches:[...stationWatches].filter(([,w])=>w.until>Date.now()).map(([endpoint,w])=>({watchId:watchId(endpoint),until:new Date(w.until).toISOString()})),
-  trainWatches:[...trainWatches].map(([endpoint,w])=>({watchId:watchId(endpoint),train:w.train,mode:w.mode,updates:w.count,nextAt:new Date(w.nextAt).toISOString()}))
+  trainWatches:[...trainWatches].map(([endpoint,w])=>({watchId:watchId(endpoint),train:w.train,mode:w.mode,updates:w.count,nextAt:new Date(w.nextAt).toISOString()})),
+  liveActivities:[...liveActivityWatches].map(([id,w])=>({watchId:watchId(id),mode:w.mode,train:w.train,until:new Date(w.until).toISOString()}))
  });
 },60000).unref();
