@@ -39,9 +39,11 @@ targets:
         GENERATE_INFOPLIST_FILE: true
       configs:
         Debug:
-          APS_ENVIRONMENT: development
+          settings:
+            APS_ENVIRONMENT: development
         Release:
-          APS_ENVIRONMENT: production
+          settings:
+            APS_ENVIRONMENT: production
   TrainLiveActivityWidget:
     type: app-extension
     platform: iOS
