@@ -1,7 +1,7 @@
 import ActivityKit
 import SwiftUI
 
-private let apiBase = URL(string: "https://tmb-servei-proves.onrender.com/api")!
+private let apiBase = URL(string: "https://tmb-servei-proves.onrender.com/api/")!
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -107,6 +107,10 @@ struct ContentView: View {
 
     private func handleDeepLink(_ url: URL) {
         guard url.scheme == "tmbservei-ios" else { return }
+        if url.host == "stop" {
+            Task { await stopActivity() }
+            return
+        }
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let values = Dictionary(items.map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { first, _ in first })
         mode = values["mode"] == "service" ? "service" : "manual"
