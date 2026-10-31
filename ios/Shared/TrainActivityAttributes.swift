@@ -4,6 +4,7 @@ import Foundation
 struct TrainActivityAttributes: ActivityAttributes {
     var mode: String
     var serviceDate: String
+    var schedule: String
     var startedAt: TimeInterval
 
     struct ContentState: Codable, Hashable {
