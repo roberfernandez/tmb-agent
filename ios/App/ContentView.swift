@@ -37,6 +37,7 @@ struct ContentView: View {
                         Text("Tren manual").tag("manual")
                     }
                     .pickerStyle(.segmented)
+                    .disabled(runningActivity != nil)
 
                     if mode == "manual" {
                         Picker("Tren L4", selection: $train) {
@@ -44,6 +45,7 @@ struct ContentView: View {
                                 Text(String(number)).tag(String(number))
                             }
                         }
+                        .disabled(runningActivity != nil)
                     } else {
                         Text(serviceDate.isEmpty ? "Obre aquesta pantalla des del servei carregat." : "Horari: \(serviceDate) · \(schedule.split(separator: ";").count) trams")
                             .font(.footnote)
@@ -206,7 +208,7 @@ struct ContentView: View {
                 track: String(describing: item["platformTrack"] ?? item["track"] ?? "—"),
                 status: translatedStatus(item["status"] as? String),
                 destination: item["destination"] as? String ?? "—",
-                updatedAt: ((root["receivedAt"] as? String).flatMap(ISO8601DateFormatter().date(from:)) ?? now).timeIntervalSince1970,
+                updatedAt: ((root["receivedAt"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? now).timeIntervalSince1970,
                 stale: isStale
             )
             let changed = lastState?.train != next.train ||
@@ -234,8 +236,8 @@ struct ContentView: View {
             "token": hex,
             "environment": environment,
             "mode": activity.attributes.mode,
-            "train": train,
-            "date": serviceDate,
+            "train": activity.content.state.train,
+            "date": activity.attributes.serviceDate,
             "schedule": schedule
         ]
         let result = await postJSON(path: "live-activity/start", body: body)
@@ -268,7 +270,8 @@ struct ContentView: View {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode.map({ (200..<300).contains($0) }) == true else { return nil }
+            guard let statusCode = (response as? HTTPURLResponse)?.statusCode,
+                  (200..<300).contains(statusCode) else { return nil }
             return try JSONSerialization.jsonObject(with: data) as? [String: Any]
         } catch {
             return nil
