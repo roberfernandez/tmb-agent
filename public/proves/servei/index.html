@@ -145,6 +145,8 @@ refreshLive();
 // Els modes automàtic i manual són excloents.
 const followModeKey='tmb-servei-follow-mode-v1';
 let followMode=localStorage.getItem(followModeKey)||'';
+const savedManualTrain=localStorage.getItem('tmb-servei-manual-train');
+if(/^4\d{2}$/.test(savedManualTrain||''))$('watchTrain').value=savedManualTrain;
 function showFollowMode(mode){
  followMode=mode;
  if(mode)localStorage.setItem(followModeKey,mode);else localStorage.removeItem(followModeKey);
@@ -178,7 +180,7 @@ androidEyeButton.onclick=async()=>{
  const stopped=await stopTrainPushWatch();
  if(stopped){showFollowMode('manual');location.href='tmbservei://watch?mode=manual&train='+encodeURIComponent(train)}
 };
-$('watchTrain').onchange=()=>{refreshLive(true);if(followMode==='manual')showFollowMode('manual')};
+$('watchTrain').onchange=()=>{if(/^4\d{2}$/.test($('watchTrain').value))localStorage.setItem('tmb-servei-manual-train',$('watchTrain').value);refreshLive(true);if(followMode==='manual')showFollowMode('manual')};
 if(followMode==='service')showFollowMode('service');else if(followMode==='manual')showFollowMode('manual');
 
 async function activateTrainWatch(stop=false){
@@ -233,7 +235,7 @@ async function stopTrainPushWatch(){
 
 
 const selectedTrainFromPush=new URLSearchParams(location.search).get('watch');
-if(/^4\d{2}$/.test(selectedTrainFromPush||'')){$('watchTrain').value=selectedTrainFromPush;refreshLive(true)}
+if(/^4\d{2}$/.test(selectedTrainFromPush||'')){$('watchTrain').value=selectedTrainFromPush;localStorage.setItem('tmb-servei-manual-train',selectedTrainFromPush);refreshLive(true)}
 
 
 
