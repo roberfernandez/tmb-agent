@@ -165,10 +165,10 @@ async function pushRoute(req,res,url){
   const allowed=endpoint.hostname==='fcm.googleapis.com'||endpoint.hostname==='updates.push.services.mozilla.com'||endpoint.hostname.endsWith('.push.apple.com')||endpoint.hostname==='web.push.apple.com';
   if(endpoint.protocol!=='https:'||endpoint.port||endpoint.username||endpoint.password||!allowed||!subscription?.keys?.p256dh||!subscription?.keys?.auth)throw Error('Subscripció push no vàlida');
   if(url.pathname==='/api/push-train-watch'){
-   const train=String(body?JSON.parse(body).train||'':'');
    const payload=JSON.parse(body);
+   const train=String(payload.train||'');
    const mode=payload.mode;
-   if(!/^4\\d{2}$/.test(train))throw Error('Introdueix un tren L4 de tres xifres.');
+   if(!/^4\d{2}$/.test(train))throw Error('Introdueix un tren L4 de tres xifres.');
    if(payload.action==='stop'){
     const old=trainWatches.get(endpoint.href);
     if(old){clearInterval(old.timer);trainWatches.delete(endpoint.href);diagnostic('train_watch_stopped',{watchId:watchId(endpoint.href),train:old.train,updates:old.count})}
