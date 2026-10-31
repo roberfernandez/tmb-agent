@@ -12,6 +12,24 @@ let controller;
 const PUSH_TEST_MS = 5 * 60 * 1000;
 let testWatchUntil = 0;
 const stationWatches=new Map();
+const enduranceWatches=new Map();
+const ENDURANCE_INTERVAL=10*60*1000,ENDURANCE_COUNT=48;
+function enduranceBody(w,now=Date.now()){
+ const age=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
+ const t=snapshot['417'],active=!!(connected&&age!==null&&age<45&&t);
+ return (active?'Actiu · 417: '+t.estacion+' · via '+(t.platformTrack??t.track):'Inactiu · 417: '+(!connected?'sense connexió':age===null||age>=45?'sense dades recents':'tren no localitzat'))+
+  ' · recepció '+(age===null?'no disponible':'fa '+age+' s')+' · prova '+w.count+'/48 · '+new Date(now).toLocaleTimeString('ca-ES',{timeZone:'Europe/Madrid'})+'. La recepció no és la data de mesura de la font.';
+}
+async function enduranceTick(endpoint,w,now=Date.now()){
+ if(enduranceWatches.get(endpoint)!==w||w.busy||now<w.nextAt)return;
+ w.busy=true;w.count++;w.nextAt=now+ENDURANCE_INTERVAL;
+ diagnostic('endurance_push_attempt',{watchId:watchId(endpoint),sequence:w.count,connected,receptionAgeSeconds:receivedAt?Math.floor((now-receivedAt)/1000):null});
+ try{
+  const result=await webpush.sendNotification(w.subscription,JSON.stringify({title:'Prova 8 hores · 417 · '+w.count+'/48',body:enduranceBody(w,now),url:'/tmb-agent/proves/servei/'}),{TTL:300,urgency:'high',timeout:15000});
+  diagnostic('endurance_push_accepted',{watchId:watchId(endpoint),sequence:w.count,statusCode:result.statusCode});
+ }catch(e){diagnostic('endurance_push_failed',{watchId:watchId(endpoint),sequence:w.count,statusCode:e.statusCode||null,errorName:e.name});if(e.statusCode===404||e.statusCode===410){clearInterval(w.timer);enduranceWatches.delete(endpoint)}}
+ finally{w.busy=false;if(w.count>=ENDURANCE_COUNT){clearInterval(w.timer);enduranceWatches.delete(endpoint);diagnostic('endurance_watch_finished',{watchId:watchId(endpoint),attempts:w.count})}}
+}
 let previousMap=null,previousMapAt=0;
 function stationPasses(trains,now=Date.now()) {
  const previous=previousMap;const fresh=previous&&now-previousMapAt<45000;
@@ -33,7 +51,7 @@ function stationPasses(trains,now=Date.now()) {
   }
  }
 }
-function watchNeeded(now=Date.now()) { return now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until); }
+function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until); }
 function testTrainState(now=Date.now()) {
  const ageSeconds=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  return {active:!!(now<testWatchUntil&&connected&&ageSeconds!==null&&ageSeconds<45&&snapshot['403']),ageSeconds};
@@ -114,7 +132,7 @@ async function pushRoute(req,res,url){
  if(url.pathname==='/api/push-key'&&req.method==='GET'){
   res.writeHead(vapid?200:503);res.end(JSON.stringify(vapid?{publicKey:vapid.publicKey}:{error:'Cal instal·lar dependències a Render: npm install'}));return;
  }
- if(!['/api/push-test','/api/push-station'].includes(url.pathname)||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
+ if(!['/api/push-test','/api/push-station','/api/push-endurance'].includes(url.pathname)||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
  if(!webpush){res.writeHead(503);res.end(JSON.stringify({error:'Push no disponible. Revisa el Build Command.'}));return}
  try{
   let body='';for await(const chunk of req){body+=chunk;if(body.length>8192)throw Error('Peticio massa gran')}
@@ -122,6 +140,17 @@ async function pushRoute(req,res,url){
   const endpoint=new URL(subscription?.endpoint);
   const allowed=endpoint.hostname==='fcm.googleapis.com'||endpoint.hostname==='updates.push.services.mozilla.com'||endpoint.hostname.endsWith('.push.apple.com')||endpoint.hostname==='web.push.apple.com';
   if(endpoint.protocol!=='https:'||endpoint.port||endpoint.username||endpoint.password||!allowed||!subscription?.keys?.p256dh||!subscription?.keys?.auth)throw Error('Subscripció push no vàlida');
+  if(url.pathname==='/api/push-endurance'){
+   if(!enduranceWatches.has(endpoint.href)&&enduranceWatches.size>=10)throw Error('Massa proves actives');
+   const old=enduranceWatches.get(endpoint.href);if(old)clearInterval(old.timer);
+   const startedAt=Date.now(),until=startedAt+ENDURANCE_INTERVAL*ENDURANCE_COUNT;
+   const w={subscription,count:0,nextAt:startedAt+ENDURANCE_INTERVAL,busy:false,timer:null};
+   enduranceWatches.set(endpoint.href,w);
+   w.timer=setInterval(()=>{void enduranceTick(endpoint.href,w)},1000);
+   lastUse=Date.now();start();
+   diagnostic('endurance_watch_registered',{watchId:watchId(endpoint.href),until:new Date(until).toISOString(),train:'417',intervalMinutes:10,count:48});
+   res.writeHead(202);res.end(JSON.stringify({startedAt:new Date(startedAt).toISOString(),until:new Date(until).toISOString(),firstAt:new Date(w.nextAt).toISOString(),intervalMinutes:10,count:48,temporary:true}));return;
+  }
   if(url.pathname==='/api/push-station'){
    const end=Date.parse(until);
    // This pilot has one explicitly agreed deadline, in Barcelona time.
@@ -198,7 +227,7 @@ process.on('SIGTERM',shutdown); process.on('SIGINT',shutdown);
 
 setInterval(()=>{
  diagnostic('watch_heartbeat',{
-  connected,running,mapUpdates,
+  connected,running,mapUpdates,enduranceWatches:[...enduranceWatches].map(([endpoint,w])=>({watchId:watchId(endpoint),attempts:w.count,nextAt:new Date(w.nextAt).toISOString()})),
   receptionAgeSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null,
   clientRequests,lastClientRequestAt:lastClientRequestAt?new Date(lastClientRequestAt).toISOString():null,
   stationWatches:[...stationWatches].filter(([,w])=>w.until>Date.now()).map(([endpoint,w])=>({watchId:watchId(endpoint),until:new Date(w.until).toISOString()}))
