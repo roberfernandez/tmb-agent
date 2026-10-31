@@ -13,7 +13,9 @@ const PUSH_TEST_MS = 5 * 60 * 1000;
 let testWatchUntil = 0;
 const stationWatches=new Map();
 const enduranceWatches=new Map();
+const trainWatches=new Map();
 const ENDURANCE_INTERVAL=10*60*1000,ENDURANCE_COUNT=48;
+const TRAIN_WATCH_INTERVAL=5*60*1000,TRAIN_WATCH_COUNT=4;
 function enduranceBody(w,now=Date.now()){
  const age=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  const t=snapshot['417'],active=!!(connected&&age!==null&&age<45&&t);
@@ -29,6 +31,28 @@ async function enduranceTick(endpoint,w,now=Date.now()){
   diagnostic('endurance_push_accepted',{watchId:watchId(endpoint),sequence:w.count,statusCode:result.statusCode});
  }catch(e){diagnostic('endurance_push_failed',{watchId:watchId(endpoint),sequence:w.count,statusCode:e.statusCode||null,errorName:e.name});if(e.statusCode===404||e.statusCode===410){clearInterval(w.timer);enduranceWatches.delete(endpoint)}}
  finally{w.busy=false;if(w.count>=ENDURANCE_COUNT){clearInterval(w.timer);enduranceWatches.delete(endpoint);diagnostic('endurance_watch_finished',{watchId:watchId(endpoint),attempts:w.count})}}
+}
+function trainWatchBody(w,now=Date.now()){
+ const age=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
+ const t=snapshot[w.train],fresh=connected&&age!==null&&age<45&&t;
+ const state=fresh?(t.estacion+' · via '+(t.platformTrack??t.track)+' · '+({arriving:'aproximació',en_route:'en circulació',waiting_departure:'esperant sortida'}[t.status]||t.status)+' · destinació '+t.destiLabel):'Sense dades actuals · '+(!connected?'sense connexió':age===null||age>=45?'recepció antiga':'tren sense observació');
+ return state+' · recepció '+(age===null?'no disponible':'fa '+age+' s')+'. La recepció no és l’hora de mesura de la font.';
+}
+async function trainWatchTick(endpoint,w,now=Date.now()){
+ if(trainWatches.get(endpoint)!==w||w.busy||now<w.nextAt)return;
+ if(now>=w.until||w.count>=w.maxCount){clearInterval(w.timer);trainWatches.delete(endpoint);diagnostic('train_watch_finished',{watchId:watchId(endpoint),train:w.train,updates:w.count});return}
+ w.busy=true;w.count++;w.nextAt=now+TRAIN_WATCH_INTERVAL;
+ diagnostic('train_push_attempt',{watchId:watchId(endpoint),train:w.train,mode:w.mode,sequence:w.count,receptionAgeSeconds:receivedAt?Math.floor((now-receivedAt)/1000):null});
+ try{
+  const result=await webpush.sendNotification(w.subscription,JSON.stringify({title:'Tren '+w.train+' · seguiment',body:trainWatchBody(w,now),tag:'train-watch-'+w.train,url:'/tmb-agent/proves/servei/'}),{TTL:300,urgency:'high',timeout:15000});
+  diagnostic('train_push_accepted',{watchId:watchId(endpoint),train:w.train,mode:w.mode,sequence:w.count,statusCode:result.statusCode});
+ }catch(e){
+  diagnostic('train_push_failed',{watchId:watchId(endpoint),train:w.train,sequence:w.count,statusCode:e.statusCode||null,errorName:e.name});
+  if(e.statusCode===404||e.statusCode===410){clearInterval(w.timer);trainWatches.delete(endpoint)}
+ }finally{
+  w.busy=false;
+  if(trainWatches.get(endpoint)===w&&(w.count>=w.maxCount||Date.now()>=w.until)){clearInterval(w.timer);trainWatches.delete(endpoint);diagnostic('train_watch_finished',{watchId:watchId(endpoint),train:w.train,updates:w.count})}
+ }
 }
 let previousMap=null,previousMapAt=0;
 function stationPasses(trains,now=Date.now()) {
@@ -51,7 +75,7 @@ function stationPasses(trains,now=Date.now()) {
   }
  }
 }
-function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until); }
+function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until); }
 function testTrainState(now=Date.now()) {
  const ageSeconds=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  return {active:!!(now<testWatchUntil&&connected&&ageSeconds!==null&&ageSeconds<45&&snapshot['403']),ageSeconds};
@@ -132,7 +156,7 @@ async function pushRoute(req,res,url){
  if(url.pathname==='/api/push-key'&&req.method==='GET'){
   res.writeHead(vapid?200:503);res.end(JSON.stringify(vapid?{publicKey:vapid.publicKey}:{error:'Cal instal·lar dependències a Render: npm install'}));return;
  }
- if(!['/api/push-test','/api/push-station','/api/push-endurance'].includes(url.pathname)||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
+ if(!['/api/push-test','/api/push-station','/api/push-endurance','/api/push-train-watch'].includes(url.pathname)||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
  if(!webpush){res.writeHead(503);res.end(JSON.stringify({error:'Push no disponible. Revisa el Build Command.'}));return}
  try{
   let body='';for await(const chunk of req){body+=chunk;if(body.length>8192)throw Error('Peticio massa gran')}
@@ -140,6 +164,28 @@ async function pushRoute(req,res,url){
   const endpoint=new URL(subscription?.endpoint);
   const allowed=endpoint.hostname==='fcm.googleapis.com'||endpoint.hostname==='updates.push.services.mozilla.com'||endpoint.hostname.endsWith('.push.apple.com')||endpoint.hostname==='web.push.apple.com';
   if(endpoint.protocol!=='https:'||endpoint.port||endpoint.username||endpoint.password||!allowed||!subscription?.keys?.p256dh||!subscription?.keys?.auth)throw Error('Subscripció push no vàlida');
+  if(url.pathname==='/api/push-train-watch'){
+   const train=String(body?JSON.parse(body).train||'':'');
+   const payload=JSON.parse(body);
+   const mode=payload.mode;
+   if(!/^4\\d{2}$/.test(train))throw Error('Introdueix un tren L4 de tres xifres.');
+   if(payload.action==='stop'){
+    const old=trainWatches.get(endpoint.href);
+    if(old){clearInterval(old.timer);trainWatches.delete(endpoint.href);diagnostic('train_watch_stopped',{watchId:watchId(endpoint.href),train:old.train,updates:old.count})}
+    res.writeHead(200);res.end(JSON.stringify({stopped:true,train:old?.train||train}));return;
+   }
+   if(!['once','update'].includes(mode))throw Error('Selecciona un format de seguiment vàlid.');
+   if(!trainWatches.has(endpoint.href)&&trainWatches.size>=10)throw Error('Massa seguiments actius.');
+   const old=trainWatches.get(endpoint.href);if(old)clearInterval(old.timer);
+   const startedAt=Date.now(),maxCount=mode==='once'?1:TRAIN_WATCH_COUNT;
+   const until=startedAt+(mode==='once'?90000:20*60*1000);
+   const w={subscription,train,mode,count:0,maxCount,busy:false,nextAt:startedAt+15000,until,timer:null};
+   trainWatches.set(endpoint.href,w);
+   w.timer=setInterval(()=>{void trainWatchTick(endpoint.href,w)},1000);
+   lastUse=Date.now();start();
+   diagnostic('train_watch_registered',{watchId:watchId(endpoint.href),train,mode,firstAt:new Date(w.nextAt).toISOString(),until:new Date(until).toISOString(),intervalMinutes:mode==='update'?5:null,maxUpdates:maxCount});
+   res.writeHead(202);res.end(JSON.stringify({train,mode,startedAt:new Date(startedAt).toISOString(),firstAt:new Date(w.nextAt).toISOString(),until:new Date(until).toISOString(),intervalMinutes:mode==='update'?5:null,maxUpdates:maxCount,temporary:true}));return;
+  }
   if(url.pathname==='/api/push-endurance'){
    if(!enduranceWatches.has(endpoint.href)&&enduranceWatches.size>=10)throw Error('Massa proves actives');
    const old=enduranceWatches.get(endpoint.href);if(old)clearInterval(old.timer);
@@ -230,6 +276,7 @@ setInterval(()=>{
   connected,running,mapUpdates,enduranceWatches:[...enduranceWatches].map(([endpoint,w])=>({watchId:watchId(endpoint),attempts:w.count,nextAt:new Date(w.nextAt).toISOString()})),
   receptionAgeSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null,
   clientRequests,lastClientRequestAt:lastClientRequestAt?new Date(lastClientRequestAt).toISOString():null,
-  stationWatches:[...stationWatches].filter(([,w])=>w.until>Date.now()).map(([endpoint,w])=>({watchId:watchId(endpoint),until:new Date(w.until).toISOString()}))
+  stationWatches:[...stationWatches].filter(([,w])=>w.until>Date.now()).map(([endpoint,w])=>({watchId:watchId(endpoint),until:new Date(w.until).toISOString()})),
+  trainWatches:[...trainWatches].map(([endpoint,w])=>({watchId:watchId(endpoint),train:w.train,mode:w.mode,updates:w.count,nextAt:new Date(w.nextAt).toISOString()}))
  });
 },60000).unref();
