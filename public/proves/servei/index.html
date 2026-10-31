@@ -1,17 +1,17 @@
 <!doctype html><html lang="ca"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080f1c"><meta name="robots" content="noindex,nofollow"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="El meu servei"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="../../assets/icons/tmb-agent-192.png"><link rel="manifest" href="./manifest.webmanifest"><title>El meu servei · Proves</title>
 <style>*{box-sizing:border-box}body{margin:0;background:#080f1c;color:#eef3fa;font:16px system-ui,sans-serif}main{max-width:760px;margin:auto;padding:20px 16px 50px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:30px}a{color:#f4d000}h1{font-size:27px;margin:6px 0}h2{font-size:18px;margin:0 0 14px}p{line-height:1.5}.muted,small{color:#a9b8cb}.tag{font-size:12px;letter-spacing:1px;color:#f4d000}.card{background:#111e30;border:1px solid #28394e;border-radius:18px;padding:20px;margin:14px 0}.hero{border-top:4px solid #f4d000}.time{font-size:44px;font-weight:750;letter-spacing:-2px}.train{display:inline-block;background:#f4d000;color:#101720;padding:5px 12px;border-radius:8px;font-weight:800}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spread{justify-content:space-between}button,input,select,textarea{font:inherit;border-radius:9px;border:1px solid #41516a;padding:11px;background:#182940;color:#fff;max-width:100%}button{cursor:pointer}button.primary{background:#f4d000;color:#111;border:0;font-weight:700}button:disabled{opacity:.5}label{display:block;margin:12px 0 5px;font-size:14px}select,textarea{width:100%}textarea{min-height:210px;font-family:monospace;font-size:13px}details summary{cursor:pointer;font-weight:650}.item{border-left:3px solid #334963;padding:10px 12px;margin:12px 0}.item.active{border-color:#f4d000;background:#1c2c40}.item.done{opacity:.55}.journey-row{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:start;padding:6px 8px;margin:3px 0;border-left:2px solid #334963;border-radius:8px;background:#0e1a2a;font-size:13px;line-height:1.25}.journey-row.active{border-color:#f4d000;background:#1c2c40}.journey-row.done{opacity:.55}.journey-time{white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700;color:#dce5ef}.journey-detail{min-width:0}.journey-detail strong{font-size:13px}.journey-detail small{display:block;margin-top:2px;font-size:11px;line-height:1.25}.notice{padding:12px;background:#273020;border-radius:10px;font-size:14px}#toast{position:fixed;bottom:20px;left:5%;width:90%;padding:18px;background:#f4d000;color:#111;border-radius:12px;display:none;z-index:10}.service-card .photo-viewport{margin-top:14px}.compact{margin-top:14px}.compact>summary{padding:8px 0}.platform-choice{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.platform-link{display:block;text-align:center;text-decoration:none;padding:12px;border:1px solid #41516a;border-radius:10px;background:#182940;color:#fff;font-weight:700}.platform-link.primary{background:#f4d000;color:#111;border:0}.platform-link[hidden]{display:none}.photo-viewport{max-height:360px;overflow:auto;border-radius:10px;background:#080f1c;overscroll-behavior:contain;scroll-behavior:smooth;margin:12px 0}.photo-stage{position:relative;width:100%}.photo-stage img{display:block;width:100%;height:auto;max-width:none;max-height:none;object-fit:fill;border-radius:0}.photo-overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.photo-overlay rect{fill:#f4d000;fill-opacity:.28;stroke:#f4d000;stroke-width:5;vector-effect:non-scaling-stroke}@media(max-width:480px){.platform-choice{grid-template-columns:1fr}}input[type=date]{width:170px}button:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:3px}@media(max-width:420px){.time{font-size:38px}.card{padding:16px}}
 
-</style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.14.0</span></header><h1>El meu servei</h1>
+#photoViewport{width:min(100%,420px);height:auto;max-height:none;aspect-ratio:1/1;overflow:hidden;margin:14px auto;background:#080f1c}.photo-stage{width:100%;height:100%;aspect-ratio:1/1}.photo-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.photo-overlay{pointer-events:auto}#activePhotoRow{pointer-events:none}.photo-overlay .photo-row-hit{fill:transparent;stroke:transparent;pointer-events:all;cursor:pointer}.photo-overlay .photo-row-hit:focus{stroke:#fff;stroke-width:4;vector-effect:non-scaling-stroke}#serviceNow{margin:8px 0;font-weight:650}.service-current{color:#f4d000}.service-manual{color:#a9b8cb;font-size:13px}#resumeAuto{margin-bottom:8px}</style></head><body>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.15.0</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <div class="row spread"><h2>Seguiment del servei</h2><button id="openImport" class="primary">Carrega captura o foto</button></div>
  <input id="photo" type="file" accept="image/*" hidden>
  <p class="muted">Carrega una captura de pantalla o una foto del full. La imatge s’interpreta en aquest dispositiu.</p>
- <div id="photoViewport" class="photo-viewport" hidden><div id="photoStage" class="photo-stage"><img id="photoPreview" alt="Captura del servei amb el tram actual ressaltat"><svg id="photoOverlay" class="photo-overlay" aria-hidden="true"><rect id="activePhotoRow" style="display:none"></rect></svg></div></div>
- <p id="photoProgress" class="muted" aria-live="polite" hidden></p>
- <div class="row"><button id="rotatePhoto" type="button" disabled>Gira la imatge</button><button id="readPhoto" class="primary" type="button" disabled>Interpreta el servei</button><button id="changePhoto" type="button" hidden>Canvia la imatge</button></div>
+ <div id="photoViewport" class="photo-viewport" hidden><div id="photoStage" class="photo-stage"><img id="photoPreview" alt="Captura del servei amb el tram actual ressaltat"><svg id="photoOverlay" class="photo-overlay" role="group" aria-label="Files del servei: toca una per seleccionar-la"><g id="photoRowHits"></g><rect id="activePhotoRow" style="display:none"></rect></svg></div></div>
+ <p id="photoProgress" class="muted" aria-live="polite" hidden></p><p id="serviceNow" aria-live="polite"></p><button id="resumeAuto" type="button" hidden>Segueix l’horari automàtic</button>
+ <div class="row"><button id="rotatePhoto" type="button" disabled>Gira la imatge</button><button id="readPhoto" class="primary" type="button" disabled>Interpreta i segueix</button><button id="changePhoto" type="button" hidden>Canvia la imatge</button></div>
  <p id="ocrStatus" role="status"></p>
- <details class="compact"><summary>Horari i recorregut</summary>
+ <details class="compact" hidden><summary>Horari i recorregut</summary>
   <div class="row spread"><strong>Proper tram</strong><span id="clock"></span></div><div id="next"></div>
   <p id="expected" class="muted"></p><label for="location">Ubicació prevista</label><select id="location"></select><div class="row"><button id="confirm" class="primary">Confirma on soc</button><button id="auto">Segueix l’horari</button></div><p id="confirmed" aria-live="polite"></p>
   <button id="taken" class="primary" style="margin-top:10px">He agafat el tren</button>
@@ -55,8 +55,7 @@ const isAndroid=/Android/i.test(ua)||platform==='Android';
 if(isIOS){$('androidOption').hidden=true;$('platformTitle').textContent='iPhone/iPad';}
 else if(isAndroid){$('iosOption').hidden=true;$('iosInstructions').hidden=true;$('platformTitle').textContent='Android';}
 
-const sample=`18:46|18:54|TRA|413|418|||\n18:54|21:13|EST|418|418|||\n21:13|21:19|TRA|418|413|||\n21:19|22:36|CON|413|416|403|2|2\n22:36|22:42|TRA|416|417|||\n22:42|24:51|EST|417|417|||\n24:51|24:57|TRA|417|413|||\n24:57|26:38|CON|413|413|417|2|RET\n26:38|26:50|EST|413|413|||`;
-let state={date:'2026-10-30',text:sample,location:null,observation:null,margin:5,taken:[]};try{Object.assign(state,JSON.parse(localStorage.getItem('tmb-servei-v01')||'{}'))}catch{}let rows=[],enabled=false,audioCtx=null,fired=new Set(),ocrDraft=false,ocrImage=null,ocrRotation=0,ocrBusy=false,ocrRowBounds=null,photoRowsReady=false,lastPhotoRow=null;
+let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,manualRowIndex:null,manualSince:null};try{Object.assign(state,JSON.parse(localStorage.getItem('tmb-servei-v01')||'{}'))}catch{}
 function persist(){try{localStorage.setItem('tmb-servei-v01',JSON.stringify(state))}catch{$('error').textContent='No s’ha pogut desar al navegador.'}}
 function minutes(s){if(!/^\d{2}:[0-5]\d$/.test(s)||Number(s.slice(0,2))>47)throw Error('Hora no vàlida: '+s);return Number(s.slice(0,2))*60+Number(s.slice(3))}
 function parse(text){let previous=-1;return text.trim().split('\n').filter(l=>l.trim()).map((l,i)=>{let [start,end,type,from,to,train='',via='',out='']=l.split('|').map(s=>s.trim());let a=minutes(start),b=minutes(end);if(b<=a||a<previous)throw Error('Fila '+(i+1)+': horari solapat o final anterior a inici.');if(!['TRA','EST','CON'].includes(type)||!stations[from]||!stations[to])throw Error('Fila '+(i+1)+': tipus o estació no vàlids.');if(type==='CON'&&(!/^4\d{2}$/.test(train)||!['1','2'].includes(via)||!['1','2','RET'].includes(out)))throw Error('Fila '+(i+1)+': revisa tren i vies.');previous=b;return {start,end,type,from,to,train,via,out,a,b,i}})}
@@ -64,7 +63,8 @@ function when(m){let [y,mo,d]=state.date.split('-').map(Number);return new Date(
 function desc(r){return r.type==='CON'?'Conducció · '+r.train:r.type==='TRA'?'Trasllat':'Estada'}
 function notify(text){$('toast').textContent=text;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',12000);sound();if(navigator.vibrate)navigator.vibrate([250,100,250]);if('Notification'in window&&Notification.permission==='granted'){try{new Notification('El meu servei · Horari previst',{body:text})}catch{}}}
 function sound(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=740;g.gain.value=.12;o.start();o.stop(audioCtx.currentTime+.5)}catch{}}
-function render(){let now=Date.now();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=rows.find(r=>now>=when(r.a)&&now<when(r.b));let next=rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));let driving=active?.type==='CON'?active:null;
+function activeServiceRow(now){if(manualRowIndex!==null){const chosen=rows.find(r=>r.i===manualRowIndex),next=chosen&&rows.find(r=>r.i>chosen.i&&when(r.a)>manualSince);if(!chosen){manualRowIndex=null;state.manualRowIndex=null}else if(next&&now>=when(next.a)){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else return chosen}return rows.find(r=>now>=when(r.a)&&now<when(r.b))}
+function render(){let now=Date.now();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now);$('serviceNow').innerHTML=active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció manual · seguiment horari a la següent seqüència</span>':''):rows.length?'Ara no hi ha cap seqüència activa segons l’horari.':'Carrega una captura o foto del servei per començar.';$('resumeAuto').hidden=manualRowIndex===null;let next=rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));let driving=active?.type==='CON'?active:null;
 $('next').innerHTML=driving?`<p class="tag">TRAM DE CONDUCCIÓ PREVIST</p><span class="train">${esc(driving.train)}</span><p>Deixa a ${esc(stations[driving.to])} · via ${esc(driving.out)}</p><div class="time">${esc(driving.end)}</div>`:next?`<div class="time">${esc(next.start)}</div><p><span class="train">${esc(next.train)}</span> · ${esc(stations[next.from])} · via ${esc(next.via)}</p><p class="muted">Horari previst · ${Math.ceil((when(next.a)-now)/60000)} min per a la presa</p>`:'<p>No queden preses pendents en aquesta jornada.</p>';
 $('taken').disabled=!next;$('taken').dataset.index=next?.i??'';
 $('expected').textContent=active?('Segons el servei: '+(active.type==='TRA'?'en trasllat a '+stations[active.to]:active.type==='CON'?'a bord del '+active.train:stations[active.from])):'Fora de l’horari del servei.';
@@ -72,7 +72,7 @@ $('confirmed').textContent=state.location?'Confirmat: '+state.location.label+' �
 $('timeline').innerHTML=rows.map(r=>`<div class="journey-row ${active===r?'active':''} ${when(r.b)<now?'done':''}"><span class="journey-time">${esc(r.start)}–${esc(r.end)}</span><span class="journey-detail"><strong>${esc(desc(r))}</strong><small>${esc(stations[r.from])}${r.from!==r.to?' → '+esc(stations[r.to]):''}${r.type==='CON'?' · v'+esc(r.via)+' → '+esc(r.out):''}${state.taken.includes(r.i)?' · presa':''}</small></span></div>`).join('');updatePhotoHighlight(active);
 
 if(enabled){for(const r of rows.filter(r=>r.type==='CON')){if(state.taken.includes(r.i))continue;const t=when(r.a),key=r.i+'presa';if(now>=t-state.margin*60000&&now<t&&!fired.has(key)){fired.add(key);notify('Horari previst: presa del '+r.train+' a '+stations[r.from]+' · '+r.start)}}}}
-function load(){rows=parse(state.text);$('date').value=state.date;$('editor').value=state.text;$('margin').value=state.margin;render()}
+function load(){try{rows=state.text?parse(state.text):[]}catch{rows=[]}manualRowIndex=Number.isInteger(state.manualRowIndex)?state.manualRowIndex:null;manualSince=Number(state.manualSince)||0;$('date').value=state.date;$('editor').value=state.text||'';$('margin').value=state.margin;if(state.photoData){$('photoPreview').src=state.photoData;const restoredImage=new Image();restoredImage.onload=()=>{createImageBitmap(restoredImage).then(bitmap=>{ocrImage=bitmap;$('readPhoto').disabled=false;$('rotatePhoto').disabled=false}).catch(()=>{})};restoredImage.src=state.photoData;$('photoViewport').hidden=false;$('photoProgress').hidden=false;$('photoPreview').hidden=false;$('changePhoto').hidden=false;$('openImport').textContent='Canvia captura o foto';ocrRowBounds=state.photoRows||null;photoSize=state.photoSize||null;photoRowsReady=Boolean(ocrRowBounds&&photoSize&&ocrRowBounds.length===rows.length);if(photoSize)$('photoOverlay').setAttribute('viewBox','0 0 '+photoSize.width+' '+photoSize.height);requestAnimationFrame(()=>{layoutPhotoOverlay();drawPhotoHitboxes()})}render()}
 for(let id of ['location'])$(id).innerHTML=Object.entries(stations).map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join('');
 $('confirm').onclick=()=>{state.location={label:stations[$('location').value],time:Date.now()};persist();render()};$('auto').onclick=()=>{state.location=null;persist();render()};
 $('taken').onclick=()=>{let r=rows.find(r=>r.i===Number($('taken').dataset.index));if(!r)return;state.taken.push(r.i);state.location={label:'A bord del '+r.train,time:Date.now()};persist();render()};
@@ -80,27 +80,27 @@ $('taken').onclick=()=>{let r=rows.find(r=>r.i===Number($('taken').dataset.index
 $('margin').onchange=()=>{state.margin=Number($('margin').value);persist()};$('test').onclick=()=>notify('Prova de so · El meu servei');
 $('enable').onclick=async()=>{enabled=!enabled;if(enabled){sound();if('Notification'in window&&Notification.permission==='default')try{await Notification.requestPermission()}catch{}}$('enable').textContent=enabled?'Desactivar avisos':'Activar avisos';$('alarmStatus').textContent=enabled?'Avisos actius només amb la pantalla oberta.':'Avisos desactivats.';render()};
 $('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render();refreshLive(true)}catch(e){$('error').textContent=e.message}};
-$('reset').onclick=()=>{state.date='2026-10-30';state.text=sample;state.taken=[];state.location=null;ocrRowBounds=null;photoRowsReady=false;lastPhotoRow=null;$('activePhotoRow').style.display='none';fired.clear();persist();load()};
+$('reset').onclick=()=>{state.date=new Date().toISOString().slice(0,10);state.text='';state.taken=[];state.location=null;state.photoData=null;state.photoRows=null;state.photoSize=null;state.manualRowIndex=null;state.manualSince=null;manualRowIndex=null;manualSince=0;ocrRowBounds=null;photoSize=null;photoRowsReady=false;lastPhotoRow=null;$('photoPreview').removeAttribute('src');$('photoViewport').hidden=true;$('activePhotoRow').style.display='none';fired.clear();persist();load()};
 function updatePhotoHighlight(active){
  const rect=$('activePhotoRow'),viewport=$('photoViewport'),status=$('photoProgress');
  if(viewport.hidden)return;
- if(!photoRowsReady||!ocrRowBounds){rect.style.display='none';status.textContent='La captura está lista. Interpreta y guarda el servicio para seguir la línea actual.';return}
+ if(!photoRowsReady||!ocrRowBounds){rect.style.display='none';status.textContent='Captura preparada. Interpreta-la per seleccionar i seguir les línies.';return}
  if(!active){
-  rect.style.display='none';status.textContent='Ahora no hay ningún tramo del servicio activo.';
-  if(lastPhotoRow!==null){viewport.scrollTo({top:0,behavior:'smooth'});lastPhotoRow=null}
+  rect.style.display='none';status.textContent='Ara no hi ha cap seqüència activa segons l’horari.';
+  lastPhotoRow=null
   return
  }
  const box=ocrRowBounds[active.i];
- if(!box){rect.style.display='none';status.textContent='No he podido asociar el tramo actual con una fila de la captura.';return}
+ if(!box){rect.style.display='none';status.textContent='No he pogut associar la seqüència actual amb una línia de la captura.';return}
  rect.setAttribute('x',box.x);rect.setAttribute('y',box.y);rect.setAttribute('width',box.width);rect.setAttribute('height',box.height);rect.style.display='block';
- status.textContent=active.start+'–'+active.end+' · '+desc(active)+' · fila actual resaltada';
- if(lastPhotoRow!==active.i){
-  lastPhotoRow=active.i;
-  requestAnimationFrame(()=>{const marker=rect.getBoundingClientRect(),frame=viewport.getBoundingClientRect();const top=viewport.scrollTop+marker.top-frame.top-viewport.clientHeight/2+marker.height/2;viewport.scrollTo({top:Math.max(0,Math.min(top,viewport.scrollHeight-viewport.clientHeight)),behavior:'smooth'})});
- }
+ status.textContent=(manualRowIndex===active.i?'Selecció manual: ':'Seguiment automàtic: ')+active.start+'–'+active.end+' · '+desc(active)+' · toca una altra línia per canviar-la';
+ lastPhotoRow=active.i;
 }
+$('resumeAuto').onclick=()=>{manualRowIndex=null;manualSince=0;state.manualRowIndex=null;state.manualSince=null;persist();render()};
+$('photoRowHits').addEventListener('click',event=>{const hit=event.target.closest('[data-row-index]');if(!hit)return;manualRowIndex=Number(hit.dataset.rowIndex);manualSince=Date.now();state.manualRowIndex=manualRowIndex;state.manualSince=manualSince;persist();render()});
+$('photoRowHits').addEventListener('keydown',event=>{if((event.key==='Enter'||event.key===' ')&&event.target.matches('[data-row-index]')){event.preventDefault();manualRowIndex=Number(event.target.dataset.rowIndex);manualSince=Date.now();state.manualRowIndex=manualRowIndex;state.manualSince=manualSince;persist();render()}});
 $('editor').addEventListener('input',()=>{if(ocrRowBounds){ocrRowBounds=null;photoRowsReady=false;lastPhotoRow=null;$('activePhotoRow').style.display='none';$('photoProgress').textContent='La transcripción se ha editado; vuelve a interpretar la captura para mantener sincronizado el resaltado.'}});
-try{load()}catch{state.text=sample;state.date='2026-10-30';load();$('error').textContent='S’ha recuperat el servei d’exemple.'}setInterval(render,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
+try{load()}catch{state.text='';state.date=new Date().toISOString().slice(0,10);load();$('error').textContent='No s’ha pogut carregar el servei desat.'}setInterval(render,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
 
 const FEED='https://tmb-servei-proves.onrender.com/api/trains';
 let liveData=null,liveFetchedAt=0,liveBusy=false,liveFailed=false,liveController=null,liveGeneration=0;
@@ -251,29 +251,32 @@ function photoCanvas(){
  context.drawImage(ocrImage,-ocrImage.width*scale/2,-ocrImage.height*scale/2,ocrImage.width*scale,ocrImage.height*scale);
  return canvas;
 }
+function layoutPhotoOverlay(){if(!photoSize)return;const stage=$('photoStage'),svg=$('photoOverlay'),w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;const scale=Math.min(w/photoSize.width,h/photoSize.height),shownW=photoSize.width*scale,shownH=photoSize.height*scale;svg.style.left=((w-shownW)/2)+'px';svg.style.top=((h-shownH)/2)+'px';svg.style.width=shownW+'px';svg.style.height=shownH+'px'}
+function drawPhotoHitboxes(){const group=$('photoRowHits');group.replaceChildren();if(!ocrRowBounds)return;for(let i=0;i<ocrRowBounds.length;i++){const b=ocrRowBounds[i],hit=document.createElementNS('http://www.w3.org/2000/svg','rect');hit.setAttribute('x',b.x);hit.setAttribute('y',b.y);hit.setAttribute('width',b.width);hit.setAttribute('height',b.height);hit.setAttribute('class','photo-row-hit');hit.setAttribute('data-row-index',String(i));hit.setAttribute('tabindex','0');hit.setAttribute('role','button');hit.setAttribute('aria-label','Selecciona la línia '+(i+1));group.append(hit)}}
+window.addEventListener('resize',layoutPhotoOverlay);
 function showPhoto(){
  if(!ocrImage)return;
- const canvas=photoCanvas(),max=1200,scale=Math.min(1,max/Math.max(canvas.width,canvas.height));
+ const canvas=photoCanvas(),max=1200,scale=Math.min(1,max/Math.max(canvas.width,canvas.height));photoSize={width:canvas.width,height:canvas.height};
  const preview=document.createElement('canvas');preview.width=Math.max(1,Math.round(canvas.width*scale));preview.height=Math.max(1,Math.round(canvas.height*scale));
  preview.getContext('2d').drawImage(canvas,0,0,preview.width,preview.height);
  $('photoPreview').src=preview.toDataURL('image/jpeg',.72);
  $('photoOverlay').setAttribute('viewBox','0 0 '+canvas.width+' '+canvas.height);
  $('photoViewport').hidden=false;$('photoProgress').hidden=false;$('photoPreview').hidden=false;$('changePhoto').hidden=false;$('openImport').textContent='Canvia captura o foto';
- $('activePhotoRow').style.display='none';lastPhotoRow=null;
+ $('activePhotoRow').style.display='none';lastPhotoRow=null;drawPhotoHitboxes();requestAnimationFrame(layoutPhotoOverlay);
 }
 $('photo').onchange=async()=>{
  const f=$('photo').files[0];if(!f)return;
  if(f.size>20*1024*1024){$('ocrStatus').textContent='La imatge supera 20 MB. Redueix-la o fes una captura.';return}
  try{
   if(ocrImage?.close)ocrImage.close();
-  ocrImage=null;ocrRowBounds=null;photoRowsReady=false;$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;
+  ocrImage=null;ocrRowBounds=null;photoRowsReady=false;drawPhotoHitboxes();state.photoData=null;state.photoRows=null;state.photoSize=null;persist();$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;
   ocrImage=await createImageBitmap(f);ocrRotation=0;showPhoto();
   $('readPhoto').disabled=false;$('rotatePhoto').disabled=false;
-  $('ocrStatus').textContent='Imatge preparada i reduïda. Comprova que estigui dreta i prem Interpretar servei.';
-  $('photoProgress').textContent='Interpreta i desa el servei per ressaltar i seguir la línia actual en aquesta captura.';
+  $('ocrStatus').textContent='Imatge preparada i reduïda. Comprova que estigui dreta i prem «Interpreta i segueix».';
+  $('photoProgress').textContent='Interpreta la captura per poder tocar i ressaltar la línia on ets.';
  }catch{$('ocrStatus').textContent='No es pot obrir la imatge. Prova JPG o PNG.'}
 };
-$('rotatePhoto').onclick=()=>{if(!ocrImage||ocrBusy)return;ocrRotation=(ocrRotation+90)%360;ocrRowBounds=null;photoRowsReady=false;showPhoto();$('ocrStatus').textContent='Captura girada. Torna a interpretar-la per poder ressaltar les files.'};
+$('rotatePhoto').onclick=()=>{if(!ocrImage||ocrBusy)return;ocrRotation=(ocrRotation+90)%360;ocrRowBounds=null;photoRowsReady=false;showPhoto();$('ocrStatus').textContent='Imatge girada. Torna a interpretar-la per seleccionar les línies.'};
 let enginePromise;
 function loadOCR(){
  if(window.Tesseract)return Promise.resolve(window.Tesseract);
@@ -290,13 +293,13 @@ $('readPhoto').onclick=async()=>{
  try{
   $('ocrStatus').textContent='Carregant el lector…';const engine=await loadOCR();
   worker=await engine.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')$('ocrStatus').textContent='Llegint… '+Math.round((m.progress||0)*100)+'%'}});
-  const canvas=photoCanvas();const {data}=await worker.recognize(canvas);$('ocrRaw').textContent=data.text||'';
-  const result=interpretSchedule(data,{width:canvas.width,height:canvas.height});ocrRowBounds=result.rowBounds;photoRowsReady=false;lastPhotoRow=null;
-  $('editor').value=result.text;if(result.date)$('date').value=result.date;
-  ocrDraft=true;$('reviewOCR').checked=false;$('reviewLabel').hidden=false;
-  let validation='';try{parse(result.text)}catch(e){validation=e.message}
-  $('ocrStatus').textContent=result.count+' files interpretades. '+(result.issues.length?result.issues.join(' ')+' ':'')+(validation?validation+' ':'')+(!result.date?'Selecciona la data manualment. ':'')+'Revisa totes les dades i confirma abans de desar. El servei desat encara no ha canviat.';
- }catch(e){$('ocrStatus').textContent=e.message+' El servei desat no ha canviat.'}
+  const canvas=photoCanvas();const {data}=await worker.recognize(canvas);
+  const result=interpretSchedule(data,{width:canvas.width,height:canvas.height}),parsed=parse(result.text);
+  if(!result.rowBounds||result.rowBounds.length!==parsed.length)throw Error('No he pogut associar totes les línies de la captura amb l’horari. Prova una captura més nítida.');
+  ocrRowBounds=result.rowBounds;photoSize={width:canvas.width,height:canvas.height};photoRowsReady=true;lastPhotoRow=null;rows=parsed;state.text=result.text;state.date=result.date||state.date;state.taken=[];state.location=null;state.manualRowIndex=null;manualRowIndex=null;manualSince=0;state.manualSince=null;state.photoData=$('photoPreview').src;state.photoRows=ocrRowBounds;state.photoSize=photoSize;
+  $('editor').value=result.text;$('date').value=state.date;ocrDraft=false;persist();drawPhotoHitboxes();render();
+  $('ocrStatus').textContent=result.count+' línies interpretades i servei desat. Toca a la imatge la línia on ets.'+(result.issues.length?' '+result.issues.join(' '):'')+(!result.date?' Es conserva la data anterior.':'');
+ }catch(e){$('ocrStatus').textContent=e.message+' No he actualitzat l’horari desat.'}
  finally{if(worker)await worker.terminate().catch(()=>{});ocrBusy=false;$('readPhoto').disabled=!ocrImage;$('rotatePhoto').disabled=!ocrImage;$('photo').disabled=false}
 };
 
