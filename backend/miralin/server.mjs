@@ -167,24 +167,24 @@ async function pushRoute(req,res,url){
   if(url.pathname==='/api/push-train-watch'){
    const payload=JSON.parse(body);
    const train=String(payload.train||'');
-   const mode=payload.mode;
+   const mode='update';
    if(!/^4\d{2}$/.test(train))throw Error('Introdueix un tren L4 de tres xifres.');
    if(payload.action==='stop'){
     const old=trainWatches.get(endpoint.href);
     if(old){clearInterval(old.timer);trainWatches.delete(endpoint.href);diagnostic('train_watch_stopped',{watchId:watchId(endpoint.href),train:old.train,updates:old.count})}
     res.writeHead(200);res.end(JSON.stringify({stopped:true,train:old?.train||train}));return;
    }
-   if(!['once','update'].includes(mode))throw Error('Selecciona un format de seguiment vàlid.');
+   /* El seguiment de prova sempre actualitza el mateix avís cada cinc minuts. */
    if(!trainWatches.has(endpoint.href)&&trainWatches.size>=10)throw Error('Massa seguiments actius.');
    const old=trainWatches.get(endpoint.href);if(old)clearInterval(old.timer);
-   const startedAt=Date.now(),maxCount=mode==='once'?1:TRAIN_WATCH_COUNT;
-   const until=startedAt+(mode==='once'?90000:20*60*1000);
+   const startedAt=Date.now(),maxCount=TRAIN_WATCH_COUNT;
+   const until=startedAt+20*60*1000;
    const w={subscription,train,mode,count:0,maxCount,busy:false,nextAt:startedAt+15000,until,timer:null};
    trainWatches.set(endpoint.href,w);
    w.timer=setInterval(()=>{void trainWatchTick(endpoint.href,w)},1000);
    lastUse=Date.now();start();
-   diagnostic('train_watch_registered',{watchId:watchId(endpoint.href),train,mode,firstAt:new Date(w.nextAt).toISOString(),until:new Date(until).toISOString(),intervalMinutes:mode==='update'?5:null,maxUpdates:maxCount});
-   res.writeHead(202);res.end(JSON.stringify({train,mode,startedAt:new Date(startedAt).toISOString(),firstAt:new Date(w.nextAt).toISOString(),until:new Date(until).toISOString(),intervalMinutes:mode==='update'?5:null,maxUpdates:maxCount,temporary:true}));return;
+   diagnostic('train_watch_registered',{watchId:watchId(endpoint.href),train,mode,firstAt:new Date(w.nextAt).toISOString(),until:new Date(until).toISOString(),intervalMinutes:5,maxUpdates:maxCount});
+   res.writeHead(202);res.end(JSON.stringify({train,mode,startedAt:new Date(startedAt).toISOString(),firstAt:new Date(w.nextAt).toISOString(),until:new Date(until).toISOString(),intervalMinutes:5,maxUpdates:maxCount,temporary:true}));return;
   }
   if(url.pathname==='/api/push-endurance'){
    if(!enduranceWatches.has(endpoint.href)&&enduranceWatches.size>=10)throw Error('Massa proves actives');

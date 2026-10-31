@@ -29,7 +29,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -132,7 +131,7 @@ public class TrainOverlayService extends Service {
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setPadding(dp(8), dp(5), dp(8), dp(5));
+        bar.setPadding(dp(4), dp(3), dp(4), dp(3));
         GradientDrawable background = new GradientDrawable();
         background.setColor(0xff111e30);
         background.setCornerRadius(dp(18));
@@ -140,22 +139,23 @@ public class TrainOverlayService extends Service {
         bar.setBackground(background);
 
         TrainEyeIcon eye = new TrainEyeIcon(this);
-        bar.addView(eye, new LinearLayout.LayoutParams(dp(42), dp(42)));
+        bar.addView(eye, new LinearLayout.LayoutParams(dp(30), dp(30)));
 
         statusLine = new TextView(this);
         statusLine.setTextColor(0xffeef3fa);
-        statusLine.setTextSize(13);
+        statusLine.setTextSize(11);
         statusLine.setSingleLine(true);
         statusLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        statusLine.setPadding(dp(8), 0, dp(6), 0);
-        bar.addView(statusLine, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1));
+        statusLine.setPadding(dp(5), 0, dp(4), 0);
+        statusLine.setMaxWidth(dp(240));
+        bar.addView(statusLine, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
 
         TextView close = new TextView(this);
         close.setText("×");
-        close.setTextSize(23);
+        close.setTextSize(19);
         close.setTextColor(0xfff4d000);
         close.setGravity(Gravity.CENTER);
-        bar.addView(close, new LinearLayout.LayoutParams(dp(40), dp(42)));
+        bar.addView(close, new LinearLayout.LayoutParams(dp(28), dp(32)));
         close.setOnClickListener(v -> stopSelf());
         eye.setOnClickListener(v -> {
             expanded = !expanded;
@@ -165,8 +165,8 @@ public class TrainOverlayService extends Service {
 
         int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            dp(56),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(38),
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
@@ -231,8 +231,17 @@ public class TrainOverlayService extends Service {
             currentStation = station;
             currentTrack = track;
         }
-        String ageText = age < 0 ? "—" : age < 60 ? "hace " + age + " s" : "hace " + (age / 60) + " min";
-        statusLine.setText(train + " · " + currentStation + " · v." + currentTrack + " · " + ageText);
+        String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
+        statusLine.setText(train + " · " + compactStation(currentStation) + " · v" + currentTrack + " · " + ageText);
+    }
+
+    private String compactStation(String value) {
+        String normalized = value == null ? "" : value.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.contains("maresme")) return "Maresme";
+        if (normalized.contains("ciutadella")) return "Ciutadella";
+        if (normalized.contains("guinardó") || normalized.contains("guinardo")) return "Guinardó";
+        if (normalized.contains("passeig de gràcia") || normalized.contains("passeig de gracia")) return "Pg. Gràcia";
+        return value == null ? "—" : value;
     }
 
     @Override
@@ -264,21 +273,21 @@ public class TrainOverlayService extends Service {
             float s = getResources().getDisplayMetrics().density;
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
             paint.setColor(0xfff4d000); paint.setStyle(Paint.Style.FILL);
-            canvas.drawCircle(cx, cy, 20*s, paint);
+            canvas.drawCircle(cx, cy, 15*s, paint);
             paint.setColor(0xff17202d);
-            canvas.drawRoundRect(cx-11*s, cy-9*s, cx+11*s, cy+12*s, 4*s, 4*s, paint);
+            canvas.drawRoundRect(cx-8*s, cy-7*s, cx+8*s, cy+9*s, 3*s, 3*s, paint);
             paint.setColor(0xffdce5ef);
-            canvas.drawRoundRect(cx-7*s, cy-6*s, cx+7*s, cy+1*s, 2*s, 2*s, paint);
+            canvas.drawRoundRect(cx-5*s, cy-4*s, cx+5*s, cy+1*s, 1.5f*s, 1.5f*s, paint);
             paint.setColor(0xff17202d);
-            canvas.drawCircle(cx-6*s, cy+13*s, 2*s, paint);
-            canvas.drawCircle(cx+6*s, cy+13*s, 2*s, paint);
+            canvas.drawCircle(cx-4.5f*s, cy+10*s, 1.5f*s, paint);
+            canvas.drawCircle(cx+4.5f*s, cy+10*s, 1.5f*s, paint);
             Path eye = new Path();
-            eye.moveTo(cx-8*s, cy+5*s);
-            eye.quadTo(cx, cy-3*s, cx+8*s, cy+5*s);
-            eye.quadTo(cx, cy+13*s, cx-8*s, cy+5*s);
+            eye.moveTo(cx-6*s, cy+4*s);
+            eye.quadTo(cx, cy-2*s, cx+6*s, cy+4*s);
+            eye.quadTo(cx, cy+10*s, cx-6*s, cy+4*s);
             paint.setColor(0xffffffff); paint.setStyle(Paint.Style.FILL); canvas.drawPath(eye, paint);
-            paint.setColor(0xff17202d); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.5f*s); canvas.drawPath(eye, paint);
-            paint.setStyle(Paint.Style.FILL); canvas.drawCircle(cx, cy+5*s, 2.5f*s, paint);
+            paint.setColor(0xff17202d); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.2f*s); canvas.drawPath(eye, paint);
+            paint.setStyle(Paint.Style.FILL); canvas.drawCircle(cx, cy+4*s, 2*s, paint);
         }
     }
 }
