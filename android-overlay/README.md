@@ -11,6 +11,6 @@ Complement Android opcional per mostrar un indicador de tren per sobre d’altre
 
 La app consulta `/api/trains` cada 15 segons, mostra el tren escollit, estació, via i antiguitat de la darrera recepció. No accedeix al contingut d’altres apps. La superposició es pot tancar amb ×; Android mostra un aviso persistente mientras esté activa.
 
-## Install de la prova
+## Instalación de prueba
 
-El workflow **Android train eye** compila un APK debug y lo conserva como artefacto de Actions durante siete días. Descárgalo solo desde el repositorio del propietario. La app no está publicada en Google Play.
+En Android, descarga el APK directo desde [la versión más reciente](https://github.com/roberfernandez/tmb-agent/releases/latest/download/Miralin-Tren-Ull.apk) e instálalo manualmente. El archivo también queda como artefacto de Actions durante siete días para las compilaciones de CI. La app no está publicada en Google Play.
