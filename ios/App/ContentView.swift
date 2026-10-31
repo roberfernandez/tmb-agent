@@ -98,6 +98,10 @@ struct ContentView: View {
             .onAppear {
                 if let activity = runningActivity {
                     activityID = activity.id
+                    mode = activity.attributes.mode
+                    serviceDate = activity.attributes.serviceDate
+                    schedule = activity.attributes.schedule
+                    train = activity.content.state.train
                     beginForegroundPolling(activity)
                     statusMessage = "Hi ha una Live Activity activa."
                 }
@@ -141,7 +145,7 @@ struct ContentView: View {
             }
 
             let initialTrain = mode == "manual" ? train : scheduledTrain(at: Date()) ?? firstScheduledTrain() ?? train
-            let attributes = TrainActivityAttributes(mode: mode, serviceDate: serviceDate, startedAt: Date().timeIntervalSince1970)
+            let attributes = TrainActivityAttributes(mode: mode, serviceDate: serviceDate, schedule: schedule, startedAt: Date().timeIntervalSince1970)
             let initial = TrainActivityAttributes.ContentState(
                 train: initialTrain,
                 station: "Connectant…",
@@ -193,7 +197,9 @@ struct ContentView: View {
     }
 
     private func refreshActivity(_ activity: Activity<TrainActivityAttributes>) async {
-        let selectedTrain = activity.attributes.mode == "service" ? (scheduledTrain(at: Date()) ?? firstScheduledTrain()) : activity.content.state.train
+        let selectedTrain = activity.attributes.mode == "service"
+            ? (scheduledTrain(at: Date(), serviceDate: activity.attributes.serviceDate, schedule: activity.attributes.schedule) ?? firstScheduledTrain(activity.attributes.schedule))
+            : activity.content.state.train
         guard let selectedTrain else { return }
         guard let url = URL(string: "trains?ids=\(selectedTrain)", relativeTo: apiBase) else { return }
         do {
@@ -242,7 +248,7 @@ struct ContentView: View {
             "mode": activity.attributes.mode,
             "train": activity.content.state.train,
             "date": activity.attributes.serviceDate,
-            "schedule": schedule
+            "schedule": activity.attributes.schedule
         ]
         let result = await postJSON(path: "live-activity/start", body: body)
         if let result, let remote = result["remoteUpdatesConfigured"] as? Bool {
@@ -291,8 +297,8 @@ struct ContentView: View {
         }
     }
 
-    private func scheduledTrain(at now: Date) -> String? {
-        guard mode == "service", !serviceDate.isEmpty else { return nil }
+    private func scheduledTrain(at now: Date, serviceDate: String, schedule: String) -> String? {
+        guard !serviceDate.isEmpty else { return nil }
         let dayParts = Calendar.current.dateComponents([.year, .month, .day], from: now)
         let serviceParts = serviceDate.split(separator: "-").compactMap { Int($0) }
         guard serviceParts.count == 3,
@@ -300,14 +306,14 @@ struct ContentView: View {
               let nowDay = Calendar.current.date(from: dayParts) else { return nil }
         let days = Calendar.current.dateComponents([.day], from: serviceDay, to: nowDay).day ?? 0
         let minute = days * 1440 + Calendar.current.component(.hour, from: now) * 60 + Calendar.current.component(.minute, from: now)
-        let trips = parsedSchedule()
+        let trips = parsedSchedule(schedule)
         if let active = trips.first(where: { minute >= $0.start && minute < $0.end }) { return active.train }
         return trips.first(where: { $0.start > minute })?.train ?? trips.last?.train
     }
 
-    private func firstScheduledTrain() -> String? { parsedSchedule().first?.train }
+    private func firstScheduledTrain(_ schedule: String) -> String? { parsedSchedule(schedule).first?.train }
 
-    private func parsedSchedule() -> [(start: Int, end: Int, train: String)] {
+    private func parsedSchedule(_ schedule: String) -> [(start: Int, end: Int, train: String)] {
         schedule.split(separator: ";").compactMap { row in
             let fields = row.split(separator: ",")
             guard fields.count == 3,
