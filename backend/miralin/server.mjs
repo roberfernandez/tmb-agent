@@ -44,7 +44,7 @@ async function trainWatchTick(endpoint,w,now=Date.now()){
  w.busy=true;w.count++;w.nextAt=now+TRAIN_WATCH_INTERVAL;
  diagnostic('train_push_attempt',{watchId:watchId(endpoint),train:w.train,mode:w.mode,sequence:w.count,receptionAgeSeconds:receivedAt?Math.floor((now-receivedAt)/1000):null});
  try{
-  const result=await webpush.sendNotification(w.subscription,JSON.stringify({title:'Tren '+w.train+' · seguiment',body:trainWatchBody(w,now),tag:'train-watch-'+w.train,url:'/tmb-agent/proves/servei/'}),{TTL:300,urgency:'high',timeout:15000});
+  const result=await webpush.sendNotification(w.subscription,JSON.stringify({title:'Tren '+w.train+' · seguiment',body:trainWatchBody(w,now),tag:'train-watch-'+w.train,url:'/tmb-agent/proves/servei/?watch='+w.train}),{TTL:300,urgency:'high',timeout:15000});
   diagnostic('train_push_accepted',{watchId:watchId(endpoint),train:w.train,mode:w.mode,sequence:w.count,statusCode:result.statusCode});
  }catch(e){
   diagnostic('train_push_failed',{watchId:watchId(endpoint),train:w.train,sequence:w.count,statusCode:e.statusCode||null,errorName:e.name});
