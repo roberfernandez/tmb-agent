@@ -1,0 +1,284 @@
+package com.tmbagent.traineye;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.PixelFormat;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.time.Instant;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class TrainOverlayService extends Service {
+    public static final String EXTRA_TRAIN = "train";
+    private static final String CHANNEL_ID = "train_eye_overlay";
+    private static final int NOTIFICATION_ID = 9413;
+    private static final String API = "https://tmb-servei-proves.onrender.com/api/trains?ids=";
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ExecutorService network = Executors.newSingleThreadExecutor();
+    private WindowManager windowManager;
+    private View overlay;
+    private TextView statusLine;
+    private String train = "401";
+    private String station = "connectant…";
+    private String track = "—";
+    private int ageAtFetch = -1;
+    private long fetchedAt = 0;
+    private boolean expanded = true;
+    private boolean requestInFlight = false;
+
+    private final Runnable poll = new Runnable() {
+        @Override public void run() {
+            fetchTrain();
+            handler.postDelayed(this, 15000);
+        }
+    };
+
+    private final Runnable ageTicker = new Runnable() {
+        @Override public void run() {
+            updateLine();
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        createChannel();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && intent.hasExtra(EXTRA_TRAIN)) {
+            train = intent.getStringExtra(EXTRA_TRAIN);
+            getSharedPreferences("overlay", MODE_PRIVATE).edit().putString(EXTRA_TRAIN, train).apply();
+        } else if (intent == null) {
+            train = getSharedPreferences("overlay", MODE_PRIVATE).getString(EXTRA_TRAIN, "401");
+        }
+        if (intent != null && "STOP".equals(intent.getAction())) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        startAsForeground();
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        showOverlay();
+        handler.removeCallbacks(poll);
+        handler.post(poll);
+        handler.removeCallbacks(ageTicker);
+        handler.post(ageTicker);
+        return START_STICKY;
+    }
+
+    private void startAsForeground() {
+        Intent open = new Intent(this, MainActivity.class);
+        PendingIntent content = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Intent stop = new Intent(this, TrainOverlayService.class).setAction("STOP");
+        PendingIntent stopAction = PendingIntent.getService(this, 1, stop, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_view)
+            .setContentTitle("Ull superposat · tren " + train)
+            .setContentText("Toca «Aturar» per tancar el seguiment.")
+            .setContentIntent(content)
+            .setOngoing(true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Aturar", stopAction)
+            .build();
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
+    }
+
+    private void createChannel() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Ull superposat del tren", NotificationManager.IMPORTANCE_LOW);
+            channel.setDescription("Manté actiu l’ull flotant del tren seleccionat.");
+            channel.setSound(null, null);
+            getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        }
+    }
+
+    private void showOverlay() {
+        if (overlay != null) return;
+        LinearLayout bar = new LinearLayout(this);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setPadding(dp(8), dp(5), dp(8), dp(5));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(0xff111e30);
+        background.setCornerRadius(dp(18));
+        background.setStroke(dp(1), 0xfff4d000);
+        bar.setBackground(background);
+
+        TrainEyeIcon eye = new TrainEyeIcon(this);
+        bar.addView(eye, new LinearLayout.LayoutParams(dp(42), dp(42)));
+
+        statusLine = new TextView(this);
+        statusLine.setTextColor(0xffeef3fa);
+        statusLine.setTextSize(13);
+        statusLine.setSingleLine(true);
+        statusLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        statusLine.setPadding(dp(8), 0, dp(6), 0);
+        bar.addView(statusLine, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1));
+
+        TextView close = new TextView(this);
+        close.setText("×");
+        close.setTextSize(23);
+        close.setTextColor(0xfff4d000);
+        close.setGravity(Gravity.CENTER);
+        bar.addView(close, new LinearLayout.LayoutParams(dp(40), dp(42)));
+        close.setOnClickListener(v -> stopSelf());
+        eye.setOnClickListener(v -> {
+            expanded = !expanded;
+            statusLine.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        });
+        overlay = bar;
+
+        int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
+        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            dp(56),
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        );
+        params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        params.y = dp(30);
+        try {
+            windowManager.addView(overlay, params);
+            updateLine();
+        } catch (Exception ignored) {
+            stopSelf();
+        }
+    }
+
+    private void fetchTrain() {
+        if (requestInFlight) return;
+        requestInFlight = true;
+        network.execute(() -> {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(API + train).openConnection();
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(10000);
+                connection.setRequestMethod("GET");
+                int code = connection.getResponseCode();
+                InputStream stream = code >= 400 ? connection.getErrorStream() : connection.getInputStream();
+                StringBuilder raw = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) raw.append(line);
+                }
+                JSONObject response = new JSONObject(raw.toString());
+                JSONObject item = response.optJSONObject("trains") == null ? null : response.optJSONObject("trains").optJSONObject(train);
+                String newStation = item == null ? "sense dades" : item.optString("station", "sense dades");
+                String newTrack = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
+                int newAge = response.isNull("ageSeconds") ? -1 : response.optInt("ageSeconds", -1);
+                synchronized (this) {
+                    station = newStation;
+                    track = newTrack;
+                    ageAtFetch = newAge;
+                    fetchedAt = System.currentTimeMillis();
+                }
+            } catch (Exception ignored) {
+                synchronized (this) {
+                    if (fetchedAt == 0) station = "sense connexió";
+                }
+            } finally {
+                if (connection != null) connection.disconnect();
+                requestInFlight = false;
+                handler.post(this::updateLine);
+            }
+        });
+    }
+
+    private void updateLine() {
+        if (statusLine == null) return;
+        int age;
+        String currentStation;
+        String currentTrack;
+        synchronized (this) {
+            age = ageAtFetch < 0 ? -1 : ageAtFetch + (int) ((System.currentTimeMillis() - fetchedAt) / 1000);
+            currentStation = station;
+            currentTrack = track;
+        }
+        String ageText = age < 0 ? "—" : age < 60 ? "hace " + age + " s" : "hace " + (age / 60) + " min";
+        statusLine.setText(train + " · " + currentStation + " · v." + currentTrack + " · " + ageText);
+    }
+
+    @Override
+    public void onDestroy() {
+        handler.removeCallbacks(poll);
+        handler.removeCallbacks(ageTicker);
+        if (overlay != null) {
+            try { windowManager.removeView(overlay); } catch (Exception ignored) {}
+            overlay = null;
+        }
+        if (network != null) network.shutdownNow();
+        stopForeground(true);
+        super.onDestroy();
+    }
+
+    @Override public IBinder onBind(Intent intent) { return null; }
+
+    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
+
+    private static final class ViewGroupParams {
+        static final int WRAP = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+    }
+
+    private static final class TrainEyeIcon extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        TrainEyeIcon(android.content.Context context) { super(context); }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float s = getResources().getDisplayMetrics().density;
+            float cx = getWidth() / 2f, cy = getHeight() / 2f;
+            paint.setColor(0xfff4d000); paint.setStyle(Paint.Style.FILL);
+            canvas.drawCircle(cx, cy, 20*s, paint);
+            paint.setColor(0xff17202d);
+            canvas.drawRoundRect(cx-11*s, cy-9*s, cx+11*s, cy+12*s, 4*s, 4*s, paint);
+            paint.setColor(0xffdce5ef);
+            canvas.drawRoundRect(cx-7*s, cy-6*s, cx+7*s, cy+1*s, 2*s, 2*s, paint);
+            paint.setColor(0xff17202d);
+            canvas.drawCircle(cx-6*s, cy+13*s, 2*s, paint);
+            canvas.drawCircle(cx+6*s, cy+13*s, 2*s, paint);
+            Path eye = new Path();
+            eye.moveTo(cx-8*s, cy+5*s);
+            eye.quadTo(cx, cy-3*s, cx+8*s, cy+5*s);
+            eye.quadTo(cx, cy+13*s, cx-8*s, cy+5*s);
+            paint.setColor(0xffffffff); paint.setStyle(Paint.Style.FILL); canvas.drawPath(eye, paint);
+            paint.setColor(0xff17202d); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.5f*s); canvas.drawPath(eye, paint);
+            paint.setStyle(Paint.Style.FILL); canvas.drawCircle(cx, cy+5*s, 2.5f*s, paint);
+        }
+    }
+}

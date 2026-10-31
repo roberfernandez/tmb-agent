@@ -35,8 +35,8 @@ async function enduranceTick(endpoint,w,now=Date.now()){
 function trainWatchBody(w,now=Date.now()){
  const age=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  const t=snapshot[w.train],fresh=connected&&age!==null&&age<45&&t;
- const state=fresh?(t.estacion+' · via '+(t.platformTrack??t.track)+' · '+({arriving:'aproximació',en_route:'en circulació',waiting_departure:'esperant sortida'}[t.status]||t.status)+' · destinació '+t.destiLabel):'Sense dades actuals · '+(!connected?'sense connexió':age===null||age>=45?'recepció antiga':'tren sense observació');
- return state+' · recepció '+(age===null?'no disponible':'fa '+age+' s')+'. La recepció no és l’hora de mesura de la font.';
+ const place=fresh?(t.estacion+' · v.'+(t.platformTrack??t.track)):'Sense dades';
+ return place+' · '+(age===null?'—':'fa '+age+' s');
 }
 async function trainWatchTick(endpoint,w,now=Date.now()){
  if(trainWatches.get(endpoint)!==w||w.busy||now<w.nextAt)return;
