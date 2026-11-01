@@ -329,47 +329,25 @@ public class TrainOverlayService extends Service {
             return false;
         });
 
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        FrameLayout card = new FrameLayout(this);
+        card.setPadding(dp(5), dp(5), dp(5), dp(5));
         GradientDrawable cardBackground = new GradientDrawable();
         cardBackground.setColor(0xff111e30);
-        cardBackground.setCornerRadius(dp(18));
+        cardBackground.setCornerRadius(dp(16));
         cardBackground.setStroke(dp(2), 0xfff4d000);
         card.setBackground(cardBackground);
         card.setOnClickListener(v -> {});
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
-        int cardHeight = Math.min(dp(230), metrics.heightPixels - dp(64));
+        int cardHeight = Math.min(dp(307), metrics.heightPixels - dp(64));
         FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT, cardHeight, Gravity.CENTER);
-        cardParams.leftMargin = dp(16);
-        cardParams.rightMargin = dp(16);
+        cardParams.leftMargin = dp(12);
+        cardParams.rightMargin = dp(12);
         root.addView(card, cardParams);
-
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = popupText("El meu servei", 18, 0xfff4d000, true);
-        header.addView(title, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1f));
-        TextView close = popupText("Tanca", 13, 0xff111e30, true);
-        close.setGravity(Gravity.CENTER);
-        close.setPadding(dp(10), dp(6), dp(10), dp(6));
-        GradientDrawable closeBackground = new GradientDrawable();
-        closeBackground.setColor(0xfff4d000);
-        closeBackground.setCornerRadius(dp(9));
-        close.setBackground(closeBackground);
-        close.setOnClickListener(v -> closeServicePopup());
-        header.addView(close, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
-        card.addView(header);
-
-        popupStatus = popupText("", 11, 0xffa9b8cb, false);
-        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
-        statusParams.topMargin = dp(3);
-        statusParams.bottomMargin = dp(6);
-        card.addView(popupStatus, statusParams);
 
         popupScroll = new ScrollView(this);
         popupScroll.setFillViewport(false);
+        popupScroll.setClipToPadding(false);
         popupRowViews.clear();
         popupImageView = createServiceImageView();
         if (popupImageView != null) {
@@ -380,8 +358,24 @@ public class TrainOverlayService extends Service {
             popupScroll.addView(list, new ScrollView.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
         }
-        card.addView(popupScroll, new LinearLayout.LayoutParams(
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        FrameLayout.LayoutParams scrollParams = new FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT);
+        card.addView(popupScroll, scrollParams);
+
+        TextView close = popupText("×", 27, 0xfff4d000, true);
+        close.setGravity(Gravity.CENTER);
+        GradientDrawable closeBackground = new GradientDrawable();
+        closeBackground.setColor(0xe6111e30);
+        closeBackground.setCornerRadius(dp(20));
+        closeBackground.setStroke(dp(1), 0xfff4d000);
+        close.setBackground(closeBackground);
+        close.setElevation(dp(4));
+        close.setOnClickListener(v -> closeServicePopup());
+        FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP | Gravity.END);
+        closeParams.topMargin = dp(6);
+        closeParams.rightMargin = dp(6);
+        card.addView(close, closeParams);
 
         popupRoot = root;
         int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
@@ -509,22 +503,20 @@ public class TrainOverlayService extends Service {
     }
 
     private void updatePopupHighlight() {
-        if (popupRoot == null || popupStatus == null) return;
+        if (popupRoot == null) return;
         int active = currentScheduleRowIndex();
         for (int i = 0; i < popupRowViews.size(); i++) {
             popupRowViews.get(i).setBackground(popupRowBackground(i == active));
         }
         int rowCount = popupImageView != null ? popupImageView.rowBounds.size() : popupRowViews.size();
-        String modeLabel = "service".equals(mode) ? "Seguiment automàtic" : "Seguiment manual";
-        popupStatus.setText(modeLabel + "  ·  tren vigilat " + train +
-            (active >= 0 && active < rowCount ? "  ·  línia " + (active + 1) : ""));
         if (popupImageView != null) popupImageView.setActiveRow(active);
 
         if (active >= 0 && active < rowCount && active != popupActiveIndex) {
             if (popupImageView != null) {
                 final int selected = active;
                 popupImageView.post(() -> {
-                    if (popupScroll == null || popupRoot == null || selected >= popupImageView.rowBounds.size()) return;
+                    if (popupScroll == null || popupRoot == null || popupImageView == null ||
+                        selected >= popupImageView.rowBounds.size()) return;
                     RectF bounds = popupImageView.rowBounds.get(selected);
                     int y = Math.round(bounds.centerY() * popupImageView.getHeight() - popupScroll.getHeight() / 2f);
                     popupScroll.smoothScrollTo(0, Math.max(0, Math.min(y, popupImageView.getHeight() - popupScroll.getHeight())));
