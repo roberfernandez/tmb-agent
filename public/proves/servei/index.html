@@ -7,7 +7,7 @@
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .viewer-shell{height:100%;display:flex;flex-direction:column;min-height:0}.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.viewer-head h2{margin:0}.viewer-status{margin:8px 0 10px;flex:none}#viewerPhotoHome{min-height:0;flex:1;display:flex}#viewerPhotoHome #photoViewport{width:100%;height:100%;max-width:none;max-height:none;margin:0}.viewer-timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.viewer-timeline .journey-row{grid-template-columns:88px minmax(0,1fr);padding:10px}#viewerPhotoHome[hidden],.viewer-timeline[hidden]{display:none}@media(max-width:480px){#serviceViewer{width:100vw;height:88dvh;max-height:780px;border-radius:0;padding:14px}}
 </style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.22.1</span></header><h1>El meu servei</h1>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.23.0</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
@@ -33,17 +33,16 @@
 <section class="card">
  <h2>Segueix el servei</h2><p>El seguiment automàtic segueix el tren que toca segons l’horari del servei.</p>
  <div class="row"><button id="startServiceEye" class="primary"><span aria-hidden="true">👁</span> Activa el seguiment automàtic</button><button id="stopServiceEye" hidden>Atura</button></div>
- <p id="serviceEyeStatus" role="status" class="muted">Seguiment automàtic desactivat.</p>
+ <p id="serviceEyeStatus" role="status" class="muted" hidden></p>
  <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-tren-ull-v0.14.11/Miralin-Tren-Ull.apk" target="_blank" rel="noopener">Android · baixa l’APK</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
- <p class="muted" id="platformTitle"></p><p class="muted" id="androidAppInstalled" hidden>Aplicació Android detectada. <button id="showAndroidDownload" type="button">Mostra l’enllaç de descàrrega</button></p><p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
+ <p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
 </section>
 <section class="card">
  <h2>Segueix un tren</h2><p>Escull manualment el tren que vols seguir. Aquest mode atura el seguiment automàtic del servei.</p>
  <label for="watchTrain">Tren de la L4</label><select id="watchTrain"><option value="" selected disabled>Tria un tren…</option><option value="401">401</option><option value="402">402</option><option value="403">403</option><option value="404">404</option><option value="405">405</option><option value="406">406</option><option value="407">407</option><option value="408">408</option><option value="409">409</option><option value="410">410</option><option value="411">411</option><option value="412">412</option><option value="413">413</option><option value="414">414</option><option value="415">415</option></select>
  <div class="row" style="margin-top:12px"><button id="startTrainWatch" class="primary">Segueix aquest tren</button><button id="stopTrainWatch">Atura</button></div>
  <p id="trainWatchStatus" role="status" class="muted">Seguiment manual desactivat.</p>
- <details class="compact"><summary>Circulació actual de la L4</summary><div class="row spread"><p id="liveStatus" role="status">Connectant amb el servidor…</p><button id="refreshLive">Actualitza</button></div><div id="liveTrains"></div><small>Estat comunicat per Miralin. La recepció recent no garanteix que la font s’hagi actualitzat en aquell moment.</small></details>
-</section>
+ </section>
 <section class="card">
  <h2>Avisos del servei</h2><label for="margin">Antelació dels avisos del servei</label><div class="minute-stepper"><button id="marginUp" type="button" aria-label="Augmenta un minut">▲</button><input id="margin" type="number" inputmode="numeric" min="1" max="120" step="1" value="5" aria-label="Minuts d’antelació"><button id="marginDown" type="button" aria-label="Redueix un minut">▼</button><span>minuts</span></div>
  <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button><button id="test">Prova el so</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>Els avisos poden arribar encara que tanquis la miniapp. Cal permetre les notificacions i tenir connexió; les alternatives depenen de les dades recents de Miralin.</small>
@@ -57,14 +56,13 @@ const stations=Object.fromEntries(names.map((n,i)=>[413+i,n]));const $=id=>docum
 const ua=navigator.userAgent||'',platform=navigator.userAgentData?.platform||'';
 const isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const isAndroid=/Android/i.test(ua)||platform==='Android';
-if(isIOS){$('androidOption').hidden=true;$('platformTitle').textContent='iPhone/iPad';}
-else if(isAndroid){$('iosOption').hidden=true;$('iosInstructions').hidden=true;$('platformTitle').textContent='Android';}
+if(isIOS)$('androidOption').hidden=true;
+else if(isAndroid){$('iosOption').hidden=true;$('iosInstructions').hidden=true;}
 const androidOpenedKey='tmb-servei-android-app-opened-v0.14.11';let androidAppOpened=localStorage.getItem(androidOpenedKey)==='true';
-function refreshAndroidDownload(){if(!isAndroid)return;$('androidOption').hidden=androidAppOpened;$('androidAppInstalled').hidden=!androidAppOpened}
+function refreshAndroidDownload(){if(isAndroid)$('androidOption').hidden=androidAppOpened}
 function rememberAndroidLaunch(){const mark=()=>{if(document.visibilityState==='hidden'){androidAppOpened=true;localStorage.setItem(androidOpenedKey,'true');refreshAndroidDownload()}};document.addEventListener('visibilitychange',mark);window.addEventListener('pagehide',mark);setTimeout(()=>{document.removeEventListener('visibilitychange',mark);window.removeEventListener('pagehide',mark)},6000)}
 function openAndroidEye(params){rememberAndroidLaunch();location.href='intent://watch?'+params.toString()+'#Intent;scheme=tmbservei;package=com.tmbagent.traineye;end'}
 refreshAndroidDownload();
-$('showAndroidDownload').onclick=()=>{androidAppOpened=false;localStorage.removeItem(androidOpenedKey);refreshAndroidDownload()};
 
 let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,manualRowIndex:null,manualSince:null};
 const followModeKey='tmb-servei-follow-mode-v1';let followMode=localStorage.getItem(followModeKey)||'';
@@ -148,7 +146,7 @@ $('enable').onclick=async()=>{
 $('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
 $('alarmStatus').textContent=enabled?'Avisos activats; comprovant la programació…':'Avisos desactivats.';
 if(enabled)setTimeout(()=>syncServiceAlerts().then(result=>{$('alarmStatus').textContent='Avisos actius · '+state.margin+' min abans dels trasllats i les preses. '+result.events+' avisos programats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut restaurar els avisos: '+e.message;remoteAlertsActive=false}),800);
-$('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();if(enabled)scheduleAlertSync();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render();refreshLive(true)}catch(e){$('error').textContent=e.message}};
+$('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();if(enabled)scheduleAlertSync();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render()}catch(e){$('error').textContent=e.message}};
 $('reset').onclick=()=>{state.date=new Date().toISOString().slice(0,10);state.text='';state.taken=[];state.location=null;state.photoData=null;state.photoRows=null;state.photoSize=null;state.manualRowIndex=null;state.manualSince=null;manualRowIndex=null;manualSince=0;ocrRowBounds=null;photoSize=null;photoRowsReady=false;lastPhotoRow=null;$('photoPreview').removeAttribute('src');$('photoViewport').hidden=true;$('activePhotoRow').style.display='none';fired.clear();if(enabled){void syncServiceAlerts(true).catch(()=>{});enabled=false;remoteAlertsActive=false;localStorage.removeItem('tmb-servei-alerts');$('enable').textContent='Activa els avisos';$('alarmStatus').textContent='Avisos desactivats.'}persist();load()};
 function renderViewerTimeline(active){
  $('viewerTimeline').innerHTML=rows.map(r=>'<div class="journey-row '+(active===r?'active':'')+' '+(when(r.b)<Date.now()?'done':'')+'" data-row-index="'+r.i+'" tabindex="0"><span class="journey-time">'+esc(r.start)+'–'+esc(r.end)+'</span><span class="journey-detail"><strong>'+esc(desc(r))+'</strong><small>'+esc(stations[r.from])+(r.to!==r.from?' → '+esc(stations[r.to]):'')+(r.type==='CON'?' · via '+esc(r.via)+' → '+esc(r.out):'')+'</small></span></div>').join('');
@@ -208,55 +206,16 @@ $('photoRowHits').addEventListener('keydown',event=>{if((event.key==='Enter'||ev
 $('editor').addEventListener('input',()=>{if(ocrRowBounds){ocrRowBounds=null;photoRowsReady=false;lastPhotoRow=null;$('activePhotoRow').style.display='none';$('photoProgress').textContent='La transcripción se ha editado; vuelve a interpretar la captura para mantener sincronizado el resaltado.'}});
 try{load()}catch{state.text='';state.date=new Date().toISOString().slice(0,10);load();$('error').textContent='No s’ha pogut carregar el servei desat.'}if(new URLSearchParams(location.search).has('serviceViewer'))setTimeout(openServiceViewer,600);setInterval(render,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
 
-const FEED='https://tmb-servei-proves.onrender.com/api/trains';
-let liveData=null,liveFetchedAt=0,liveBusy=false,liveFailed=false,liveController=null,liveGeneration=0;
-function liveIds(){const ids=rows.filter(r=>r.type==='CON').map(r=>r.train);const selected=$('watchTrain')?.value;if(/^4\d{2}$/.test(selected||''))ids.push(selected);return [...new Set(ids)]}
-function renderLive(){
- const ids=liveIds(), age=liveData?.receivedAt?Math.max(0,Math.floor((Date.now()-Date.parse(liveData.receivedAt))/1000)):null;
- const stale=liveFailed||!liveData||liveData.stale||!liveData.connected||age===null||!Number.isFinite(age)||age>45;
- $('liveStatus').textContent=liveBusy&&!liveData?'Connectant… El servidor gratuït pot trigar un minut a despertar.':stale?'Sense dades actualitzades'+(age!==null?' · última recepció fa '+age+' s':''):'Connectat · recepció fa '+age+' s';
- $('liveTrains').innerHTML=ids.map(id=>{
-  const t=liveData?.trains?.[id];
-  if(!t)return '<div class="item"><span class="train">'+esc(id)+'</span><p>Sense observació disponible. Això no confirma una retirada.</p></div>';
-  const states={arriving:'Aproximació',en_route:'En circulació',waiting_departure:'Esperant sortida'};
-  return '<div class="item"><span class="train">'+esc(id)+'</span><p>'+esc(t.station)+' · via '+esc(t.platformTrack??t.track)+'</p><small>'+esc(states[t.status]||t.status)+' · destinació '+esc(t.destination)+(t.turnaround?' · canvi de sentit':'')+(stale?' · DADA ANTIGA':'')+'</small></div>';
- }).join('');
-}
-async function refreshLive(force=false){
- if(document.hidden)return;
- if(liveBusy&&!force)return;
- if(force){liveGeneration++;liveController?.abort();liveBusy=false;liveFailed=true;}
- const generation=++liveGeneration;
- liveController=new AbortController();
- const signal=AbortSignal.any([liveController.signal,AbortSignal.timeout(75000)]);
- const ids=liveIds();if(!ids.length){$('liveStatus').textContent='No hi ha trens de conducció al servei.';$('liveTrains').innerHTML='';return}
- liveBusy=true;renderLive();
- try{
-  const response=await fetch(FEED+'?ids='+encodeURIComponent(ids.join(',')),{cache:'no-store',signal});
-  const data=await response.json();
-  if(!data||typeof data.trains!=='object')throw Error('Resposta no vàlida');
-  if(generation!==liveGeneration)return;
-  liveData=data;liveFetchedAt=Date.now();liveFailed=!response.ok||data.stale;
- }catch{if(generation===liveGeneration)liveFailed=true}finally{if(generation===liveGeneration){liveBusy=false;renderLive()}}
-}
-$('refreshLive').onclick=()=>refreshLive(true);
-setInterval(refreshLive,10000);
-setInterval(renderLive,1000);
-function resumeLive(){if(!document.hidden){renderLive();refreshLive(true)}}
-document.addEventListener('visibilitychange',()=>{if(document.hidden){liveGeneration++;liveController?.abort();liveBusy=false;liveFailed=true;}else resumeLive()});
-window.addEventListener('pageshow',resumeLive);
-window.addEventListener('online',resumeLive);
-refreshLive();
-
 // Els modes automàtic i manual són excloents.
 const savedManualTrain=localStorage.getItem('tmb-servei-manual-train');
 if(/^4\d{2}$/.test(savedManualTrain||''))$('watchTrain').value=savedManualTrain;
+function showServiceEyeError(message){const status=$('serviceEyeStatus');status.textContent=message||'';status.hidden=!message}
 function showFollowMode(mode){
  followMode=mode;
  if(mode)localStorage.setItem(followModeKey,mode);else localStorage.removeItem(followModeKey);
  $('startServiceEye').hidden=mode==='service';$('stopServiceEye').hidden=mode!=='service';
  $('startTrainWatch').disabled=mode==='service';$('watchTrain').disabled=mode==='service'||mode==='manual';
- $('serviceEyeStatus').textContent=mode==='service'?(isAndroid?'Ull actiu: segueix el tren previst pel servei.':'Seguiment automàtic actiu mentre aquesta pàgina és oberta.'):'Seguiment automàtic desactivat.';
+ showServiceEyeError('');
  if(mode!=='service'&&mode!=='manual'){$('startTrainWatch').disabled=false;$('watchTrain').disabled=false}
 }
 function serviceScheduleParam(){return rows.map(r=>[r.a,r.b,r.type,r.from,r.to,r.train||'',r.via||'',r.out||''].join(',')).join(';')}
@@ -289,10 +248,9 @@ async function stopNativeEye(){if(isAndroid){location.href='tmbservei://stop';aw
 $('startServiceEye').onclick=async()=>{
  $('startServiceEye').disabled=true;
  const stopped=await stopTrainPushWatch();
- if(!stopped){$('startServiceEye').disabled=false;$('serviceEyeStatus').textContent='No s’ha pogut aturar el seguiment manual.';return}
- if(!rows.some(r=>r.type==='CON')){$('serviceEyeStatus').textContent='Carrega un servei amb trams de conducció.';$('startServiceEye').disabled=false;return}
+ if(!stopped){$('startServiceEye').disabled=false;showServiceEyeError('No s’ha pogut aturar el seguiment manual.');return}
+ if(!rows.some(r=>r.type==='CON')){showServiceEyeError('Carrega un servei amb trams de conducció.');$('startServiceEye').disabled=false;return}
  manualRowIndex=null;manualSince=0;state.manualRowIndex=null;state.manualSince=null;persist();showFollowMode('service');render();
- if(isAndroid){const trains=rows.filter(r=>r.type==='CON').map(r=>r.train);$('serviceEyeStatus').textContent='Enviant l’horari a Android: '+trains.join(' → ')+'.'}
  const query=new URLSearchParams({mode:'service',date:state.date,schedule:serviceScheduleParam()});
  if(isAndroid){
   const [image,bounds]=await Promise.all([prepareNativeServiceImage(),Promise.resolve(serviceRowBoundsParam())]);
@@ -304,7 +262,7 @@ $('startServiceEye').onclick=async()=>{
 };
 $('stopServiceEye').onclick=async()=>{showFollowMode('');await stopNativeEye()};
 $('stopTrainWatch').onclick=async()=>{const ok=await stopTrainPushWatch();if(ok){showFollowMode('');await stopNativeEye()}};
-$('watchTrain').onchange=()=>{if(/^4\d{2}$/.test($('watchTrain').value))localStorage.setItem('tmb-servei-manual-train',$('watchTrain').value);refreshLive(true);if(followMode==='manual')showFollowMode('manual')};
+$('watchTrain').onchange=()=>{if(/^4\d{2}$/.test($('watchTrain').value))localStorage.setItem('tmb-servei-manual-train',$('watchTrain').value);if(followMode==='manual')showFollowMode('manual')};
 if(followMode==='service')showFollowMode('service');else if(followMode==='manual')showFollowMode('manual');
 
 async function activateTrainWatch(stop=false){
@@ -329,7 +287,6 @@ async function activateTrainWatch(stop=false){
   const response=await fetch(base+'/api/push-train-watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subscription.toJSON(),train,action:stop?'stop':'start',...(stop?{}:{mode})}),signal:AbortSignal.timeout(75000)});
   const result=await response.json();if(!response.ok)throw Error(result.error||'No s’ha pogut iniciar el seguiment.');
   if(stop){status.textContent='Seguiment aturat.';return}
-  refreshLive(true);
   status.textContent='Seguiment de '+train+' activat. Primer avís: '+new Date(result.firstAt).toLocaleTimeString('ca-ES')+'; després cada 5 minuts, fins a les '+new Date(result.until).toLocaleTimeString('ca-ES')+'. Pots tancar la PWA.';
  }catch(e){status.textContent=e.message}
  finally{button.disabled=false}
@@ -378,7 +335,7 @@ $('startTrainWatch').onclick=async()=>{
 
 
 const selectedTrainFromPush=new URLSearchParams(location.search).get('watch');
-if(/^4\d{2}$/.test(selectedTrainFromPush||'')){$('watchTrain').value=selectedTrainFromPush;localStorage.setItem('tmb-servei-manual-train',selectedTrainFromPush);refreshLive(true)}
+if(/^4\d{2}$/.test(selectedTrainFromPush||'')){$('watchTrain').value=selectedTrainFromPush;localStorage.setItem('tmb-servei-manual-train',selectedTrainFromPush)}
 
 
 
