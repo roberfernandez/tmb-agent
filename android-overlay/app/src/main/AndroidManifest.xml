@@ -24,6 +24,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tmbservei" android:host="watch" />
                 <data android:scheme="tmbservei" android:host="stop" />
+                <data android:scheme="tmbservei" android:host="viewer-close" />
             </intent-filter>
         </activity>
         <service

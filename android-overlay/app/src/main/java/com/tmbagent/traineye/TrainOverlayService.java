@@ -94,6 +94,10 @@ public class TrainOverlayService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (intent != null && "SHOW_OVERLAY".equals(intent.getAction())) {
+            showOverlay();
+            return START_STICKY;
+        }
         android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
         if (intent != null) {
             train = intent.getStringExtra(EXTRA_TRAIN) == null ? train : intent.getStringExtra(EXTRA_TRAIN);
@@ -270,7 +274,18 @@ public class TrainOverlayService extends Service {
         }
     }
 
+    private void hideOverlay() {
+        if (overlay != null) {
+            try { windowManager.removeView(overlay); } catch (Exception ignored) {}
+            overlay = null;
+            trainLine = null;
+            statusLine = null;
+        }
+    }
+
     private void openServiceViewer() {
+        android.widget.Toast.makeText(this, "Obrint el visor del servei…", android.widget.Toast.LENGTH_SHORT).show();
+        hideOverlay();
         try {
             Intent intent = new Intent(this, MainActivity.class)
                 .setAction("com.tmbagent.traineye.OPEN_SERVICE_VIEWER")
@@ -285,7 +300,10 @@ public class TrainOverlayService extends Service {
             } else {
                 pending.send();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            showOverlay();
+            android.widget.Toast.makeText(this, "No s’ha pogut obrir el visor.", android.widget.Toast.LENGTH_LONG).show();
+        }
     }
 
     private void fetchTrain() {

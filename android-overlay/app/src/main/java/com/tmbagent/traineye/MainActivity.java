@@ -106,6 +106,12 @@ public class MainActivity extends Activity {
             finish();
             return;
         }
+        if ("viewer-close".equals(data.getHost())) {
+            Intent restore = new Intent(this, TrainOverlayService.class).setAction("SHOW_OVERLAY");
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(restore); else startService(restore);
+            finish();
+            return;
+        }
         String mode = data.getQueryParameter("mode");
         if ("service".equals(mode)) {
             String date = data.getQueryParameter("date");
