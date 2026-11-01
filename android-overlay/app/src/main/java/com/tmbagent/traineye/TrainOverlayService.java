@@ -600,13 +600,15 @@ public class TrainOverlayService extends Service {
         String latestTrain = null;
         int latestEnd = -1;
         for (String entry : schedule.split(";")) {
-            String[] parts = entry.split(",");
-            if (parts.length != 3) continue;
+            String[] parts = entry.split(",", -1);
+            if (parts.length != 3 && parts.length != 8) continue;
             try {
                 int start = Integer.parseInt(parts[0]);
                 int end = Integer.parseInt(parts[1]);
-                String candidate = parts[2];
-                if (!candidate.matches("4\\d{2}")) continue;
+                String type = parts.length == 8 ? parts[2] : "CON";
+                String candidate = parts.length == 8 ? parts[5] : parts[2];
+                if (!"CON".equals(type) || !candidate.matches("4\\d{2}") ||
+                    Integer.parseInt(candidate) < 401 || Integer.parseInt(candidate) > 415) continue;
                 if (now >= start && now < end) { selected = candidate; break; }
                 if (start > now && start < bestUpcoming) { bestUpcoming = start; selected = candidate; }
                 if (end > latestEnd) { latestEnd = end; latestTrain = candidate; }
@@ -631,8 +633,8 @@ public class TrainOverlayService extends Service {
         int firstStart = Integer.MAX_VALUE;
         int latestEnd = -1;
         for (String entry : schedule.split(";")) {
-            String[] parts = entry.split(",");
-            if (parts.length != 3) continue;
+            String[] parts = entry.split(",", -1);
+            if (parts.length != 3 && parts.length != 8) continue;
             try {
                 firstStart = Math.min(firstStart, Integer.parseInt(parts[0]));
                 latestEnd = Math.max(latestEnd, Integer.parseInt(parts[1]));
@@ -671,6 +673,10 @@ public class TrainOverlayService extends Service {
     public void onDestroy() {
         handler.removeCallbacks(poll);
         handler.removeCallbacks(ageTicker);
+        if (popupRoot != null) {
+            try { windowManager.removeView(popupRoot); } catch (Exception ignored) {}
+            popupRoot = null;
+        }
         if (overlay != null) {
             try { windowManager.removeView(overlay); } catch (Exception ignored) {}
             overlay = null;
