@@ -134,7 +134,8 @@ function boardingAdvice(event,now=Date.now()){
  const arrivals=new Map();
  for(const e of boardEntries(to)){const id=boardTrain(e),eta=boardArrival(e);if(!id||!eta)continue;const old=arrivals.get(id);if(!old||eta<old)arrivals.set(id,eta)}
  const candidates=[];
- for(const e of boardEntries(from)){const id=boardTrain(e),leave=boardArrival(e),arrive=arrivals.get(id);if(!id||!leave||!arrive||arrive<leave-30000||arrive>at||arrive<now+15000)continue;candidates.push({id,leave,arrive})}
+ const wantedDirection=(Number(target)<Number(source)?'la pau':'trinitat nova');
+ for(const e of boardEntries(from)){const direction=String(e?.destiLabel??e?.destino??'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();if(direction&&!direction.includes(wantedDirection))continue;const id=boardTrain(e),leave=boardArrival(e),arrive=arrivals.get(id);if(!id||!leave||!arrive||arrive<leave-30000||arrive>at||arrive<now+15000)continue;candidates.push({id,leave,arrive})}
  const direct=candidates.find(c=>c.id===train);
  if(direct)return base+' Darrera opció: pots arribar-hi amb el mateix tren '+train+'; arriba cap a les '+clockText(direct.arrive)+' (marge '+Math.max(0,Math.floor((at-direct.arrive)/60000))+' min).';
  const best=[...new Map(candidates.sort((a,b)=>b.arrive-a.arrive).map(c=>[c.id,c])).values()].slice(0,3);
