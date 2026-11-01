@@ -127,7 +127,8 @@ function clockText(ms){return new Intl.DateTimeFormat('ca-ES',{timeZone:'Europe/
 function freshBoard(stop,now=Date.now()){const cached=stationBoardCache.get(String(stop));return cached&&now-cached.receivedAt<60000?cached:null}
 function boardingAdvice(event,now=Date.now()){
  const train=String(event.train||'tren assignat'),target=String(event.target||''),source=String(event.source||''),at=Number(event.at);
- const base='Presa prevista del '+train+' a '+(L4_STATION_NAMES[target]||target)+' · '+clockText(at)+'.';
+ const inMinutes=Math.max(0,Math.ceil((at-now)/60000));
+ const base='Presa prevista d’aquí a '+inMinutes+' min: '+train+' a '+(L4_STATION_NAMES[target]||target)+' · '+clockText(at)+'.';
  if(!source||!target||source===target)return base;
  const from=freshBoard(source,now),to=freshBoard(target,now);
  if(!from||!to)return base+' Sense arribades Miralin recents per calcular alternatives.';
@@ -143,7 +144,7 @@ function boardingAdvice(event,now=Date.now()){
  return base+' Alternatives: '+best.map(c=>c.id+' ('+clockText(c.arrive)+', marge '+Math.max(0,Math.floor((at-c.arrive)/60000))+' min)').join('; ')+'.';
 }
 function serviceAlertBody(event,now=Date.now()){
- if(event.kind==='transfer')return 'Trasllat previst: '+(L4_STATION_NAMES[String(event.source)]||event.source)+' → '+(L4_STATION_NAMES[String(event.target)]||event.target)+'. Hora prevista '+clockText(Number(event.at))+'.';
+ if(event.kind==='transfer'){const inMinutes=Math.max(0,Math.ceil((Number(event.at)-now)/60000));return 'D’aquí a '+inMinutes+' min: trasllat '+(L4_STATION_NAMES[String(event.source)]||event.source)+' → '+(L4_STATION_NAMES[String(event.target)]||event.target)+'. Hora prevista '+clockText(Number(event.at))+'.'}
  return boardingAdvice(event,now);
 }
 async function serviceWatchTick(endpoint,w,now=Date.now()){
