@@ -45,7 +45,7 @@
 </section>
 <section class="card">
  <h2>Avisos del servei</h2><label for="margin">Antelació abans d’agafar un tren</label><select id="margin"><option value="2">2 minuts</option><option value="5">5 minuts</option><option value="10">10 minuts</option></select>
- <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button><button id="test">Prova el so</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>Els avisos del servei funcionen mentre la pàgina és oberta.</small>
+ <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button><button id="test">Prova el so</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>Els avisos es basen en l’horari previst. Si el sistema suspèn el navegador, no es pot garantir que arribin.</small>
 </section>
 <p class="muted"><small>Les dades del servei es desen en aquest navegador. Pàgina de proves accessible per enllaç, sense control d’accés.</small></p></main><dialog id="serviceViewer" aria-labelledby="viewerTitle"><div class="viewer-shell"><div class="viewer-head"><h2 id="viewerTitle">El meu servei</h2><button id="closeServiceViewer" type="button" aria-label="Tanca el visor">Tanca ×</button></div><p id="viewerStatus" class="muted viewer-status" aria-live="polite"></p><div id="viewerPhotoHome"></div><div id="viewerTimeline" class="viewer-timeline" hidden></div></div></dialog><div id="toast" role="alert"></div>
 <script type="module">
@@ -113,6 +113,11 @@ $('viewerTimeline').addEventListener('keydown',event=>{if((event.key==='Enter'||
 $('serviceViewer').addEventListener('click',event=>{if(event.target===$('serviceViewer'))closeServiceViewer()});
 function updatePhotoHighlight(active){
  const rect=$('activePhotoRow'),viewport=$('photoViewport'),status=$('photoProgress');
+ if($('serviceViewer').open&&active){
+  $('viewerStatus').textContent=(manualRowIndex===active.i?'Selecció manual · ':'Ara: ')+active.start+'–'+active.end+' · '+desc(active)+' · '+stations[active.from]+(active.to!==active.from?' → '+stations[active.to]:'');
+  for(const line of $('viewerTimeline').children){const row=rows[Number(line.dataset.rowIndex)];line.classList.toggle('active',row===active);line.classList.toggle('done',when(row.b)<Date.now())}
+  if(viewport.hidden&&lastPhotoRow!==active.i){$('viewerTimeline').querySelector('[data-row-index="'+active.i+'"]')?.scrollIntoView({block:'center',behavior:'smooth'});lastPhotoRow=active.i}
+ }
  if(viewport.hidden)return;
  if(!photoRowsReady||!ocrRowBounds){rect.style.display='none';status.textContent='Captura preparada. Interpreta-la per seleccionar i seguir les línies.';return}
  if(!active){
