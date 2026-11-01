@@ -1,5 +1,6 @@
 package com.tmbagent.traineye;
 
+import android.app.ActivityOptions;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -217,7 +218,7 @@ public class TrainOverlayService extends Service {
                 case MotionEvent.ACTION_MOVE:
                     float deltaX = event.getRawX() - downRawX;
                     float deltaY = event.getRawY() - downRawY;
-                    if (!dragging && (Math.abs(deltaX) > dp(5) || Math.abs(deltaY) > dp(5))) dragging = true;
+                    if (!dragging && (Math.abs(deltaX) > dp(9) || Math.abs(deltaY) > dp(9))) dragging = true;
                     if (dragging) {
                         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
                         overlayParams.x = Math.max(0, Math.min(metrics.widthPixels - overlay.getWidth(), downX + Math.round(deltaX)));
@@ -226,7 +227,6 @@ public class TrainOverlayService extends Service {
                     }
                     return true;
                 case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
                     if (dragging) {
                         getSharedPreferences("overlay", MODE_PRIVATE).edit()
                             .putInt("overlay_x", overlayParams.x)
@@ -235,13 +235,10 @@ public class TrainOverlayService extends Service {
                     }
                     boolean wasDragging = dragging;
                     dragging = false;
-                    if (!wasDragging) {
-                        try {
-                            Intent openViewer = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(SERVICE_VIEWER_URL));
-                            openViewer.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(openViewer);
-                        } catch (Exception ignored) {}
-                    }
+                    if (!wasDragging) openServiceViewer();
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    dragging = false;
                     return true;
                 default:
                     return true;
@@ -271,6 +268,24 @@ public class TrainOverlayService extends Service {
         } catch (Exception ignored) {
             stopSelf();
         }
+    }
+
+    private void openServiceViewer() {
+        try {
+            Intent intent = new Intent(this, MainActivity.class)
+                .setAction("com.tmbagent.traineye.OPEN_SERVICE_VIEWER")
+                .putExtra("open_service_viewer", true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent pending = PendingIntent.getActivity(this, 9414, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            if (Build.VERSION.SDK_INT >= 34) {
+                ActivityOptions options = ActivityOptions.makeBasic();
+                options.setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+                pending.send(this, 0, null, null, null, null, options.toBundle());
+            } else {
+                pending.send();
+            }
+        } catch (Exception ignored) {}
     }
 
     private void fetchTrain() {
