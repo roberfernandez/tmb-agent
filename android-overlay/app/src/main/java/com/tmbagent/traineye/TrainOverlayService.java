@@ -385,15 +385,21 @@ public class TrainOverlayService extends Service {
     }
 
     private int serviceMinutesNow() {
-        try {
-            java.time.LocalDate date = java.time.LocalDate.parse(serviceDate);
-            java.time.LocalDateTime now = java.time.LocalDateTime.now();
-            long minutes = java.time.Duration.between(date.atStartOfDay(), now).toMinutes();
-            return (int) Math.max(-1, Math.min(2879, minutes));
-        } catch (Exception ignored) {
-            java.util.Calendar c = java.util.Calendar.getInstance();
-            return c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE);
+        java.util.Calendar clock = java.util.Calendar.getInstance();
+        int minutes = clock.get(java.util.Calendar.HOUR_OF_DAY) * 60 + clock.get(java.util.Calendar.MINUTE);
+        int firstStart = Integer.MAX_VALUE;
+        int latestEnd = -1;
+        for (String entry : schedule.split(";")) {
+            String[] parts = entry.split(",");
+            if (parts.length != 3) continue;
+            try {
+                firstStart = Math.min(firstStart, Integer.parseInt(parts[0]));
+                latestEnd = Math.max(latestEnd, Integer.parseInt(parts[1]));
+            } catch (NumberFormatException ignored) {}
         }
+        int endClock = latestEnd % 1440;
+        if (latestEnd > 1440 && minutes < firstStart && minutes < endClock) minutes += 1440;
+        return minutes;
     }
 
     private void updateLine() {
