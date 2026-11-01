@@ -21,7 +21,9 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import org.json.JSONObject;
@@ -31,6 +33,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -51,6 +55,11 @@ public class TrainOverlayService extends Service {
     private TextView trainLine;
     private TextView statusLine;
     private WindowManager.LayoutParams overlayParams;
+    private View popupRoot;
+    private ScrollView popupScroll;
+    private TextView popupStatus;
+    private final ArrayList<View> popupRowViews = new ArrayList<>();
+    private int popupActiveIndex = -1;
     private float downRawX, downRawY;
     private int downX, downY;
     private boolean dragging;
@@ -77,6 +86,7 @@ public class TrainOverlayService extends Service {
         @Override public void run() {
             applyScheduledTrain(true);
             updateLine();
+            updatePopupHighlight();
             handler.postDelayed(this, 1000);
         }
     };
@@ -135,7 +145,7 @@ public class TrainOverlayService extends Service {
         Notification notification = new Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentTitle((serviceTracking ? "Servei segons horari" : "Seguiment manual") + " · tren " + train)
-            .setContentText(serviceTracking ? "Horari rebut: " + schedule.split(";").length + " trams de conducció." : "Toca «Aturar» per tancar el seguiment.")
+            .setContentText(serviceTracking ? "Horari rebut: " + schedule.split(";").length + " línies del servei." : "Toca «Aturar» per tancar el seguiment.")
             .setContentIntent(content)
             .setOngoing(true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Aturar", stopAction)
