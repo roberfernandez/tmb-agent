@@ -8,15 +8,19 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.RectF;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Base64;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -26,6 +30,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -43,6 +48,8 @@ public class TrainOverlayService extends Service {
     public static final String EXTRA_MODE = "mode";
     public static final String EXTRA_SERVICE_DATE = "serviceDate";
     public static final String EXTRA_SCHEDULE = "schedule";
+    public static final String EXTRA_SERVICE_IMAGE = "serviceImage";
+    public static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
     private static final String CHANNEL_ID = "train_eye_overlay";
     private static final int NOTIFICATION_ID = 9413;
     private static final String API = "https://tmb-servei-proves.onrender.com/api/trains?ids=";
@@ -57,6 +64,7 @@ public class TrainOverlayService extends Service {
     private WindowManager.LayoutParams overlayParams;
     private View popupRoot;
     private ScrollView popupScroll;
+    private ServiceImageView popupImageView;
     private TextView popupStatus;
     private final ArrayList<View> popupRowViews = new ArrayList<>();
     private int popupActiveIndex = -1;
@@ -67,6 +75,8 @@ public class TrainOverlayService extends Service {
     private String mode = "manual";
     private String serviceDate = "";
     private String schedule = "";
+    private String serviceImage = "";
+    private String serviceRowBounds = "";
     private String station = "connectant…";
     private String track = "—";
     private int ageAtFetch = -1;
@@ -114,13 +124,18 @@ public class TrainOverlayService extends Service {
             mode = intent.getStringExtra(EXTRA_MODE) == null ? "manual" : intent.getStringExtra(EXTRA_MODE);
             serviceDate = intent.getStringExtra(EXTRA_SERVICE_DATE) == null ? "" : intent.getStringExtra(EXTRA_SERVICE_DATE);
             schedule = intent.getStringExtra(EXTRA_SCHEDULE) == null ? "" : intent.getStringExtra(EXTRA_SCHEDULE);
+            serviceImage = intent.getStringExtra(EXTRA_SERVICE_IMAGE) == null ? "" : intent.getStringExtra(EXTRA_SERVICE_IMAGE);
+            serviceRowBounds = intent.getStringExtra(EXTRA_SERVICE_ROW_BOUNDS) == null ? "" : intent.getStringExtra(EXTRA_SERVICE_ROW_BOUNDS);
             prefs.edit().putString(EXTRA_TRAIN, train).putString(EXTRA_MODE, mode)
-                .putString(EXTRA_SERVICE_DATE, serviceDate).putString(EXTRA_SCHEDULE, schedule).apply();
+                .putString(EXTRA_SERVICE_DATE, serviceDate).putString(EXTRA_SCHEDULE, schedule)
+                .putString(EXTRA_SERVICE_IMAGE, serviceImage).putString(EXTRA_SERVICE_ROW_BOUNDS, serviceRowBounds).apply();
         } else {
             train = prefs.getString(EXTRA_TRAIN, "401");
             mode = prefs.getString(EXTRA_MODE, "manual");
             serviceDate = prefs.getString(EXTRA_SERVICE_DATE, "");
             schedule = prefs.getString(EXTRA_SCHEDULE, "");
+            serviceImage = prefs.getString(EXTRA_SERVICE_IMAGE, "");
+            serviceRowBounds = prefs.getString(EXTRA_SERVICE_ROW_BOUNDS, "");
         }
         applyScheduledTrain(false);
         startAsForeground();
@@ -316,15 +331,15 @@ public class TrainOverlayService extends Service {
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(18), dp(16), dp(18), dp(16));
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
         GradientDrawable cardBackground = new GradientDrawable();
         cardBackground.setColor(0xff111e30);
-        cardBackground.setCornerRadius(dp(20));
+        cardBackground.setCornerRadius(dp(18));
         cardBackground.setStroke(dp(2), 0xfff4d000);
         card.setBackground(cardBackground);
         card.setOnClickListener(v -> {});
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
-        int cardHeight = Math.min(dp(680), metrics.heightPixels - dp(64));
+        int cardHeight = Math.min(dp(230), metrics.heightPixels - dp(64));
         FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT, cardHeight, Gravity.CENTER);
         cardParams.leftMargin = dp(16);
@@ -333,31 +348,64 @@ public class TrainOverlayService extends Service {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = popupText("El meu servei", 20, 0xfff4d000, true);
+        TextView title = popupText("El meu servei", 18, 0xfff4d000, true);
         header.addView(title, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1f));
-        TextView close = popupText("Tanca", 14, 0xff111e30, true);
+        TextView close = popupText("Tanca", 13, 0xff111e30, true);
         close.setGravity(Gravity.CENTER);
-        close.setPadding(dp(12), dp(7), dp(12), dp(7));
+        close.setPadding(dp(10), dp(6), dp(10), dp(6));
         GradientDrawable closeBackground = new GradientDrawable();
         closeBackground.setColor(0xfff4d000);
-        closeBackground.setCornerRadius(dp(10));
+        closeBackground.setCornerRadius(dp(9));
         close.setBackground(closeBackground);
         close.setOnClickListener(v -> closeServicePopup());
         header.addView(close, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
         card.addView(header);
 
-        popupStatus = popupText("", 13, 0xffa9b8cb, false);
+        popupStatus = popupText("", 11, 0xffa9b8cb, false);
         LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
-        statusParams.topMargin = dp(6);
-        statusParams.bottomMargin = dp(12);
+        statusParams.topMargin = dp(3);
+        statusParams.bottomMargin = dp(6);
         card.addView(popupStatus, statusParams);
 
         popupScroll = new ScrollView(this);
         popupScroll.setFillViewport(false);
+        popupRowViews.clear();
+        popupImageView = createServiceImageView();
+        if (popupImageView != null) {
+            popupScroll.addView(popupImageView, new ScrollView.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+        } else {
+            LinearLayout list = buildScheduleRows();
+            popupScroll.addView(list, new ScrollView.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        card.addView(popupScroll, new LinearLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        popupRoot = root;
+        int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
+        WindowManager.LayoutParams popupParams = new WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            type,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT);
+        popupParams.gravity = Gravity.TOP | Gravity.START;
+        try {
+            windowManager.addView(root, popupParams);
+            root.requestFocus();
+            updatePopupHighlight();
+        } catch (Exception ignored) {
+            popupRoot = null;
+            popupImageView = null;
+            showOverlay();
+        }
+    }
+
+    private LinearLayout buildScheduleRows() {
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        popupRowViews.clear();
         String[] entries = schedule == null ? new String[0] : schedule.split(";");
         for (String entry : entries) {
             String[] parts = entry.split(",", -1);
@@ -384,29 +432,29 @@ public class TrainOverlayService extends Service {
 
                 LinearLayout row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.VERTICAL);
-                row.setPadding(dp(12), dp(10), dp(12), dp(10));
+                row.setPadding(dp(10), dp(7), dp(10), dp(7));
                 row.setBackground(popupRowBackground(popupRowViews.size() == currentScheduleRowIndex()));
                 LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
-                rowParams.bottomMargin = dp(7);
+                rowParams.bottomMargin = dp(5);
                 row.setLayoutParams(rowParams);
 
                 TextView timing = popupText(formatServiceTime(start) + "–" + formatServiceTime(end) +
-                    "  ·  " + serviceTypeLabel(type), 15, 0xfff4d000, true);
+                    "  ·  " + serviceTypeLabel(type), 13, 0xfff4d000, true);
                 row.addView(timing);
                 String route = stationName(from);
                 if (!to.isEmpty() && !to.equals(from)) route += "  →  " + stationName(to);
-                TextView routeView = popupText(route, 15, 0xffeef3fa, false);
+                TextView routeView = popupText(route, 13, 0xffeef3fa, false);
                 LinearLayout.LayoutParams routeParams = new LinearLayout.LayoutParams(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
-                routeParams.topMargin = dp(4);
+                routeParams.topMargin = dp(2);
                 row.addView(routeView, routeParams);
                 if ("CON".equals(type) && !candidate.isEmpty()) {
                     TextView details = popupText("Tren " + candidate + "  ·  via " + via + " → " + out,
-                        12, 0xffa9b8cb, false);
+                        11, 0xffa9b8cb, false);
                     LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
-                    detailsParams.topMargin = dp(3);
+                    detailsParams.topMargin = dp(1);
                     row.addView(details, detailsParams);
                 }
                 list.addView(row);
@@ -414,31 +462,37 @@ public class TrainOverlayService extends Service {
             } catch (Exception ignored) {}
         }
         if (popupRowViews.isEmpty()) {
-            TextView empty = popupText("No s’ha rebut el recorregut complet del servei.", 15, 0xffdce5ef, false);
+            TextView empty = popupText("No s’ha rebut el recorregut complet del servei.", 13, 0xffdce5ef, false);
             list.addView(empty);
         }
-        popupScroll.addView(list, new ScrollView.LayoutParams(
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
-        card.addView(popupScroll, new LinearLayout.LayoutParams(
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        return list;
+    }
 
-        popupRoot = root;
-        int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
-        WindowManager.LayoutParams popupParams = new WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            type,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT);
-        popupParams.gravity = Gravity.TOP | Gravity.START;
+    private ServiceImageView createServiceImageView() {
+        if (serviceImage == null || serviceImage.isEmpty()) return null;
         try {
-            windowManager.addView(root, popupParams);
-            root.requestFocus();
-            updatePopupHighlight();
+            byte[] bytes = Base64.decode(serviceImage, Base64.DEFAULT);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            if (bitmap == null) return null;
+            ArrayList<RectF> bounds = new ArrayList<>();
+            JSONArray rows = new JSONArray(serviceRowBounds == null || serviceRowBounds.isEmpty() ? "[]" : serviceRowBounds);
+            for (int i = 0; i < rows.length(); i++) {
+                JSONArray row = rows.optJSONArray(i);
+                if (row == null || row.length() < 4) continue;
+                float left = clamp(row.optDouble(0, 0));
+                float top = clamp(row.optDouble(1, 0));
+                float width = clamp(row.optDouble(2, 0));
+                float height = clamp(row.optDouble(3, 0));
+                bounds.add(new RectF(left, top, left + width, top + height));
+            }
+            return new ServiceImageView(bitmap, bounds);
         } catch (Exception ignored) {
-            popupRoot = null;
-            showOverlay();
+            return null;
         }
+    }
+
+    private float clamp(double value) {
+        return (float) Math.max(0, Math.min(1, value));
     }
 
     private void closeServicePopup() {
@@ -448,27 +502,39 @@ public class TrainOverlayService extends Service {
             popupScroll = null;
             popupStatus = null;
             popupRowViews.clear();
+            popupImageView = null;
             popupActiveIndex = -1;
             showOverlay();
         }
     }
 
     private void updatePopupHighlight() {
-        if (popupRoot == null) return;
+        if (popupRoot == null || popupStatus == null) return;
         int active = currentScheduleRowIndex();
         for (int i = 0; i < popupRowViews.size(); i++) {
             popupRowViews.get(i).setBackground(popupRowBackground(i == active));
         }
+        int rowCount = popupImageView != null ? popupImageView.rowBounds.size() : popupRowViews.size();
         String modeLabel = "service".equals(mode) ? "Seguiment automàtic" : "Seguiment manual";
         popupStatus.setText(modeLabel + "  ·  tren vigilat " + train +
-            (active >= 0 && active < popupRowViews.size() ? "  ·  ara: línia " + (active + 1) : ""));
-        if (active >= 0 && active < popupRowViews.size() && active != popupActiveIndex) {
-            View activeRow = popupRowViews.get(active);
-            activeRow.post(() -> {
-                if (popupScroll != null && popupRoot != null) {
-                    popupScroll.smoothScrollTo(0, Math.max(0, activeRow.getTop() - dp(24)));
-                }
-            });
+            (active >= 0 && active < rowCount ? "  ·  línia " + (active + 1) : ""));
+        if (popupImageView != null) popupImageView.setActiveRow(active);
+
+        if (active >= 0 && active < rowCount && active != popupActiveIndex) {
+            if (popupImageView != null) {
+                final int selected = active;
+                popupImageView.post(() -> {
+                    if (popupScroll == null || popupRoot == null || selected >= popupImageView.rowBounds.size()) return;
+                    RectF bounds = popupImageView.rowBounds.get(selected);
+                    int y = Math.round(bounds.centerY() * popupImageView.getHeight() - popupScroll.getHeight() / 2f);
+                    popupScroll.smoothScrollTo(0, Math.max(0, Math.min(y, popupImageView.getHeight() - popupScroll.getHeight())));
+                });
+            } else {
+                View activeRow = popupRowViews.get(active);
+                activeRow.post(() -> {
+                    if (popupScroll != null && popupRoot != null) popupScroll.smoothScrollTo(0, Math.max(0, activeRow.getTop() - dp(12)));
+                });
+            }
         }
         popupActiveIndex = active;
     }
@@ -676,6 +742,7 @@ public class TrainOverlayService extends Service {
         if (popupRoot != null) {
             try { windowManager.removeView(popupRoot); } catch (Exception ignored) {}
             popupRoot = null;
+            popupImageView = null;
         }
         if (overlay != null) {
             try { windowManager.removeView(overlay); } catch (Exception ignored) {}
@@ -692,6 +759,52 @@ public class TrainOverlayService extends Service {
 
     private static final class ViewGroupParams {
         static final int WRAP = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+    }
+
+    private final class ServiceImageView extends View {
+        private final Bitmap bitmap;
+        private final Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Paint highlightFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint highlightStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final ArrayList<RectF> rowBounds;
+        private int activeRow = -1;
+
+        ServiceImageView(Bitmap bitmap, ArrayList<RectF> rowBounds) {
+            super(TrainOverlayService.this);
+            this.bitmap = bitmap;
+            this.rowBounds = rowBounds;
+            highlightFill.setColor(0x55f4d000);
+            highlightStroke.setColor(0xfff4d000);
+            highlightStroke.setStyle(Paint.Style.STROKE);
+            highlightStroke.setStrokeWidth(dp(3));
+        }
+
+        void setActiveRow(int index) {
+            if (activeRow != index) {
+                activeRow = index;
+                invalidate();
+            }
+        }
+
+        @Override protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            int width = MeasureSpec.getSize(widthMeasureSpec);
+            if (width <= 0) width = dp(280);
+            int height = Math.max(1, Math.round(width * (float) bitmap.getHeight() / bitmap.getWidth()));
+            setMeasuredDimension(resolveSize(width, widthMeasureSpec), resolveSize(height, heightMeasureSpec));
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            RectF destination = new RectF(0, 0, getWidth(), getHeight());
+            canvas.drawBitmap(bitmap, null, destination, imagePaint);
+            if (activeRow >= 0 && activeRow < rowBounds.size()) {
+                RectF normalized = rowBounds.get(activeRow);
+                RectF selected = new RectF(normalized.left * getWidth(), normalized.top * getHeight(),
+                    normalized.right * getWidth(), normalized.bottom * getHeight());
+                canvas.drawRect(selected, highlightFill);
+                canvas.drawRect(selected, highlightStroke);
+            }
+        }
     }
 
     private static final class TrainEyeIcon extends View {

@@ -30,6 +30,8 @@ public class MainActivity extends Activity {
     private String pendingMode = "manual";
     private String pendingDate;
     private String pendingSchedule;
+    private String pendingImage = "";
+    private String pendingRowBounds = "";
 
     @Override
     protected void onCreate(Bundle state) {
@@ -170,6 +172,8 @@ public class MainActivity extends Activity {
         if ("service".equals(mode)) {
             String date = data.getQueryParameter("date");
             String schedule = data.getQueryParameter("schedule");
+            String image = data.getQueryParameter("image");
+            String rowBounds = data.getQueryParameter("rowBounds");
             if (schedule == null || schedule.isEmpty()) {
                 status.setText("Carrega un servei amb trams de conducció abans d’activar el seguiment.");
                 return;
@@ -226,6 +230,8 @@ public class MainActivity extends Activity {
             pendingMode = "service";
             pendingDate = date == null ? "" : date;
             pendingSchedule = validSchedule.toString();
+            pendingImage = image != null && image.length() <= 220000 ? image : "";
+            pendingRowBounds = rowBounds != null && rowBounds.length() <= 12000 ? rowBounds : "";
             pendingTrain = firstTrain;
             status.setText("Horari rebut: " + validRows + " línies i " + validSegments + " trams de conducció.");
             startPendingOverlay();
@@ -252,6 +258,8 @@ public class MainActivity extends Activity {
         pendingMode = "manual";
         pendingDate = null;
         pendingSchedule = null;
+        pendingImage = "";
+        pendingRowBounds = "";
         startPendingOverlay();
     }
 
@@ -285,7 +293,9 @@ public class MainActivity extends Activity {
             .putExtra(TrainOverlayService.EXTRA_TRAIN, pendingTrain)
             .putExtra(TrainOverlayService.EXTRA_MODE, pendingMode)
             .putExtra(TrainOverlayService.EXTRA_SERVICE_DATE, pendingDate)
-            .putExtra(TrainOverlayService.EXTRA_SCHEDULE, pendingSchedule);
+            .putExtra(TrainOverlayService.EXTRA_SCHEDULE, pendingSchedule)
+            .putExtra(TrainOverlayService.EXTRA_SERVICE_IMAGE, pendingImage)
+            .putExtra(TrainOverlayService.EXTRA_SERVICE_ROW_BOUNDS, pendingRowBounds);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
         status.setText(pendingMode.equals("service") ? "Seguiment automàtic actiu. Horari rebut: " + pendingSchedule.split(";").length + " línies del servei." : "Ull actiu per al tren " + pendingTrain + ". Pots tornar a la PWA o obrir una altra aplicació.");
         status.postDelayed(this::refreshScreen, 500);
