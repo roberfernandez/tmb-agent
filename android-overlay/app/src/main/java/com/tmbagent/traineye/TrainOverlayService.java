@@ -148,8 +148,8 @@ public class TrainOverlayService extends Service {
 
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Ull superposat del tren", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Manté actiu l’ull flotant del tren seleccionat.");
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Seguiment del servei", NotificationManager.IMPORTANCE_LOW);
+            channel.setDescription("Manté actiu el seguiment del tren seleccionat.");
             channel.setSound(null, null);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
@@ -289,10 +289,11 @@ public class TrainOverlayService extends Service {
         try {
             Intent intent = new Intent(this, MainActivity.class)
                 .setAction("com.tmbagent.traineye.OPEN_SERVICE_VIEWER")
+                .setData(android.net.Uri.parse("tmbservei://open-viewer"))
                 .putExtra("open_service_viewer", true)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            PendingIntent pending = PendingIntent.getActivity(this, 9414, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            PendingIntent pending = PendingIntent.getActivity(this, 9415, intent,
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             if (Build.VERSION.SDK_INT >= 34) {
                 ActivityOptions options = ActivityOptions.makeBasic();
                 options.setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);

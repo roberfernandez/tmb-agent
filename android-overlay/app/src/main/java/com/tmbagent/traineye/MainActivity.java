@@ -47,9 +47,9 @@ public class MainActivity extends Activity {
         root.setPadding(dp(22), dp(28), dp(22), dp(24));
         root.setBackgroundColor(0xff080f1c);
 
-        TextView title = text("Miralin · ull del tren", 23, 0xfff4d000, true);
+        TextView title = text("Vigila el servei", 23, 0xfff4d000, true);
         root.addView(title, matchWrap());
-        TextView info = text("Mantén visibles el tren, l’estació, la via i l’antiguitat de la informació sobre altres aplicacions.", 15, 0xffdce5ef, false);
+        TextView info = text("Consulta el tren, l’estació, la via i l’antiguitat de les dades mentre uses altres aplicacions.", 15, 0xffdce5ef, false);
         LinearLayout.LayoutParams infoLp = matchWrap();
         infoLp.topMargin = dp(12);
         root.addView(info, infoLp);
@@ -65,23 +65,23 @@ public class MainActivity extends Activity {
         root.addView(trainPicker, pickerLp);
 
         Button start = new Button(this);
-        start.setText("Activa l’ull superposat");
+        start.setText("Activa el seguiment");
         LinearLayout.LayoutParams startLp = matchWrap();
         startLp.topMargin = dp(18);
         root.addView(start, startLp);
         start.setOnClickListener(v -> startOverlayFor(String.valueOf(trainPicker.getSelectedItem())));
 
         Button stop = new Button(this);
-        stop.setText("Desactiva l’ull");
+        stop.setText("Desactiva el seguiment");
         LinearLayout.LayoutParams stopLp = matchWrap();
         stopLp.topMargin = dp(8);
         root.addView(stop, stopLp);
         stop.setOnClickListener(v -> {
             stopService(new Intent(this, TrainOverlayService.class));
-            status.setText("Seguiment superposat aturat.");
+            status.setText("Seguiment aturat.");
         });
 
-        status = text("Prueba Android. La app consulta Miralin.cat mediante el servidor Render.", 14, 0xffa9b8cb, false);
+        status = text("Prova Android. L’app consulta Miralin.cat a través del servidor Render.", 14, 0xffa9b8cb, false);
         LinearLayout.LayoutParams statusLp = matchWrap();
         statusLp.topMargin = dp(20);
         root.addView(status, statusLp);
@@ -89,12 +89,20 @@ public class MainActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
-        if (intent != null && intent.getBooleanExtra("open_service_viewer", false)) {
+        Uri requestedUri = intent == null ? null : intent.getData();
+        boolean openViewer = intent != null && (
+            intent.getBooleanExtra("open_service_viewer", false)
+            || "com.tmbagent.traineye.OPEN_SERVICE_VIEWER".equals(intent.getAction())
+            || (requestedUri != null && "open-viewer".equals(requestedUri.getHost()))
+        );
+        if (openViewer) {
             try {
                 Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse("https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1"));
                 startActivity(browser);
             } catch (Exception ignored) {
                 if (status != null) status.setText("No s’ha pogut obrir el visor del servei.");
+                Intent restore = new Intent(this, TrainOverlayService.class).setAction("SHOW_OVERLAY");
+                if (Build.VERSION.SDK_INT >= 26) startForegroundService(restore); else startService(restore);
             }
             finish();
             return;

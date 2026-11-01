@@ -25,6 +25,7 @@
                 <data android:scheme="tmbservei" android:host="watch" />
                 <data android:scheme="tmbservei" android:host="stop" />
                 <data android:scheme="tmbservei" android:host="viewer-close" />
+                <data android:scheme="tmbservei" android:host="open-viewer" />
             </intent-filter>
         </activity>
         <service
