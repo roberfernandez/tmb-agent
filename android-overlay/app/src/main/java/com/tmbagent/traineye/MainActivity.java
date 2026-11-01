@@ -2,6 +2,7 @@ package com.tmbagent.traineye;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -22,6 +23,9 @@ public class MainActivity extends Activity {
     private static final int REQUEST_NOTIFICATIONS = 102;
     private Spinner trainPicker;
     private TextView status;
+    private LinearLayout manualOptions;
+    private LinearLayout activeOptions;
+    private TextView activeStatus;
     private String pendingTrain;
     private String pendingMode = "manual";
     private String pendingDate;
@@ -54,6 +58,9 @@ public class MainActivity extends Activity {
         infoLp.topMargin = dp(12);
         root.addView(info, infoLp);
 
+        manualOptions = new LinearLayout(this);
+        manualOptions.setOrientation(LinearLayout.VERTICAL);
+
         trainPicker = new Spinner(this);
         String[] trains = new String[15];
         for (int i = 0; i < trains.length; i++) trains[i] = String.valueOf(401 + i);
@@ -62,30 +69,69 @@ public class MainActivity extends Activity {
         trainPicker.setAdapter(adapter);
         LinearLayout.LayoutParams pickerLp = matchWrap();
         pickerLp.topMargin = dp(24);
-        root.addView(trainPicker, pickerLp);
+        manualOptions.addView(trainPicker, pickerLp);
 
         Button start = new Button(this);
-        start.setText("Activa el seguiment");
+        start.setText("Activa el seguiment manual");
         LinearLayout.LayoutParams startLp = matchWrap();
         startLp.topMargin = dp(18);
-        root.addView(start, startLp);
+        manualOptions.addView(start, startLp);
         start.setOnClickListener(v -> startOverlayFor(String.valueOf(trainPicker.getSelectedItem())));
+        root.addView(manualOptions, matchWrap());
+
+        activeOptions = new LinearLayout(this);
+        activeOptions.setOrientation(LinearLayout.VERTICAL);
+        activeStatus = text("", 16, 0xffdce5ef, true);
+        activeOptions.addView(activeStatus, matchWrap());
 
         Button stop = new Button(this);
-        stop.setText("Desactiva el seguiment");
+        stop.setText("Atura el seguiment");
         LinearLayout.LayoutParams stopLp = matchWrap();
-        stopLp.topMargin = dp(8);
-        root.addView(stop, stopLp);
+        stopLp.topMargin = dp(14);
+        activeOptions.addView(stop, stopLp);
         stop.setOnClickListener(v -> {
             stopService(new Intent(this, TrainOverlayService.class));
             status.setText("Seguiment aturat.");
+            status.postDelayed(this::refreshScreen, 350);
         });
+        root.addView(activeOptions, matchWrap());
 
         status = text("Prova Android. L’app consulta Miralin.cat a través del servidor Render.", 14, 0xffa9b8cb, false);
         LinearLayout.LayoutParams statusLp = matchWrap();
         statusLp.topMargin = dp(20);
         root.addView(status, statusLp);
         setContentView(root);
+        refreshScreen();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshScreen();
+    }
+
+    private boolean isOverlayRunning() {
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (manager == null) return false;
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (TrainOverlayService.class.getName().equals(service.service.getClassName())) return true;
+        }
+        return false;
+    }
+
+    private void refreshScreen() {
+        if (manualOptions == null || activeOptions == null) return;
+        boolean running = isOverlayRunning();
+        manualOptions.setVisibility(running ? ViewGroup.GONE : ViewGroup.VISIBLE);
+        activeOptions.setVisibility(running ? ViewGroup.VISIBLE : ViewGroup.GONE);
+        if (!running) return;
+
+        android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
+        String activeMode = prefs.getString(TrainOverlayService.EXTRA_MODE, "manual");
+        String activeTrain = prefs.getString(TrainOverlayService.EXTRA_TRAIN, "401");
+        activeStatus.setText("service".equals(activeMode)
+            ? "Seguiment automàtic del servei actiu.\nL’horari decideix quin tren cal seguir."
+            : "Seguiment manual actiu · tren " + activeTrain + ".");
     }
 
     private void handleIntent(Intent intent) {
@@ -242,6 +288,7 @@ public class MainActivity extends Activity {
             .putExtra(TrainOverlayService.EXTRA_SCHEDULE, pendingSchedule);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
         status.setText(pendingMode.equals("service") ? "Seguiment automàtic actiu. Horari rebut: " + pendingSchedule.split(";").length + " línies del servei." : "Ull actiu per al tren " + pendingTrain + ". Pots tornar a la PWA o obrir una altra aplicació.");
+        status.postDelayed(this::refreshScreen, 500);
     }
 
     @Override
