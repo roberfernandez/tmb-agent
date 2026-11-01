@@ -17,6 +17,9 @@ const enduranceWatches=new Map();
 const trainWatches=new Map();
 const liveActivityWatches=new Map();
 const stationBoardWaiters=new Map();
+const stationBoardCache=new Map();
+const serviceWatches=new Map();
+const activeBoardStops=new Set();
 let activePollingParams=null,activePollingSignal=null;
 const ENDURANCE_INTERVAL=10*60*1000,ENDURANCE_COUNT=48;
 const TRAIN_WATCH_INTERVAL=5*60*1000,TRAIN_WATCH_COUNT=4;
@@ -79,7 +82,19 @@ function stationPasses(trains,now=Date.now()) {
   }
  }
 }
-function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until) || stationBoardWaiters.size>0 || (apnsConfigured && [...liveActivityWatches.values()].some(w=>now<w.until)); }
+function serviceWatchStops(now=Date.now()){
+ const stops=new Set();
+ for(const w of serviceWatches.values())for(const e of w.events)if(!e.sent&&e.kind==='boarding'&&e.source&&e.target&&e.at+15*60000>now){stops.add(String(e.source));stops.add(String(e.target))}
+ return stops;
+}
+async function subscribeActiveBoardStop(stop){
+ const key=String(stop);
+ if(!activePollingParams||!activePollingSignal||activePollingSignal.aborted||activeBoardStops.has(key))return;
+ activeBoardStops.add(key);
+ try{await subscribeStopBoard(activePollingParams,activePollingSignal,key)}
+ catch(e){activeBoardStops.delete(key);diagnostic('station_board_subscribe_failed',{station:key,errorName:e.name})}
+}
+function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || [...serviceWatches.values()].some(w=>w.events.some(e=>!e.sent&&e.at+15*60000>now)||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until) || stationBoardWaiters.size>0 || serviceWatchStops().size>0 || (apnsConfigured && [...liveActivityWatches.values()].some(w=>now<w.until)); }
 function testTrainState(now=Date.now()) {
  const ageSeconds=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  return {active:!!(now<testWatchUntil&&connected&&ageSeconds!==null&&ageSeconds<45&&snapshot['403']),ageSeconds};
@@ -89,13 +104,59 @@ async function subscribeStopBoard(params,signal,stop){
  await request(params,'42'+JSON.stringify(['subscribeStop',{line:'L4',stop:String(stop)}]),signal);
 }
 function acceptStopBoard(data){
- const values=[data?.stop,data?.stopId,data?.stationId,data?.stationCode,data?.id];
+ const values=[data?.stopCode,data?.stop,data?.stopId,data?.stationId,data?.stationCode,data?.id,data?.stop?.code];
+ const station=values.map(x=>String(x??'')).find(x=>/^4(?:1[3-9]|2[0-9]|3[0-4])$/.test(x));
+ if(station)stationBoardCache.set(station,{data,receivedAt:Date.now()});
  let key=values.map(x=>String(x??'')).find(x=>stationBoardWaiters.has(x));
+ if(!key&&station&&stationBoardWaiters.has(station))key=station;
  if(!key&&stationBoardWaiters.size===1)key=stationBoardWaiters.keys().next().value;
- if(!key)return;
- const pending=stationBoardWaiters.get(key);stationBoardWaiters.delete(key);
- for(const waiter of pending.waiters){clearTimeout(waiter.timer);waiter.resolve(data)}
- diagnostic('station_board_received',{station:key,keys:Object.keys(data||{}).slice(0,20)});
+ if(key){
+  const pending=stationBoardWaiters.get(key);stationBoardWaiters.delete(key);
+  for(const waiter of pending.waiters){clearTimeout(waiter.timer);waiter.resolve(data)}
+ }
+ if(station)diagnostic('station_board_received',{station,keys:Object.keys(data||{}).slice(0,20)});
+}
+const L4_STATION_NAMES=Object.fromEntries(['La Pau','Besòs','Besòs Mar','El Maresme | Fòrum','Selva de Mar','Poblenou','Llacuna','Bogatell','Ciutadella | Vila Olímpica','Barceloneta','Jaume I','Urquinaona','Passeig de Gràcia','Girona','Verdaguer','Joanic','Alfons X','Guinardó | Hospital de Sant Pau','Maragall','Llucmajor','Via Júlia','Trinitat Nova'].map((name,i)=>[String(413+i),name]));
+function boardEntries(board){
+ const data=board?.data||board;const all=[...(Array.isArray(data?.via1)?data.via1:[]),...(Array.isArray(data?.via2)?data.via2:[]),...(Array.isArray(data?.lineTrains)?data.lineTrains:[])];
+ const seen=new Set();return all.filter(e=>{const k=String(e?.trainCode??e?.tren??e?.id??'')+':'+String(e?.arrivalTime??e?.secsLeft??'');if(seen.has(k))return false;seen.add(k);return true});
+}
+function boardTrain(e){return String(e?.trainCode??e?.tren??e?.id??'')}
+function boardArrival(e){const n=Number(e?.arrivalTime);if(Number.isFinite(n)&&n>100000000000)return n;const parsed=Date.parse(e?.arrivalTime);if(Number.isFinite(parsed))return parsed;const secs=Number(e?.secsLeft);return Number.isFinite(secs)?Date.now()+secs*1000:null}
+function clockText(ms){return new Intl.DateTimeFormat('ca-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit'}).format(new Date(ms))}
+function freshBoard(stop,now=Date.now()){const cached=stationBoardCache.get(String(stop));return cached&&now-cached.receivedAt<60000?cached:null}
+function boardingAdvice(event,now=Date.now()){
+ const train=String(event.train||'tren assignat'),target=String(event.target||''),source=String(event.source||''),at=Number(event.at);
+ const base='Presa prevista del '+train+' a '+(L4_STATION_NAMES[target]||target)+' · '+clockText(at)+'.';
+ if(!source||!target||source===target)return base;
+ const from=freshBoard(source,now),to=freshBoard(target,now);
+ if(!from||!to)return base+' Sense arribades Miralin recents per calcular alternatives.';
+ const arrivals=new Map();
+ for(const e of boardEntries(to)){const id=boardTrain(e),eta=boardArrival(e);if(!id||!eta)continue;const old=arrivals.get(id);if(!old||eta<old)arrivals.set(id,eta)}
+ const candidates=[];
+ for(const e of boardEntries(from)){const id=boardTrain(e),leave=boardArrival(e),arrive=arrivals.get(id);if(!id||!leave||!arrive||arrive<leave-30000||arrive>at||arrive<now+15000)continue;candidates.push({id,leave,arrive})}
+ const direct=candidates.find(c=>c.id===train);
+ if(direct)return base+' Darrera opció: pots arribar-hi amb el mateix tren '+train+'; arriba cap a les '+clockText(direct.arrive)+' (marge '+Math.max(0,Math.floor((at-direct.arrive)/60000))+' min).';
+ const best=[...new Map(candidates.sort((a,b)=>b.arrive-a.arrive).map(c=>[c.id,c])).values()].slice(0,3);
+ if(!best.length)return base+' Miralin no mostra cap tren que hi arribi a temps.';
+ return base+' Alternatives: '+best.map(c=>c.id+' ('+clockText(c.arrive)+', marge '+Math.max(0,Math.floor((at-c.arrive)/60000))+' min)').join('; ')+'.';
+}
+function serviceAlertBody(event,now=Date.now()){
+ if(event.kind==='transfer')return 'Trasllat previst: '+(L4_STATION_NAMES[String(event.source)]||event.source)+' → '+(L4_STATION_NAMES[String(event.target)]||event.target)+'. Hora prevista '+clockText(Number(event.at))+'.';
+ return boardingAdvice(event,now);
+}
+async function serviceWatchTick(endpoint,w,now=Date.now()){
+ if(serviceWatches.get(endpoint)!==w||w.busy)return;
+ if(w.events.every(e=>e.sent||now>e.at+15*60000)){clearInterval(w.timer);serviceWatches.delete(endpoint);diagnostic('service_watch_finished',{watchId:watchId(endpoint),events:w.events.length});return}
+ const due=w.events.filter(e=>!e.sent&&now>=e.fireAt&&now<=e.at+15*60000);
+ if(!due.length)return;w.busy=true;
+ try{
+  for(const e of due){
+   const body=serviceAlertBody(e,now);
+   try{const result=await webpush.sendNotification(w.subscription,JSON.stringify({title:e.kind==='transfer'?'Servei · trasllat':'Servei · presa del '+String(e.train||''),body,tag:'service-'+e.kind+'-'+e.row,url:'/tmb-agent/proves/servei/'}),{TTL:180,urgency:'high',timeout:15000});e.sent=true;diagnostic('service_alert_accepted',{watchId:watchId(endpoint),kind:e.kind,row:e.row,statusCode:result.statusCode})}
+   catch(error){diagnostic('service_alert_failed',{watchId:watchId(endpoint),kind:e.kind,row:e.row,statusCode:error.statusCode||null,errorName:error.name});if(error.statusCode===404||error.statusCode===410){clearInterval(w.timer);serviceWatches.delete(endpoint);break}}
+  }
+ }finally{w.busy=false}
 }
 function requestStopBoard(stop){
  return new Promise((resolve,reject)=>{
@@ -107,7 +168,7 @@ function requestStopBoard(stop){
   },30000)};
   pending.waiters.push(waiter);
   if(activePollingParams&&activePollingSignal&&!activePollingSignal.aborted&&!pending.sent){
-   pending.sent=true;void subscribeStopBoard(activePollingParams,activePollingSignal,key).catch(e=>{pending.sent=false;diagnostic('station_board_subscribe_failed',{station:key,errorName:e.name})});
+   pending.sent=true;void subscribeActiveBoardStop(key).catch(e=>{pending.sent=false;diagnostic('station_board_subscribe_failed',{station:key,errorName:e.name})});
   }
   lastUse=Date.now();start();
  });
@@ -139,7 +200,7 @@ function start() {
         params = {EIO:'4',transport:'polling',sid};
         await request(params, '40', signal);
         activePollingParams=params;activePollingSignal=signal;
-        for(const [stop,pending] of stationBoardWaiters){pending.sent=true;await subscribeStopBoard(params,signal,stop)}
+        activeBoardStops.clear();for(const stop of new Set([...stationBoardWaiters.keys(),...serviceWatchStops()])){await subscribeStopBoard(params,signal,stop);activeBoardStops.add(String(stop));const pending=stationBoardWaiters.get(String(stop));if(pending)pending.sent=true}
         while (!stopping && watchNeeded()) {
           const packets = (await request(params, undefined, signal)).split('\x1e');
           for (const packet of packets) {
@@ -165,7 +226,7 @@ function start() {
         connected = false;
         if (!stopping) { console.warn('Connection interrupted:', e.message); diagnostic('upstream_interrupted',{errorName:e.name}); }
       } finally {
-        if(activePollingSignal===signal){activePollingParams=null;activePollingSignal=null}
+        if(activePollingSignal===signal){activePollingParams=null;activePollingSignal=null;activeBoardStops.clear()}
         if (params && !signal.aborted) {
           try { await request(params, '41', signal); } catch {}
         }
@@ -191,7 +252,7 @@ async function pushRoute(req,res,url){
  if(url.pathname==='/api/push-key'&&req.method==='GET'){
   res.writeHead(vapid?200:503);res.end(JSON.stringify(vapid?{publicKey:vapid.publicKey}:{error:'Cal instal·lar dependències a Render: npm install'}));return;
  }
- if(!['/api/push-test','/api/push-station','/api/push-endurance','/api/push-train-watch'].includes(url.pathname)||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
+ if(!['/api/push-test','/api/push-station','/api/push-endurance','/api/push-train-watch','/api/push-service-watch'].includes(url.pathname)||req.method!=='POST'){res.writeHead(404);res.end('{}');return}
  if(!webpush){res.writeHead(503);res.end(JSON.stringify({error:'Push no disponible. Revisa el Build Command.'}));return}
  try{
   let body='';for await(const chunk of req){body+=chunk;if(body.length>8192)throw Error('Peticio massa gran')}
@@ -199,6 +260,35 @@ async function pushRoute(req,res,url){
   const endpoint=new URL(subscription?.endpoint);
   const allowed=endpoint.hostname==='fcm.googleapis.com'||endpoint.hostname==='updates.push.services.mozilla.com'||endpoint.hostname.endsWith('.push.apple.com')||endpoint.hostname==='web.push.apple.com';
   if(endpoint.protocol!=='https:'||endpoint.port||endpoint.username||endpoint.password||!allowed||!subscription?.keys?.p256dh||!subscription?.keys?.auth)throw Error('Subscripció push no vàlida');
+  if(url.pathname==='/api/push-service-watch'){
+   const payload=JSON.parse(body);
+   if(payload.action==='stop'){
+    const old=serviceWatches.get(endpoint.href);
+    if(old){clearInterval(old.timer);serviceWatches.delete(endpoint.href);diagnostic('service_watch_stopped',{watchId:watchId(endpoint.href),events:old.events.length})}
+    res.writeHead(200);res.end(JSON.stringify({stopped:true}));return;
+   }
+   if(payload.action!=='start'||!Array.isArray(payload.events)||!payload.events.length||payload.events.length>100)throw Error('No hi ha esdeveniments futurs vàlids del servei.');
+   const margin=Number(payload.margin);
+   if(!Number.isInteger(margin)||margin<1||margin>120)throw Error('L’antelació ha d’estar entre 1 i 120 minuts.');
+   const now=Date.now();
+   const events=payload.events.map((raw,i)=>{
+    const kind=String(raw.kind||''),at=Number(raw.at),source=String(raw.source||''),target=String(raw.target||''),train=String(raw.train||'');
+    if(!['transfer','boarding'].includes(kind)||!Number.isFinite(at)||at<now-120000||at>now+4*86400000)throw Error('Horari d’avís no vàlid.');
+    if(kind==='boarding'&&(!/^4\d{2}$/.test(train)||!/^4(?:1[3-9]|2[0-9]|3[0-4])$/.test(target)))throw Error('Presa de tren o estació no vàlida.');
+    if((source&&!/^4(?:1[3-9]|2[0-9]|3[0-4])$/.test(source))||(target&&!/^4(?:1[3-9]|2[0-9]|3[0-4])$/.test(target)))throw Error('Estació de L4 no vàlida.');
+    return {kind,at,source,target,train,row:Number.isInteger(raw.row)?raw.row:i,fireAt:at-margin*60000,sent:false};
+   }).filter(e=>e.at+15*60000>now);
+   if(!events.length)throw Error('No queden avisos futurs en aquest servei.');
+   if(!serviceWatches.has(endpoint.href)&&serviceWatches.size>=10)throw Error('Hi ha massa serveis amb avisos actius.');
+   const old=serviceWatches.get(endpoint.href);if(old)clearInterval(old.timer);
+   const w={subscription,events,margin,busy:false,timer:null};
+   serviceWatches.set(endpoint.href,w);
+   w.timer=setInterval(()=>{void serviceWatchTick(endpoint.href,w)},2000);
+   lastUse=Date.now();start();
+   for(const stop of serviceWatchStops())void subscribeActiveBoardStop(stop);
+   diagnostic('service_watch_registered',{watchId:watchId(endpoint.href),events:events.length,marginMinutes:margin,stations:[...serviceWatchStops()]});
+   res.writeHead(202);res.end(JSON.stringify({started:true,events:events.length,marginMinutes:margin,firstAt:new Date(Math.min(...events.map(e=>e.fireAt))).toISOString()}));return;
+  }
   if(url.pathname==='/api/push-train-watch'){
    const payload=JSON.parse(body);
    const train=String(payload.train||'');
