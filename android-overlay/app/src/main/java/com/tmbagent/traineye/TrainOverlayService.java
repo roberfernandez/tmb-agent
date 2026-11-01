@@ -295,26 +295,257 @@ public class TrainOverlayService extends Service {
     }
 
     private void openServiceViewer() {
-        android.widget.Toast.makeText(this, "Obrint el visor del servei…", android.widget.Toast.LENGTH_SHORT).show();
+        showServicePopup();
+    }
+
+    private void showServicePopup() {
+        if (popupRoot != null) return;
         hideOverlay();
-        try {
-            Intent intent = new Intent(this, MainActivity.class)
-                .setAction("com.tmbagent.traineye.OPEN_SERVICE_VIEWER")
-                .setData(android.net.Uri.parse("tmbservei://open-viewer"))
-                .putExtra("open_service_viewer", true)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            PendingIntent pending = PendingIntent.getActivity(this, 9415, intent,
-                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            if (Build.VERSION.SDK_INT >= 34) {
-                ActivityOptions options = ActivityOptions.makeBasic();
-                options.setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
-                pending.send(this, 0, null, null, null, null, options.toBundle());
-            } else {
-                pending.send();
+
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(0xb8000000);
+        root.setFocusableInTouchMode(true);
+        root.setOnClickListener(v -> closeServicePopup());
+        root.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == android.view.KeyEvent.KEYCODE_BACK && event.getAction() == android.view.KeyEvent.ACTION_UP) {
+                closeServicePopup();
+                return true;
             }
+            return false;
+        });
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(18), dp(16), dp(18), dp(16));
+        GradientDrawable cardBackground = new GradientDrawable();
+        cardBackground.setColor(0xff111e30);
+        cardBackground.setCornerRadius(dp(20));
+        cardBackground.setStroke(dp(2), 0xfff4d000);
+        card.setBackground(cardBackground);
+        card.setOnClickListener(v -> {});
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int cardHeight = Math.min(dp(680), metrics.heightPixels - dp(64));
+        FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT, cardHeight, Gravity.CENTER);
+        cardParams.leftMargin = dp(16);
+        cardParams.rightMargin = dp(16);
+        root.addView(card, cardParams);
+
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = popupText("El meu servei", 20, 0xfff4d000, true);
+        header.addView(title, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1f));
+        TextView close = popupText("Tanca", 14, 0xff111e30, true);
+        close.setGravity(Gravity.CENTER);
+        close.setPadding(dp(12), dp(7), dp(12), dp(7));
+        GradientDrawable closeBackground = new GradientDrawable();
+        closeBackground.setColor(0xfff4d000);
+        closeBackground.setCornerRadius(dp(10));
+        close.setBackground(closeBackground);
+        close.setOnClickListener(v -> closeServicePopup());
+        header.addView(close, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
+        card.addView(header);
+
+        popupStatus = popupText("", 13, 0xffa9b8cb, false);
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
+        statusParams.topMargin = dp(6);
+        statusParams.bottomMargin = dp(12);
+        card.addView(popupStatus, statusParams);
+
+        popupScroll = new ScrollView(this);
+        popupScroll.setFillViewport(false);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        popupRowViews.clear();
+        String[] entries = schedule == null ? new String[0] : schedule.split(";");
+        for (String entry : entries) {
+            String[] parts = entry.split(",", -1);
+            try {
+                int start = Integer.parseInt(parts[0]);
+                int end = Integer.parseInt(parts[1]);
+                String type;
+                String from = "";
+                String to = "";
+                String candidate;
+                String via = "";
+                String out = "";
+                if (parts.length == 3) {
+                    type = "CON";
+                    candidate = parts[2];
+                } else if (parts.length == 8) {
+                    type = parts[2];
+                    from = parts[3];
+                    to = parts[4];
+                    candidate = parts[5];
+                    via = parts[6];
+                    out = parts[7];
+                } else continue;
+
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.VERTICAL);
+                row.setPadding(dp(12), dp(10), dp(12), dp(10));
+                row.setBackground(popupRowBackground(popupRowViews.size() == currentScheduleRowIndex()));
+                LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
+                rowParams.bottomMargin = dp(7);
+                row.setLayoutParams(rowParams);
+
+                TextView timing = popupText(formatServiceTime(start) + "–" + formatServiceTime(end) +
+                    "  ·  " + serviceTypeLabel(type), 15, 0xfff4d000, true);
+                row.addView(timing);
+                String route = stationName(from);
+                if (!to.isEmpty() && !to.equals(from)) route += "  →  " + stationName(to);
+                TextView routeView = popupText(route, 15, 0xffeef3fa, false);
+                LinearLayout.LayoutParams routeParams = new LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
+                routeParams.topMargin = dp(4);
+                row.addView(routeView, routeParams);
+                if ("CON".equals(type) && !candidate.isEmpty()) {
+                    TextView details = popupText("Tren " + candidate + "  ·  via " + via + " → " + out,
+                        12, 0xffa9b8cb, false);
+                    LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP);
+                    detailsParams.topMargin = dp(3);
+                    row.addView(details, detailsParams);
+                }
+                list.addView(row);
+                popupRowViews.add(row);
+            } catch (Exception ignored) {}
+        }
+        if (popupRowViews.isEmpty()) {
+            TextView empty = popupText("No s’ha rebut el recorregut complet del servei.", 15, 0xffdce5ef, false);
+            list.addView(empty);
+        }
+        popupScroll.addView(list, new ScrollView.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+        card.addView(popupScroll, new LinearLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        popupRoot = root;
+        int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
+        WindowManager.LayoutParams popupParams = new WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            type,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT);
+        popupParams.gravity = Gravity.TOP | Gravity.START;
+        try {
+            windowManager.addView(root, popupParams);
+            root.requestFocus();
+            updatePopupHighlight();
         } catch (Exception ignored) {
+            popupRoot = null;
             showOverlay();
-            android.widget.Toast.makeText(this, "No s’ha pogut obrir el visor.", android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void closeServicePopup() {
+        if (popupRoot != null) {
+            try { windowManager.removeView(popupRoot); } catch (Exception ignored) {}
+            popupRoot = null;
+            popupScroll = null;
+            popupStatus = null;
+            popupRowViews.clear();
+            popupActiveIndex = -1;
+            showOverlay();
+        }
+    }
+
+    private void updatePopupHighlight() {
+        if (popupRoot == null) return;
+        int active = currentScheduleRowIndex();
+        for (int i = 0; i < popupRowViews.size(); i++) {
+            popupRowViews.get(i).setBackground(popupRowBackground(i == active));
+        }
+        String modeLabel = "service".equals(mode) ? "Seguiment automàtic" : "Seguiment manual";
+        popupStatus.setText(modeLabel + "  ·  tren vigilat " + train +
+            (active >= 0 && active < popupRowViews.size() ? "  ·  ara: línia " + (active + 1) : ""));
+        if (active >= 0 && active < popupRowViews.size() && active != popupActiveIndex) {
+            View activeRow = popupRowViews.get(active);
+            activeRow.post(() -> {
+                if (popupScroll != null && popupRoot != null) {
+                    popupScroll.smoothScrollTo(0, Math.max(0, activeRow.getTop() - dp(24)));
+                }
+            });
+        }
+        popupActiveIndex = active;
+    }
+
+    private int currentScheduleRowIndex() {
+        if (schedule == null || schedule.isEmpty()) return -1;
+        int now = serviceMinutesNow();
+        String[] entries = schedule.split(";");
+        for (int i = 0; i < entries.length; i++) {
+            String[] parts = entries[i].split(",", -1);
+            try {
+                int start = Integer.parseInt(parts[0]);
+                int end = Integer.parseInt(parts[1]);
+                if (now >= start && now < end) return i;
+            } catch (Exception ignored) {}
+        }
+        for (int i = 0; i < entries.length; i++) {
+            String[] parts = entries[i].split(",", -1);
+            try {
+                if (now < Integer.parseInt(parts[0])) return i;
+            } catch (Exception ignored) {}
+        }
+        return -1;
+    }
+
+    private GradientDrawable popupRowBackground(boolean active) {
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(active ? 0xff26354a : 0xff0c1625);
+        background.setCornerRadius(dp(12));
+        background.setStroke(dp(active ? 2 : 1), active ? 0xfff4d000 : 0xff28394e);
+        return background;
+    }
+
+    private TextView popupText(String value, int size, int color, boolean bold) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(color);
+        if (bold) view.setTypeface(null, android.graphics.Typeface.BOLD);
+        return view;
+    }
+
+    private String formatServiceTime(int minutes) {
+        return String.format(java.util.Locale.ROOT, "%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    private String serviceTypeLabel(String type) {
+        if ("TRA".equals(type)) return "Trasllat";
+        if ("EST".equals(type)) return "Estació";
+        return "Conducció";
+    }
+
+    private String stationName(String code) {
+        switch (code) {
+            case "413": return "La Pau";
+            case "414": return "Besòs";
+            case "415": return "Besòs Mar";
+            case "416": return "El Maresme · Fòrum";
+            case "417": return "Selva de Mar";
+            case "418": return "Poblenou";
+            case "419": return "Llacuna";
+            case "420": return "Bogatell";
+            case "421": return "Ciutadella · Vila Olímpica";
+            case "422": return "Barceloneta";
+            case "423": return "Jaume I";
+            case "424": return "Urquinaona";
+            case "425": return "Passeig de Gràcia";
+            case "426": return "Girona";
+            case "427": return "Verdaguer";
+            case "428": return "Joanic";
+            case "429": return "Alfons X";
+            case "430": return "Guinardó · Hospital de Sant Pau";
+            case "431": return "Maragall";
+            case "432": return "Llucmajor";
+            case "433": return "Via Júlia";
+            case "434": return "Trinitat Nova";
+            default: return "Estació " + code;
         }
     }
 
