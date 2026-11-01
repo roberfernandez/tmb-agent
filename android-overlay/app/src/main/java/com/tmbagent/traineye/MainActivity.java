@@ -89,6 +89,16 @@ public class MainActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra("open_service_viewer", false)) {
+            try {
+                Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse("https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1"));
+                startActivity(browser);
+            } catch (Exception ignored) {
+                if (status != null) status.setText("No s’ha pogut obrir el visor del servei.");
+            }
+            finish();
+            return;
+        }
         Uri data = intent == null ? null : intent.getData();
         if (data == null || !"tmbservei".equals(data.getScheme())) return;
         if ("stop".equals(data.getHost())) {
