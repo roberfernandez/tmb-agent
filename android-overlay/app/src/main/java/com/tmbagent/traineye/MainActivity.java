@@ -130,24 +130,50 @@ public class MainActivity extends Activity {
             }
             StringBuilder validSchedule = new StringBuilder();
             String firstTrain = null;
+            int validRows = 0;
             int validSegments = 0;
             for (String entry : schedule.split(";")) {
                 String[] parts = entry.split(",", -1);
-                if (parts.length != 3) continue;
                 try {
                     int start = Integer.parseInt(parts[0]);
                     int end = Integer.parseInt(parts[1]);
-                    String candidate = parts[2];
+                    String type;
+                    String from = "";
+                    String to = "";
+                    String candidate;
+                    String via = "";
+                    String out = "";
+                    if (parts.length == 3) {
+                        type = "CON";
+                        candidate = parts[2];
+                    } else if (parts.length == 8) {
+                        type = parts[2];
+                        from = parts[3];
+                        to = parts[4];
+                        candidate = parts[5];
+                        via = parts[6];
+                        out = parts[7];
+                    } else continue;
                     if (start < 0 || end <= start || end > 2879 ||
-                        !candidate.matches("4\\d{2}") ||
-                        Integer.parseInt(candidate) < 401 || Integer.parseInt(candidate) > 415) continue;
+                        !("TRA".equals(type) || "EST".equals(type) || "CON".equals(type))) continue;
+                    if (parts.length == 8 &&
+                        (!from.matches("4\\d{2}") || Integer.parseInt(from) < 413 || Integer.parseInt(from) > 434 ||
+                         !to.matches("4\\d{2}") || Integer.parseInt(to) < 413 || Integer.parseInt(to) > 434)) continue;
+                    if ("CON".equals(type)) {
+                        if (!candidate.matches("4\\d{2}") ||
+                            Integer.parseInt(candidate) < 401 || Integer.parseInt(candidate) > 415 ||
+                            (parts.length == 8 && (!"1".equals(via) && !"2".equals(via) ||
+                                (!"1".equals(out) && !"2".equals(out) && !"RET".equals(out))))) continue;
+                        if (firstTrain == null) firstTrain = candidate;
+                        validSegments++;
+                    }
                     if (validSchedule.length() > 0) validSchedule.append(';');
-                    validSchedule.append(start).append(',').append(end).append(',').append(candidate);
-                    if (firstTrain == null) firstTrain = candidate;
-                    validSegments++;
-                } catch (NumberFormatException ignored) {}
+                    validSchedule.append(start).append(',').append(end).append(',').append(type).append(',')
+                        .append(from).append(',').append(to).append(',').append(candidate).append(',').append(via).append(',').append(out);
+                    validRows++;
+                } catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) {}
             }
-            if (validSegments == 0) {
+            if (validSegments == 0 || firstTrain == null) {
                 status.setText("L’horari ha arribat sense cap tram de conducció vàlid. Torna a interpretar el servei.");
                 return;
             }
@@ -155,7 +181,7 @@ public class MainActivity extends Activity {
             pendingDate = date == null ? "" : date;
             pendingSchedule = validSchedule.toString();
             pendingTrain = firstTrain;
-            status.setText("Horari rebut: " + validSegments + " trams de conducció.");
+            status.setText("Horari rebut: " + validRows + " línies i " + validSegments + " trams de conducció.");
             startPendingOverlay();
             return;
         }
@@ -215,7 +241,7 @@ public class MainActivity extends Activity {
             .putExtra(TrainOverlayService.EXTRA_SERVICE_DATE, pendingDate)
             .putExtra(TrainOverlayService.EXTRA_SCHEDULE, pendingSchedule);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
-        status.setText(pendingMode.equals("service") ? "Seguiment automàtic actiu. Horari rebut: " + pendingSchedule.split(";").length + " trams de conducció." : "Ull actiu per al tren " + pendingTrain + ". Pots tornar a la PWA o obrir una altra aplicació.");
+        status.setText(pendingMode.equals("service") ? "Seguiment automàtic actiu. Horari rebut: " + pendingSchedule.split(";").length + " línies del servei." : "Ull actiu per al tren " + pendingTrain + ". Pots tornar a la PWA o obrir una altra aplicació.");
     }
 
     @Override
