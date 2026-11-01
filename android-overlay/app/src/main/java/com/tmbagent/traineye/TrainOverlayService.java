@@ -41,6 +41,7 @@ public class TrainOverlayService extends Service {
     private static final String CHANNEL_ID = "train_eye_overlay";
     private static final int NOTIFICATION_ID = 9413;
     private static final String API = "https://tmb-servei-proves.onrender.com/api/trains?ids=";
+    private static final String SERVICE_VIEWER_URL = "https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService network = Executors.newSingleThreadExecutor();
@@ -232,7 +233,15 @@ public class TrainOverlayService extends Service {
                             .putInt("overlay_y", overlayParams.y)
                             .apply();
                     }
+                    boolean wasDragging = dragging;
                     dragging = false;
+                    if (!wasDragging) {
+                        try {
+                            Intent openViewer = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(SERVICE_VIEWER_URL));
+                            openViewer.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(openViewer);
+                        } catch (Exception ignored) {}
+                    }
                     return true;
                 default:
                     return true;
