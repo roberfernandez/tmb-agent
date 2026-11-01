@@ -7,7 +7,7 @@
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .viewer-shell{height:100%;display:flex;flex-direction:column;min-height:0}.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.viewer-head h2{margin:0}.viewer-status{margin:8px 0 10px;flex:none}#viewerPhotoHome{min-height:0;flex:1;display:flex}#viewerPhotoHome #photoViewport{width:100%;height:100%;max-width:none;max-height:none;margin:0}.viewer-timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.viewer-timeline .journey-row{grid-template-columns:88px minmax(0,1fr);padding:10px}#viewerPhotoHome[hidden],.viewer-timeline[hidden]{display:none}@media(max-width:480px){#serviceViewer{width:100vw;height:88dvh;max-height:780px;border-radius:0;padding:14px}}
 </style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.21.0</span></header><h1>El meu servei</h1>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.21.1</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
@@ -251,10 +251,6 @@ $('startServiceEye').onclick=async()=>{
 };
 $('stopServiceEye').onclick=async()=>{showFollowMode('');await stopNativeEye()};
 $('stopTrainWatch').onclick=async()=>{const ok=await stopTrainPushWatch();if(ok){showFollowMode('');await stopNativeEye()}};
- if(!/^4\d{2}$/.test($('watchTrain').value||'')){$('trainWatchStatus').textContent='Tria primer un tren de la L4.';return}
- if(isIOS){showFollowMode('manual');location.href='tmbservei-ios://watch?'+new URLSearchParams({mode:'manual',train:$('watchTrain').value}).toString();return}
- await stopNativeEye();showFollowMode('manual');await activateTrainWatch(false)
-};
 $('watchTrain').onchange=()=>{if(/^4\d{2}$/.test($('watchTrain').value))localStorage.setItem('tmb-servei-manual-train',$('watchTrain').value);refreshLive(true);if(followMode==='manual')showFollowMode('manual')};
 if(followMode==='service')showFollowMode('service');else if(followMode==='manual')showFollowMode('manual');
 
