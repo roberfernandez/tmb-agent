@@ -124,8 +124,8 @@ public class MainActivity extends Activity {
         if ("service".equals(mode)) {
             String date = data.getQueryParameter("date");
             String schedule = data.getQueryParameter("schedule");
-            if (date == null || schedule == null || schedule.isEmpty()) {
-                status.setText("Carrega un servei amb trams de conducció abans d’activar l’ull.");
+            if (schedule == null || schedule.isEmpty()) {
+                status.setText("Carrega un servei amb trams de conducció abans d’activar el seguiment.");
                 return;
             }
             StringBuilder validSchedule = new StringBuilder();
@@ -152,7 +152,7 @@ public class MainActivity extends Activity {
                 return;
             }
             pendingMode = "service";
-            pendingDate = date;
+            pendingDate = date == null ? "" : date;
             pendingSchedule = validSchedule.toString();
             pendingTrain = firstTrain;
             status.setText("Horari rebut: " + validSegments + " trams de conducció.");
