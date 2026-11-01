@@ -16,6 +16,8 @@ const stationWatches=new Map();
 const enduranceWatches=new Map();
 const trainWatches=new Map();
 const liveActivityWatches=new Map();
+const stationBoardWaiters=new Map();
+let activePollingParams=null,activePollingSignal=null;
 const ENDURANCE_INTERVAL=10*60*1000,ENDURANCE_COUNT=48;
 const TRAIN_WATCH_INTERVAL=5*60*1000,TRAIN_WATCH_COUNT=4;
 function enduranceBody(w,now=Date.now()){
@@ -77,12 +79,39 @@ function stationPasses(trains,now=Date.now()) {
   }
  }
 }
-function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until) || (apnsConfigured && [...liveActivityWatches.values()].some(w=>now<w.until)); }
+function watchNeeded(now=Date.now()) { return [...enduranceWatches.values()].some(w=>w.count<ENDURANCE_COUNT||w.busy) || [...trainWatches.values()].some(w=>w.count<w.maxCount||w.busy) || now-lastUse<120000 || now<testWatchUntil || [...stationWatches.values()].some(w=>now<w.until) || stationBoardWaiters.size>0 || (apnsConfigured && [...liveActivityWatches.values()].some(w=>now<w.until)); }
 function testTrainState(now=Date.now()) {
  const ageSeconds=receivedAt?Math.max(0,Math.floor((now-receivedAt)/1000)):null;
  return {active:!!(now<testWatchUntil&&connected&&ageSeconds!==null&&ageSeconds<45&&snapshot['403']),ageSeconds};
 }
 const pause = ms => new Promise(r => setTimeout(r, ms));
+async function subscribeStopBoard(params,signal,stop){
+ await request(params,'42'+JSON.stringify(['subscribeStop',{line:'L4',stop:String(stop)}]),signal);
+}
+function acceptStopBoard(data){
+ const values=[data?.stop,data?.stopId,data?.stationId,data?.stationCode,data?.id];
+ let key=values.map(x=>String(x??'')).find(x=>stationBoardWaiters.has(x));
+ if(!key&&stationBoardWaiters.size===1)key=stationBoardWaiters.keys().next().value;
+ if(!key)return;
+ const pending=stationBoardWaiters.get(key);stationBoardWaiters.delete(key);
+ for(const waiter of pending.waiters){clearTimeout(waiter.timer);waiter.resolve(data)}
+ diagnostic('station_board_received',{station:key,keys:Object.keys(data||{}).slice(0,20)});
+}
+function requestStopBoard(stop){
+ return new Promise((resolve,reject)=>{
+  const key=String(stop);let pending=stationBoardWaiters.get(key);
+  if(!pending){pending={waiters:[],sent:false};stationBoardWaiters.set(key,pending)}
+  const waiter={resolve,reject,timer:setTimeout(()=>{
+   const current=stationBoardWaiters.get(key);if(current){current.waiters=current.waiters.filter(w=>w!==waiter);if(!current.waiters.length)stationBoardWaiters.delete(key)}
+   reject(new Error('Miralin no ha retornat l’horari d’arribades de l’estació '+key+' a temps.'));
+  },30000)};
+  pending.waiters.push(waiter);
+  if(activePollingParams&&activePollingSignal&&!activePollingSignal.aborted&&!pending.sent){
+   pending.sent=true;void subscribeStopBoard(activePollingParams,activePollingSignal,key).catch(e=>{pending.sent=false;diagnostic('station_board_subscribe_failed',{station:key,errorName:e.name})});
+  }
+  lastUse=Date.now();start();
+ });
+}
 async function request(params, body, signal) {
   const response = await fetch(UPSTREAM + '?' + new URLSearchParams(params), {
     method: body === undefined ? 'GET' : 'POST',
@@ -109,6 +138,8 @@ function start() {
         if (!sid) throw new Error('Missing session');
         params = {EIO:'4',transport:'polling',sid};
         await request(params, '40', signal);
+        activePollingParams=params;activePollingSignal=signal;
+        for(const [stop,pending] of stationBoardWaiters){pending.sent=true;await subscribeStopBoard(params,signal,stop)}
         while (!stopping && watchNeeded()) {
           const packets = (await request(params, undefined, signal)).split('\x1e');
           for (const packet of packets) {
@@ -117,7 +148,8 @@ function start() {
             else if (packet === '1' || packet.startsWith('41')) throw new Error('Upstream closed');
             else if (packet.startsWith('42')) {
               const [event, data] = JSON.parse(packet.slice(2));
-              if (event === 'mapUpdate' && data?.L4?.trains) {
+              if(event==='stopDataUpdate'){acceptStopBoard(data)}
+              else if (event === 'mapUpdate' && data?.L4?.trains) {
                 stationPasses(data.L4.trains);
                 snapshot = data.L4.trains;
                 if(!connected||!receivedAt||Date.now()-receivedAt>45000)diagnostic('upstream_data_resumed',{previousAgeSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null});
@@ -133,6 +165,7 @@ function start() {
         connected = false;
         if (!stopping) { console.warn('Connection interrupted:', e.message); diagnostic('upstream_interrupted',{errorName:e.name}); }
       } finally {
+        if(activePollingSignal===signal){activePollingParams=null;activePollingSignal=null}
         if (params && !signal.aborted) {
           try { await request(params, '41', signal); } catch {}
         }
@@ -359,6 +392,13 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   if (url.pathname === '/health') return res.end(JSON.stringify({ok:true, connected}));
+  if(url.pathname==='/api/station-board'){
+    const ids=(url.searchParams.get('stops')||url.searchParams.get('stop')||'').split(',').filter(Boolean);
+    if(!ids.length||ids.length>4||ids.some(id=>!/^4(?:1[3-9]|2[0-9]|3[0-4])$/.test(id))){res.writeHead(400);return res.end(JSON.stringify({error:'Invalid L4 station IDs'}))}
+    lastClientRequestAt=Date.now();clientRequests++;
+    void (async()=>{try{const boards=await Promise.all(ids.map(async id=>[id,await requestStopBoard(id)]));res.writeHead(200);res.end(JSON.stringify({source:'Miralin.cat',connected,receivedAt:new Date().toISOString(),stops:Object.fromEntries(boards)}))}
+    catch(e){res.writeHead(503);res.end(JSON.stringify({error:e.message,connected,availableStations:ids}))}})();return;
+  }
   if (!['/', '/api/trains'].includes(url.pathname)) { res.writeHead(404); return res.end(JSON.stringify({error:'Not found'})); }
   lastClientRequestAt=Date.now();clientRequests++;
   diagnostic('client_train_request',{count:clientRequests});
