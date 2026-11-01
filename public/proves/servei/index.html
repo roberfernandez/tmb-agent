@@ -45,7 +45,7 @@
  <details class="compact"><summary>Circulació actual de la L4</summary><div class="row spread"><p id="liveStatus" role="status">Connectant amb el servidor…</p><button id="refreshLive">Actualitza</button></div><div id="liveTrains"></div><small>Estat comunicat per Miralin. La recepció recent no garanteix que la font s’hagi actualitzat en aquell moment.</small></details>
 </section>
 <section class="card">
- <h2>Avisos del servei</h2><label for="margin">Antelació abans d’agafar cada tren</label><div class="minute-stepper"><button id="marginUp" type="button" aria-label="Augmenta un minut">▲</button><input id="margin" type="number" inputmode="numeric" min="1" max="120" step="1" value="5" aria-label="Minuts d’antelació"><button id="marginDown" type="button" aria-label="Redueix un minut">▼</button><span>minuts</span></div>
+ <h2>Avisos del servei</h2><label for="margin">Antelació dels avisos del servei</label><div class="minute-stepper"><button id="marginUp" type="button" aria-label="Augmenta un minut">▲</button><input id="margin" type="number" inputmode="numeric" min="1" max="120" step="1" value="5" aria-label="Minuts d’antelació"><button id="marginDown" type="button" aria-label="Redueix un minut">▼</button><span>minuts</span></div>
  <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button><button id="test">Prova el so</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>Els avisos es basen en l’horari previst. Si el sistema suspèn el navegador, no es pot garantir que arribin.</small>
 </section>
 <p class="muted"><small>Les dades del servei es desen en aquest navegador. Pàgina de proves accessible per enllaç, sense control d’accés.</small></p></main><dialog id="serviceViewer" aria-labelledby="viewerTitle"><div class="viewer-shell"><div class="viewer-head"><h2 id="viewerTitle">El meu servei</h2><button id="closeServiceViewer" type="button" aria-label="Tanca el visor">Tanca ×</button></div><p id="viewerStatus" class="muted viewer-status" aria-live="polite"></p><div id="viewerPhotoHome"></div><div id="viewerTimeline" class="viewer-timeline" hidden></div></div></dialog><div id="toast" role="alert"></div>
@@ -68,7 +68,7 @@ $('showAndroidDownload').onclick=()=>{androidAppOpened=false;localStorage.remove
 
 let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,manualRowIndex:null,manualSince:null};
 const followModeKey='tmb-servei-follow-mode-v1';let followMode=localStorage.getItem(followModeKey)||'';
-let rows=[],manualRowIndex=null,manualSince=0,enabled=localStorage.getItem('tmb-servei-alerts')==='true',audioCtx=null;
+let rows=[],manualRowIndex=null,manualSince=0,enabled=localStorage.getItem('tmb-servei-alerts')==='true',remoteAlertsActive=false,audioCtx=null;
 const fired=new Set();
 let ocrImage=null,ocrRotation=0,ocrRowBounds=null,photoRowsReady=false,photoSize=null,lastPhotoRow=null,ocrDraft=false,ocrBusy=false;try{Object.assign(state,JSON.parse(localStorage.getItem('tmb-servei-v01')||'{}'))}catch{}
 function persist(){try{localStorage.setItem('tmb-servei-v01',JSON.stringify(state))}catch{$('error').textContent='No s’ha pogut desar al navegador.'}}
@@ -77,6 +77,7 @@ function parse(text){let previous=-1;return text.trim().split('\n').filter(l=>l.
 function when(m){const now=new Date();let dayShift=0;if(rows.length){const current=now.getHours()*60+now.getMinutes(),first=rows[0].a,last=Math.max(...rows.map(r=>r.b)),endClock=last%1440;if(last>1440&&current<first&&current<endClock)dayShift=-1}return new Date(now.getFullYear(),now.getMonth(),now.getDate()+dayShift,0,m).getTime()}
 function desc(r){return r.type==='CON'?'Conducció · '+r.train:r.type==='TRA'?'Trasllat':'Estació'}
 function notify(text){$('toast').textContent=text;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',12000);sound();if(navigator.vibrate)navigator.vibrate([250,100,250]);if(document.hidden&&'Notification'in window&&Notification.permission==='granted'){try{new Notification('El meu servei · Horari previst',{body:text,tag:'service-'+Date.now()})}catch{}}}
+navigator.serviceWorker?.addEventListener('message',event=>{if(event.data?.type==='service-alert')notify(event.data.body||event.data.title||'Avís del servei')});
 function sound(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=740;g.gain.value=.12;o.start();o.stop(audioCtx.currentTime+.5)}catch{}}
 function activeServiceRow(now){if(manualRowIndex!==null){const chosen=rows.find(r=>r.i===manualRowIndex),next=followMode==='service'&&chosen&&rows.find(r=>r.i>chosen.i&&when(r.a)>manualSince);if(!chosen){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else if(next&&now>=when(next.a)){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else return chosen}if(followMode!=='service')return null;return rows.find(r=>now>=when(r.a)&&now<when(r.b))||rows.find(r=>now<when(r.a))||null}
 function render(){let now=Date.now();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now);$('serviceNow').innerHTML=active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció manual · seguiment automàtic aturat</span>':''):rows.length?(followMode==='service'?'No hi ha cap tram actiu en aquesta franja.':'Tria una línia manualment o activa el seguiment automàtic.'):'Carrega una captura o foto del servei per començar.';let next=rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));let driving=active?.type==='CON'?active:null;
@@ -86,15 +87,67 @@ $('expected').textContent=active?('Segons el servei: '+(active.type==='TRA'?'en 
 $('confirmed').textContent=state.location?'Confirmat: '+state.location.label+' · '+new Date(state.location.time).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'})+' (no és localització contínua)':'Ubicació prevista, pendent de confirmació.';
 $('timeline').innerHTML=rows.map(r=>`<div class="journey-row ${active===r?'active':''} ${when(r.b)<now?'done':''}"><span class="journey-time">${esc(r.start)}–${esc(r.end)}</span><span class="journey-detail"><strong>${esc(desc(r))}</strong><small>${esc(stations[r.from])}${r.from!==r.to?' → '+esc(stations[r.to]):''}${r.type==='CON'?' · v'+esc(r.via)+' → '+esc(r.out):''}${state.taken.includes(r.i)?' · presa':''}</small></span></div>`).join('');updatePhotoHighlight(active);
 
-if(enabled){for(const r of rows.filter(r=>r.type==='CON')){if(state.taken.includes(r.i))continue;const t=when(r.a),key=r.i+'presa';if(now>=t-state.margin*60000&&now<t&&!fired.has(key)){fired.add(key);notify('Horari previst: presa del '+r.train+' a '+stations[r.from]+' · '+r.start)}}}}
+if(enabled&&!remoteAlertsActive){for(const r of rows.filter(r=>r.type==='CON')){if(state.taken.includes(r.i))continue;const t=when(r.a),key=r.i+'presa';if(now>=t-state.margin*60000&&now<t&&!fired.has(key)){fired.add(key);notify('Horari previst: presa del '+r.train+' a '+stations[r.from]+' · '+r.start)}}}}
 function load(){try{rows=state.text?parse(state.text):[]}catch{rows=[]}manualRowIndex=Number.isInteger(state.manualRowIndex)?state.manualRowIndex:null;manualSince=Number(state.manualSince)||0;$('date').value=state.date;$('editor').value=state.text||'';$('margin').value=state.margin;if(state.photoData){$('photoPreview').src=state.photoData;const restoredImage=new Image();restoredImage.onload=()=>{ocrImage=restoredImage;$('readPhoto').disabled=false;$('rotatePhoto').disabled=false};restoredImage.src=state.photoData;$('photoViewport').hidden=false;$('photoProgress').hidden=false;$('photoPreview').hidden=false;ocrRowBounds=state.photoRows||null;photoSize=state.photoSize||null;photoRowsReady=Boolean(ocrRowBounds&&photoSize&&ocrRowBounds.length===rows.length);if(photoSize)$('photoOverlay').setAttribute('viewBox','0 0 '+photoSize.width+' '+photoSize.height);requestAnimationFrame(()=>{layoutPhotoOverlay();drawPhotoHitboxes()})}render()}
 for(let id of ['location'])$(id).innerHTML=Object.entries(stations).map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join('');
 $('confirm').onclick=()=>{state.location={label:stations[$('location').value],time:Date.now()};persist();render()};$('auto').onclick=()=>{state.location=null;persist();render()};
 $('taken').onclick=()=>{let r=rows.find(r=>r.i===Number($('taken').dataset.index));if(!r)return;state.taken.push(r.i);state.location={label:'A bord del '+r.train,time:Date.now()};persist();render()};
 
-function setMargin(value){const n=Math.max(1,Math.min(120,Math.round(Number(value)||1)));state.margin=n;$('margin').value=String(n);persist()}
+function buildServiceAlertEvents(){
+ const now=Date.now(),events=[];
+ for(const r of rows){
+  const at=when(r.a);if(at<=now-30000)continue;
+  if(r.type==='TRA')events.push({kind:'transfer',row:r.i,source:String(r.from),target:String(r.to),at});
+  if(r.type==='CON'){
+   let previousTransfer=null,previous=null;
+   for(const candidate of rows){if(candidate.i>=r.i)break;previous=candidate;if(candidate.type==='TRA'&&candidate.to===r.from)previousTransfer=candidate}
+   const source=previousTransfer?.from||(previous&&previous.to!==r.from?previous.to:'');
+   events.push({kind:'boarding',row:r.i,source:String(source||''),target:String(r.from),train:String(r.train),via:String(r.via||''),at});
+  }
+ }
+ return events;
+}
+async function syncServiceAlerts(stop=false){
+ const base='https://tmb-servei-proves.onrender.com';
+ if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))throw Error('Aquest navegador no admet avisos en segon pla.');
+ const registration=await navigator.serviceWorker.register('./push-sw.js?v=2',{scope:'./'});
+ await navigator.serviceWorker.ready;
+ let subscription=await registration.pushManager.getSubscription();
+ if(stop){
+  if(subscription){const response=await fetch(base+'/api/push-service-watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subscription.toJSON(),action:'stop'}),signal:AbortSignal.timeout(75000)});const result=await response.json();if(!response.ok)throw Error(result.error||'No s’han pogut aturar els avisos.')}
+  remoteAlertsActive=false;localStorage.removeItem('tmb-servei-alerts');return true;
+ }
+ if(!rows.length)throw Error('Carrega i interpreta el servei abans d’activar-ne els avisos.');
+ const events=buildServiceAlertEvents();if(!events.length)throw Error('No queden trasllats ni preses futures per avisar.');
+ if(Notification.permission!=='granted'){const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('Cal permetre les notificacions per rebre avisos en segon pla.')}
+ const keyResponse=await fetch(base+'/api/push-key',{cache:'no-store',signal:AbortSignal.timeout(75000)}),key=await keyResponse.json();
+ if(!keyResponse.ok)throw Error(key.error||'Push no disponible.');
+ const publicKey=Uint8Array.from(atob(key.publicKey.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+ if(subscription){const oldKey=subscription.options.applicationServerKey;if(!oldKey||Array.from(new Uint8Array(oldKey)).join()!=Array.from(publicKey).join()){await subscription.unsubscribe();subscription=null}}
+ if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:publicKey});
+ const response=await fetch(base+'/api/push-service-watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subscription.toJSON(),action:'start',margin:state.margin,events}),signal:AbortSignal.timeout(75000)});
+ const result=await response.json();if(!response.ok)throw Error(result.error||'No s’han pogut activar els avisos del servei.');
+ remoteAlertsActive=true;localStorage.setItem('tmb-servei-alerts','true');return result;
+}
+let alertSyncTimer;
+function scheduleAlertSync(){clearTimeout(alertSyncTimer);alertSyncTimer=setTimeout(()=>{if(enabled)syncServiceAlerts().then(()=>{$('alarmStatus').textContent='Avisos actius · '+state.margin+' min abans dels trasllats i les preses.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut actualitzar els avisos: '+e.message})},700)}
+function setMargin(value){const n=Math.max(1,Math.min(120,Math.round(Number(value)||1)));state.margin=n;$('margin').value=String(n);persist();if(enabled)scheduleAlertSync()}
 $('margin').onchange=()=>setMargin($('margin').value);$('margin').oninput=()=>setMargin($('margin').value);$('marginUp').onclick=()=>setMargin(Number($('margin').value)+1);$('marginDown').onclick=()=>setMargin(Number($('margin').value)-1);$('test').onclick=()=>notify('Prova de so · El meu servei');
-$('enable').onclick=async()=>{enabled=!enabled;localStorage.setItem('tmb-servei-alerts',String(enabled));if(enabled){sound();if('Notification'in window&&Notification.permission==='default')try{await Notification.requestPermission()}catch{}}$('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';$('alarmStatus').textContent=enabled?'Avisos actius mentre el navegador manté la pàgina en execució.':'Avisos desactivats.';render()};$('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';$('alarmStatus').textContent=enabled?'Avisos actius mentre el navegador manté la pàgina en execució.':'Avisos desactivats.';
+$('enable').onclick=async()=>{
+ const button=$('enable');button.disabled=true;
+ try{
+  if(enabled){
+   await syncServiceAlerts(true);enabled=false;remoteAlertsActive=false;$('alarmStatus').textContent='Avisos desactivats.';
+  }else{
+   const result=await syncServiceAlerts(false);enabled=true;remoteAlertsActive=true;sound();$('alarmStatus').textContent='Avisos actius · '+state.margin+' min abans dels trasllats i les preses. '+result.events+' avisos programats.';
+  }
+  localStorage.setItem('tmb-servei-alerts',String(enabled));button.textContent=enabled?'Desactiva els avisos':'Activa els avisos';render();
+ }catch(e){$('alarmStatus').textContent=e.message}
+ finally{button.disabled=false}
+};
+$('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
+$('alarmStatus').textContent=enabled?'Avisos activats; comprovant la programació…':'Avisos desactivats.';
+if(enabled)setTimeout(()=>syncServiceAlerts().then(result=>{$('alarmStatus').textContent='Avisos actius · '+state.margin+' min abans dels trasllats i les preses. '+result.events+' avisos programats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut restaurar els avisos: '+e.message;remoteAlertsActive=false}),800);
 $('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render();refreshLive(true)}catch(e){$('error').textContent=e.message}};
 $('reset').onclick=()=>{state.date=new Date().toISOString().slice(0,10);state.text='';state.taken=[];state.location=null;state.photoData=null;state.photoRows=null;state.photoSize=null;state.manualRowIndex=null;state.manualSince=null;manualRowIndex=null;manualSince=0;ocrRowBounds=null;photoSize=null;photoRowsReady=false;lastPhotoRow=null;$('photoPreview').removeAttribute('src');$('photoViewport').hidden=true;$('activePhotoRow').style.display='none';fired.clear();persist();load()};
 function renderViewerTimeline(active){
