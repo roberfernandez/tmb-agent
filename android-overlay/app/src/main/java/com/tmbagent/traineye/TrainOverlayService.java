@@ -152,18 +152,15 @@ public class TrainOverlayService extends Service {
     }
 
     private void startAsForeground() {
-        Intent open = new Intent(this, MainActivity.class);
+        Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(SERVICE_VIEWER_URL));
         PendingIntent content = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Intent stop = new Intent(this, TrainOverlayService.class).setAction("STOP");
-        PendingIntent stopAction = PendingIntent.getService(this, 1, stop, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         boolean serviceTracking = "service".equals(mode);
         Notification notification = new Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentTitle((serviceTracking ? "Servei segons horari" : "Seguiment manual") + " · tren " + train)
-            .setContentText(serviceTracking ? "Horari rebut: " + schedule.split(";").length + " línies del servei." : "Toca «Aturar» per tancar el seguiment.")
+            .setContentText(serviceTracking ? "Horari rebut: " + schedule.split(";").length + " línies del servei." : "Seguiment actiu en segon pla.")
             .setContentIntent(content)
             .setOngoing(true)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Aturar", stopAction)
             .build();
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
