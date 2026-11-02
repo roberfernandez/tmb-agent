@@ -41,7 +41,7 @@ struct ContentView: View {
 
                     if mode == "manual" {
                         Picker("Tren L4", selection: $train) {
-                            ForEach(401...415, id: \.self) { number in
+                            ForEach(401...416, id: \.self) { number in
                                 Text(String(number)).tag(String(number))
                             }
                         }
@@ -118,7 +118,7 @@ struct ContentView: View {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let values = Dictionary(items.map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { first, _ in first })
         mode = values["mode"] == "service" ? "service" : "manual"
-        if let selected = values["train"], (401...415).contains(Int(selected) ?? 0) {
+        if let selected = values["train"], (401...416).contains(Int(selected) ?? 0) {
             train = selected
         }
         serviceDate = values["date"] ?? ""
@@ -318,7 +318,7 @@ struct ContentView: View {
             let fields = row.split(separator: ",")
             guard fields.count == 3,
                   let start = Int(fields[0]), let end = Int(fields[1]),
-                  (401...415).contains(Int(fields[2]) ?? 0), end > start else { return nil }
+                  (401...416).contains(Int(fields[2]) ?? 0), end > start else { return nil }
             return (start, end, String(fields[2]))
         }
     }

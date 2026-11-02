@@ -664,7 +664,7 @@ public class TrainOverlayService extends Service {
                 String type = parts.length == 8 ? parts[2] : "CON";
                 String candidate = parts.length == 8 ? parts[5] : parts[2];
                 if (!"CON".equals(type) || !candidate.matches("4\\d{2}") ||
-                    Integer.parseInt(candidate) < 401 || Integer.parseInt(candidate) > 415) continue;
+                    Integer.parseInt(candidate) < 401 || Integer.parseInt(candidate) > 416) continue;
                 if (now >= start && now < end) { selected = candidate; break; }
                 if (start > now && start < bestUpcoming) { bestUpcoming = start; selected = candidate; }
                 if (end > latestEnd) { latestEnd = end; latestTrain = candidate; }

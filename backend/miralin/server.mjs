@@ -438,7 +438,7 @@ async function liveActivityRoute(req,res,url){
   if(!/^[a-f0-9]{64,256}$/i.test(String(data.token||'')))throw Error('Token APNs no vàlid.');
   if(!['service','manual'].includes(data.mode))throw Error('Mode no vàlid.');
   const train=String(data.train||'');
-  if(!/^4\d{2}$/.test(train)||Number(train)<401||Number(train)>415)throw Error('Tren L4 no vàlid.');
+  if(!/^4\d{2}$/.test(train)||Number(train)<401||Number(train)>416)throw Error('Tren L4 no vàlid.');
   const date=String(data.date||''),schedule=String(data.schedule||'');
   if(data.mode==='service'){
    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!schedule||schedule.length>4096)throw Error('Falta la data o el servei.');
