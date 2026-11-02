@@ -121,10 +121,30 @@ function boardEntries(board){
  const data=board?.data||board;const all=[...(Array.isArray(data?.via1)?data.via1:[]),...(Array.isArray(data?.via2)?data.via2:[]),...(Array.isArray(data?.lineTrains)?data.lineTrains:[])];
  const seen=new Set();return all.filter(e=>{const k=String(e?.trainCode??e?.tren??e?.id??'')+':'+String(e?.arrivalTime??e?.secsLeft??'');if(seen.has(k))return false;seen.add(k);return true});
 }
+function boardEntriesOnVia(board,via){
+ const data=board?.data||board,entries=data?.['via'+via];
+ if(Array.isArray(entries)&&entries.length)return entries;
+ return boardEntries(board).filter(e=>Number(e?.platformTrack??e?.track??e?.via)===Number(via));
+}
 function boardTrain(e){return String(e?.trainCode??e?.tren??e?.id??'')}
 function boardArrival(e){const n=Number(e?.arrivalTime);if(Number.isFinite(n)&&n>100000000000)return n;const parsed=Date.parse(e?.arrivalTime);if(Number.isFinite(parsed))return parsed;const secs=Number(e?.secsLeft);return Number.isFinite(secs)?Date.now()+secs*1000:null}
 function clockText(ms){return new Intl.DateTimeFormat('ca-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit'}).format(new Date(ms))}
 function freshBoard(stop,now=Date.now()){const cached=stationBoardCache.get(String(stop));return cached&&now-cached.receivedAt<60000?cached:null}
+function boardingApproach(event,now=Date.now(),margin=5){
+ const source=String(event.source||''),target=String(event.target||''),train=String(event.train||''),at=Number(event.at);
+ if(!source||!target||!train||source===target)return null;
+ const from=freshBoard(source,now),to=freshBoard(target,now);if(!from||!to)return null;
+ const via=Number(target)>Number(source)?1:2,arrivals=new Map();
+ for(const e of boardEntries(to)){const id=boardTrain(e),eta=boardArrival(e);if(id&&Number.isFinite(eta)){const old=arrivals.get(id);if(!old||eta<old)arrivals.set(id,eta)}}
+ const targetEta=arrivals.get(train);if(!targetEta||targetEta>at)return null;
+ for(const e of boardEntriesOnVia(from,via)){
+  if(boardTrain(e)!==train)continue;
+  const eta=boardArrival(e);
+  if(!Number.isFinite(eta)||eta<=now+10000||eta>now+margin*60000||targetEta<eta-30000)continue;
+  return {eta,via,targetEta};
+ }
+ return null;
+}
 function boardingAdvice(event,now=Date.now()){
  const train=String(event.train||'tren assignat'),target=String(event.target||''),source=String(event.source||''),at=Number(event.at);
  const inMinutes=Math.max(0,Math.ceil((at-now)/60000));
@@ -145,17 +165,23 @@ function boardingAdvice(event,now=Date.now()){
 }
 function serviceAlertBody(event,now=Date.now()){
  if(event.kind==='transfer'){const inMinutes=Math.max(0,Math.ceil((Number(event.at)-now)/60000));return 'D’aquí a '+inMinutes+' min: trasllat '+(L4_STATION_NAMES[String(event.source)]||event.source)+' → '+(L4_STATION_NAMES[String(event.target)]||event.target)+'. Hora prevista '+clockText(Number(event.at))+'.'}
+ if(event.approach){const inMinutes=Math.max(0,Math.ceil((event.approach.eta-now)/60000));return 'El tren '+event.train+' arriba a '+(L4_STATION_NAMES[String(event.source)]||event.source)+' per via '+event.approach.via+' d’aquí a '+inMinutes+' min. Puja-hi per arribar a '+(L4_STATION_NAMES[String(event.target)]||event.target)+' abans de la presa prevista a les '+clockText(Number(event.at))+'.'}
  return boardingAdvice(event,now);
 }
 async function serviceWatchTick(endpoint,w,now=Date.now()){
  if(serviceWatches.get(endpoint)!==w||w.busy)return;
  if(w.events.every(e=>e.sent||now>e.at+15*60000)){clearInterval(w.timer);serviceWatches.delete(endpoint);diagnostic('service_watch_finished',{watchId:watchId(endpoint),events:w.events.length});return}
- const due=w.events.filter(e=>!e.sent&&now>=e.fireAt&&now<=e.at+15*60000);
+ const due=[];
+ for(const e of w.events){
+  if(e.sent||now>e.at+15*60000)continue;
+  e.approach=e.kind==='boarding'?boardingApproach(e,now,w.margin):null;
+  if(e.approach||now>=e.fireAt)due.push(e);
+ }
  if(!due.length)return;w.busy=true;
  try{
   for(const e of due){
    const body=serviceAlertBody(e,now);
-   try{const result=await webpush.sendNotification(w.subscription,JSON.stringify({title:e.kind==='transfer'?'Servei · trasllat':'Servei · presa del '+String(e.train||''),body,tag:'service-'+e.kind+'-'+e.row,url:'/tmb-agent/proves/servei/'}),{TTL:180,urgency:'high',timeout:15000});e.sent=true;diagnostic('service_alert_accepted',{watchId:watchId(endpoint),kind:e.kind,row:e.row,statusCode:result.statusCode})}
+   try{const result=await webpush.sendNotification(w.subscription,JSON.stringify({title:e.kind==='transfer'?'Servei · trasllat':e.approach?'Puja al tren '+String(e.train):'Servei · presa del '+String(e.train||''),body,tag:'service-'+e.kind+'-'+e.row,url:'/tmb-agent/proves/servei/'}),{TTL:180,urgency:'high',timeout:15000});e.sent=true;diagnostic('service_alert_accepted',{watchId:watchId(endpoint),kind:e.kind,row:e.row,approachVia:e.approach?.via||null,approachEta:e.approach?.eta||null,statusCode:result.statusCode})}
    catch(error){diagnostic('service_alert_failed',{watchId:watchId(endpoint),kind:e.kind,row:e.row,statusCode:error.statusCode||null,errorName:error.name});if(error.statusCode===404||error.statusCode===410){clearInterval(w.timer);serviceWatches.delete(endpoint);break}}
   }
  }finally{w.busy=false}
