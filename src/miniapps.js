@@ -18,6 +18,8 @@ export const procedures=[
 ];
 export function renderTramits(){
  const root=shell('Tràmits i ajuts','Formularis i documents per preparar les teves gestions.');
+ const portal=card('Tots els tràmits de TMB',['Accedeix al portal corporatiu per consultar aquests tràmits i altres sol·licituds.']);
+ portal.classList.add('mini-highlight');portal.append(link('Obre el portal de tràmits ↗','https://tmbbcn.sharepoint.com/sites/Tramitsempleats/SitePages/Sollicituds.aspx'));root.append(portal);
  const input=el('input','mini-input');input.type='search';input.placeholder='Cerca un tràmit…';input.setAttribute('aria-label','Cerca un tràmit');
  const list=el('div','mini-list');const status=el('p','mini-status');status.setAttribute('aria-live','polite');
  function render(){const found=procedures.filter(p=>norm(p.title+' '+p.text.join(' ')).includes(norm(input.value.trim())));list.replaceChildren();status.textContent=found.length?`${found.length} tràmits`:'No s’ha trobat cap tràmit.';for(const p of found){const c=card(p.title,p.text);if(p.url){c.replaceChildren(link(p.title+' ↗',p.url));}else{const actions=el('div','mini-actions');for(const [label,file]of p.files)actions.append(link(label,docs+file));c.append(actions);}list.append(c);}}
