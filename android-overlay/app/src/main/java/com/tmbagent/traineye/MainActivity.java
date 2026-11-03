@@ -144,8 +144,57 @@ public class MainActivity extends Activity {
         pendingSchedule = validSchedule.toString();
         pendingImage = image != null && image.length() <= 220000 ? image : "";
         pendingRowBounds = rowBounds != null && rowBounds.length() <= 12000 ? rowBounds : "";
-        pendingTrain = firstTrain;
+        pendingTrain = trainForCurrentTime(pendingSchedule, firstTrain);
         startPendingOverlay();
+    }
+
+    private String trainForCurrentTime(String schedule, String fallback) {
+        java.util.Calendar clock = java.util.Calendar.getInstance();
+        int now = clock.get(java.util.Calendar.HOUR_OF_DAY) * 60 + clock.get(java.util.Calendar.MINUTE);
+        int firstStart = Integer.MAX_VALUE;
+        int latestEnd = -1;
+        for (String entry : schedule.split(";")) {
+            String[] parts = entry.split(",", -1);
+            try {
+                if (parts.length != 3 && parts.length != 8) continue;
+                int start = Integer.parseInt(parts[0]);
+                int end = Integer.parseInt(parts[1]);
+                String type = parts.length == 8 ? parts[2] : "CON";
+                if ("CON".equals(type)) {
+                    firstStart = Math.min(firstStart, start);
+                    latestEnd = Math.max(latestEnd, end);
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        int endClock = latestEnd % 1440;
+        if (latestEnd > 1440 && now < firstStart && now < endClock) now += 1440;
+
+        String nextTrain = null;
+        String lastTrain = null;
+        int nextStart = Integer.MAX_VALUE;
+        int lastEnd = -1;
+        for (String entry : schedule.split(";")) {
+            String[] parts = entry.split(",", -1);
+            try {
+                if (parts.length != 3 && parts.length != 8) continue;
+                int start = Integer.parseInt(parts[0]);
+                int end = Integer.parseInt(parts[1]);
+                String type = parts.length == 8 ? parts[2] : "CON";
+                String candidate = parts.length == 8 ? parts[5] : parts[2];
+                if (!"CON".equals(type) || !candidate.matches("4\\d{2}")) continue;
+                if (now >= start && now < end) return candidate;
+                if (start > now && start < nextStart) {
+                    nextStart = start;
+                    nextTrain = candidate;
+                }
+                if (end > lastEnd) {
+                    lastEnd = end;
+                    lastTrain = candidate;
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        if (nextTrain != null) return nextTrain;
+        return lastTrain != null ? lastTrain : fallback;
     }
 
     private void startPendingOverlay() {
