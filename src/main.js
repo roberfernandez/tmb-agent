@@ -7,7 +7,8 @@ import { renderAtencio } from './atencio.js?v=atencio-v2';
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=image-gestures-v1';
-import { modules } from './modules.js?v=jubilacio-v1';
+import { modules } from './modules.js?v=miniapps-v1';
+import { renderCalendaris, renderTramits, renderCobraments, renderRC } from './miniapps.js?v=miniapps-v1';
 import { renderTMobilitat } from './tmobilitat.js?v=image-gestures-v1';
 import { renderAscensors } from './ascensors.js?v=ascensors-v1';
 import { renderPAE } from './pae.js?v=pae-v3';
@@ -213,6 +214,13 @@ function render() {
       : 'all';
   const moduleRoute = route.startsWith('/miralin') ? '/miralin' : route.startsWith('/cquadre/') ? '/cquadre' : route;
   const shortcutModule = modules.find(module => moduleRoute === `/${module.id}`);
+  const miniapps = { calendaris: renderCalendaris, tramits: renderTramits, cobraments: renderCobraments, rc: renderRC };
+  if (shortcutModule && miniapps[shortcutModule.id]) {
+    document.title = `${shortcutModule.name} · TMB Agent`;
+    document.body.classList.remove('home');
+    content.replaceChildren(miniapps[shortcutModule.id]());
+    return;
+  }
   if (route === '/administracio') {
     document.title = 'Administració · TMB Agent';
     document.body.classList.remove('home');
