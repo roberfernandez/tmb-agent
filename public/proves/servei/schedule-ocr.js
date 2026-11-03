@@ -1,7 +1,18 @@
 
 const HEADERS=['HI','EI','VI','TE','HF','EF','VF'];
 const normalize=s=>String(s).toUpperCase().replace(/[^A-Z0-9]/g,'');
-const time=s=>{const m=String(s).replace(/\s/g,'').match(/^(\d{1,2})[:.](\d{2})$/);return m&&+m[1]<=47&&+m[2]<60?m[1].padStart(2,'0')+':'+m[2]:''};
+const time=value=>{
+ const compact=String(value).toUpperCase().replace(/\s/g,'').replace(/[OQ]/g,'0').replace(/[IL|]/g,'1');
+ const match=compact.match(/^(\d{1,2})[:.,;](\d{2})$/);
+ let hour,minute;
+ if(match){hour=Number(match[1]);minute=Number(match[2])}
+ else{
+  const digits=compact.replace(/\D/g,'');
+  if(digits.length!==3&&digits.length!==4)return '';
+  hour=Number(digits.slice(0,-2));minute=Number(digits.slice(-2));
+ }
+ return hour<=47&&minute<60?String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0'):'';
+};
 export function interpretSchedule(data,imageSize={}){
  const words=(data.words||data.blocks?.flatMap(b=>b.paragraphs?.flatMap(p=>p.lines?.flatMap(l=>l.words||[])||[])||[])||[]).filter(w=>w.text?.trim()&&w.bbox);
  if(!words.length)throw Error('No s’han reconegut les columnes. Prova una captura més nítida.');
