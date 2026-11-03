@@ -1,0 +1,2 @@
+alter table public.tmb_agent_opens drop constraint tmb_agent_opens_module_check;
+alter table public.tmb_agent_opens add constraint tmb_agent_opens_module_check check (module in ('computo','incidencias','nomina','dea','bobines','miralin','t-mobilitat','mapa-metro','cquadre','cinta-metrica','bustia','permisos','ascensors','pae','dossiers','atencio','farmacioles','objectes-perduts','venda-diners','cercapersones','convenis','jubilacio','calendaris','tramits','cobraments','rc','risc-percebut'));
