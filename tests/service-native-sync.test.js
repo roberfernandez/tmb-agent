@@ -48,3 +48,14 @@ test('native alerts do not require browser push and pause on an unapplied servic
  values.set('native','old service');result=await ctx.syncServiceAlerts(false);
  assert.equal(result.pending,true);assert.match(ctx.location.href,/alerts=0/);
 });
+
+test('legacy migration stops both web watches once and then works without Render',async()=>{
+ const {ctx}=context();let requests=0;
+ ctx.navigator={serviceWorker:{getRegistration:async()=>({pushManager:{getSubscription:async()=>({toJSON:()=>({endpoint:'test'})})}})}};
+ ctx.fetch=async()=>{requests++;return {ok:true}};ctx.AbortSignal=AbortSignal;
+ const start=page.indexOf('async function stopLegacyServiceAlerts(){');
+ vm.runInContext(page.slice(start,page.indexOf('async function syncServiceAlerts',start)),ctx);
+ await ctx.stopLegacyServiceAlerts();assert.equal(requests,2);
+ ctx.fetch=()=>{throw Error('Render unavailable')};
+ await ctx.stopLegacyServiceAlerts();assert.equal(requests,2);
+});
