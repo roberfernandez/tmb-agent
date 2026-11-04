@@ -8,12 +8,14 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_OVERLAY = 101;
     private static final int REQUEST_NOTIFICATIONS = 102;
+    private static final int REQUEST_BACKGROUND = 103;
 
     private String pendingTrain;
     private String pendingMode = "manual";
@@ -52,6 +54,12 @@ public class MainActivity extends Activity {
         if ("stop".equals(data.getHost())) {
             stopService(new Intent(this, TrainOverlayService.class));
             finish();
+            return;
+        }
+        saveAlertSettings(data);
+        if ("alerts".equals(data.getHost())) {
+            if (TrainOverlayService.isActive) startService(new Intent(this, TrainOverlayService.class).setAction("CONFIGURE_ALERTS"));
+            finishOrOfferBackground();
             return;
         }
         if ("viewer-close".equals(data.getHost())) {
@@ -149,52 +157,7 @@ public class MainActivity extends Activity {
     }
 
     private String trainForCurrentTime(String schedule, String fallback) {
-        java.util.Calendar clock = java.util.Calendar.getInstance();
-        int now = clock.get(java.util.Calendar.HOUR_OF_DAY) * 60 + clock.get(java.util.Calendar.MINUTE);
-        int firstStart = Integer.MAX_VALUE;
-        int latestEnd = -1;
-        for (String entry : schedule.split(";")) {
-            String[] parts = entry.split(",", -1);
-            try {
-                if (parts.length != 3 && parts.length != 8) continue;
-                int start = Integer.parseInt(parts[0]);
-                int end = Integer.parseInt(parts[1]);
-                String type = parts.length == 8 ? parts[2] : "CON";
-                if ("CON".equals(type)) {
-                    firstStart = Math.min(firstStart, start);
-                    latestEnd = Math.max(latestEnd, end);
-                }
-            } catch (NumberFormatException ignored) {}
-        }
-        int endClock = latestEnd % 1440;
-        if (latestEnd > 1440 && now < firstStart && now < endClock) now += 1440;
-
-        String nextTrain = null;
-        String lastTrain = null;
-        int nextStart = Integer.MAX_VALUE;
-        int lastEnd = -1;
-        for (String entry : schedule.split(";")) {
-            String[] parts = entry.split(",", -1);
-            try {
-                if (parts.length != 3 && parts.length != 8) continue;
-                int start = Integer.parseInt(parts[0]);
-                int end = Integer.parseInt(parts[1]);
-                String type = parts.length == 8 ? parts[2] : "CON";
-                String candidate = parts.length == 8 ? parts[5] : parts[2];
-                if (!"CON".equals(type) || !candidate.matches("4\\d{2}")) continue;
-                if (now >= start && now < end) return candidate;
-                if (start > now && start < nextStart) {
-                    nextStart = start;
-                    nextTrain = candidate;
-                }
-                if (end > lastEnd) {
-                    lastEnd = end;
-                    lastTrain = candidate;
-                }
-            } catch (NumberFormatException ignored) {}
-        }
-        if (nextTrain != null) return nextTrain;
-        return lastTrain != null ? lastTrain : fallback;
+        return new ServicePlan(schedule).trainAt(System.currentTimeMillis(), fallback);
     }
 
     private void startPendingOverlay() {
@@ -235,7 +198,29 @@ public class MainActivity extends Activity {
             .putExtra(TrainOverlayService.EXTRA_SERVICE_IMAGE, pendingImage)
             .putExtra(TrainOverlayService.EXTRA_SERVICE_ROW_BOUNDS, pendingRowBounds);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
-        finish();
+        finishOrOfferBackground();
+    }
+
+    private void saveAlertSettings(Uri data) {
+        android.content.SharedPreferences.Editor prefs = getSharedPreferences("overlay", MODE_PRIVATE).edit();
+        String enabled = data.getQueryParameter("alerts"), margin = data.getQueryParameter("margin");
+        if (enabled != null) prefs.putBoolean(TrainOverlayService.EXTRA_ALERTS, "1".equals(enabled));
+        try { if (margin != null) prefs.putInt(TrainOverlayService.EXTRA_MARGIN, Math.max(1, Math.min(120, Integer.parseInt(margin)))); } catch (NumberFormatException ignored) {}
+        prefs.apply();
+    }
+
+    private void finishOrOfferBackground() {
+        android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
+        PowerManager power = getSystemService(PowerManager.class);
+        if (!prefs.getBoolean(TrainOverlayService.EXTRA_ALERTS, false) || power.isIgnoringBatteryOptimizations(getPackageName()) || prefs.getBoolean("backgroundAsked", false)) { finish(); return; }
+        prefs.edit().putBoolean("backgroundAsked", true).apply();
+        new AlertDialog.Builder(this).setTitle("Avisos amb la pantalla apagada")
+            .setMessage("Per rebre les arribades en directe amb el mòbil bloquejat, permet que Vigila el servei continuï en segon pla mentre el seguiment està actiu. Pot consumir més bateria.")
+            .setNegativeButton("Ara no", (dialog, which) -> finish())
+            .setPositiveButton("Permet-ho", (dialog, which) -> {
+                try { startActivityForResult(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName())), REQUEST_BACKGROUND); }
+                catch (Exception ignored) { finish(); }
+            }).setOnCancelListener(dialog -> finish()).show();
     }
 
     private void openServicePage() {
@@ -249,6 +234,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_BACKGROUND) { finish(); return; }
         if (requestCode == REQUEST_OVERLAY) {
             if (Settings.canDrawOverlays(this)) launchOverlayService();
             else showMessageAndClose("Android no ha concedit el permís de superposició.");
