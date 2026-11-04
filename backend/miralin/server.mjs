@@ -207,7 +207,7 @@ async function request(params, body, signal) {
     headers: body === undefined ? {} : { 'Content-Type': 'text/plain;charset=UTF-8' },
     body, signal: AbortSignal.any([signal, AbortSignal.timeout(40000)])
   });
-  if (!response.ok) throw new Error('Upstream HTTP ' + response.status);
+  if (!response.ok) throw Object.assign(new Error('Upstream HTTP ' + response.status), {statusCode:response.status});
   return response.text();
 }
 function start() {
@@ -252,7 +252,7 @@ function start() {
         }
       } catch (e) {
         connected = false;
-        if (!stopping) { console.warn('Connection interrupted:', e.message); diagnostic('upstream_interrupted',{errorName:e.name}); }
+        if (!stopping) { console.warn('Connection interrupted:', e.message); diagnostic('upstream_interrupted',{errorName:e.name,errorMessage:String(e.message||'').slice(0,240),statusCode:e.statusCode||null,causeName:e.cause?.name||null,causeCode:e.cause?.code||e.cause?.errno||null,causeMessage:String(e.cause?.message||'').slice(0,240)}); }
       } finally {
         if(activePollingSignal===signal){activePollingParams=null;activePollingSignal=null;activeBoardStops.clear()}
         if (params && !signal.aborted) {
