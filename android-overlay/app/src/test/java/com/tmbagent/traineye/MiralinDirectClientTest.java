@@ -11,6 +11,27 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.Assert.*;
 
 public class MiralinDirectClientTest {
+    @Test public void subscribesToStationBoardsAgainAfterReconnect() throws Exception {
+        String board = "42[\"stopDataUpdate\",{\"stopCode\":\"423\",\"via1\":[]}]";
+        FakeTransport transport = new FakeTransport(HELLO, board, "1", HELLO, board) {
+            @Override public String request(String session, String body) throws IOException {
+                if (session == null && next == 3) return packets.get(next++);
+                return super.request(session, body);
+            }
+        };
+        MiralinDirectClient[] client = new MiralinDirectClient[1];
+        int[] count = {0};
+        client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            public void onMap(JSONObject trains) { fail(); }
+            public void onState(String status) {}
+            public void onBoard(JSONObject board) { if (++count[0] == 2) client[0].close(); }
+        }, transport);
+        client[0].setStops(java.util.Collections.singleton("423"));
+        try { client[0].receiveSession(); fail(); } catch (IOException expected) {}
+        client[0].receiveSession();
+        assertEquals(2, count[0]);
+        assertEquals(2, transport.writes.stream().filter(body -> body.contains("subscribeStop")).count());
+    }
     private static final String HELLO = "0{\"sid\":\"test-session\",\"pingInterval\":25000,\"pingTimeout\":20000}";
     private static final String MAP = "42[\"mapUpdate\",{\"L4\":{\"trains\":{\"405\":{\"estacion\":\"Jaume I\",\"platformTrack\":1}}}}]";
 
