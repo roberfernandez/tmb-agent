@@ -25,3 +25,7 @@ La miniapp mostra el tren previst. Quan s’interpreta una captura diferent amb 
 ## Instal·lació de prova
 
 Baixa l’APK amb nom de versió des de la miniapp o des de les [versions publicades](https://github.com/roberfernandez/tmb-agent/releases). La compilació executa les proves de sessió, heartbeat, lectura de mapes i reconnexió abans de publicar l’arxiu. No està publicat a Google Play.
+
+## Prova de servei
+
+Amb el servei de prova que conté Estació a Jaume I de 21:04 a 23:09, trasllat a Trinitat Nova de 23:09 a 23:29 i conducció del tren 405 a les 23:29, el visor i el client Android han d’indicar 405 com a tren previst abans de la presa. Després de substituir una captura, prem «Actualitza el seguiment» per transferir-la al dispositiu. Activa els avisos, tria l’antelació i prem «Aplica els canvis» si l’has modificada. Prova la recepció amb la pantalla apagada i comprova que aturar el seguiment impedeix nous avisos locals.
