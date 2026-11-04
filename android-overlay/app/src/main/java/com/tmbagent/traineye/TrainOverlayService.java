@@ -83,7 +83,12 @@ public class TrainOverlayService extends Service {
     private int ageAtFetch = -1;
     private long fetchedAt = 0;
     private boolean expanded = true;
-    private boolean requestInFlight = false;
+    private volatile boolean requestInFlight = false;
+    private MiralinDirectClient directClient;
+    private JSONObject directMap;
+    private long directMapAt;
+    private String connectionStatus = "Miralin directe · connectant…";
+    private boolean destroyed;
 
     private final Runnable poll = new Runnable() {
         @Override public void run() {
@@ -145,6 +150,7 @@ public class TrainOverlayService extends Service {
             return START_NOT_STICKY;
         }
         showOverlay();
+        startDirectConnection();
         handler.removeCallbacks(poll);
         handler.post(poll);
         handler.removeCallbacks(ageTicker);
@@ -162,6 +168,7 @@ public class TrainOverlayService extends Service {
             .setContentText(serviceTracking ? "Horari rebut: " + schedule.split(";").length + " línies del servei." : "Seguiment actiu en segon pla.")
             .setContentIntent(content)
             .setOngoing(true)
+            .setSubText(connectionStatus)
             .build();
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
@@ -605,7 +612,47 @@ public class TrainOverlayService extends Service {
         }
     }
 
+    private void startDirectConnection() {
+        if (directClient != null) return;
+        directClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            @Override public void onMap(JSONObject trains) {
+                final long received = android.os.SystemClock.elapsedRealtime();
+                handler.post(() -> {
+                    if (destroyed) return;
+                    directMap = trains;
+                    directMapAt = received;
+                    applyDirectTrain();
+                    updateLine();
+                });
+            }
+            @Override public void onState(String status) {
+                handler.post(() -> {
+                    if (destroyed || status.equals(connectionStatus)) return;
+                    connectionStatus = status;
+                    startAsForeground();
+                });
+            }
+        });
+        directClient.start();
+    }
+
+    // Called on the main thread. Reception age uses a monotonic clock.
+    private boolean applyDirectTrain() {
+        if (directMap == null) return false;
+        long age = (android.os.SystemClock.elapsedRealtime() - directMapAt) / 1000;
+        if (age >= 45) return false;
+        JSONObject item = directMap.optJSONObject(train);
+        synchronized (this) {
+            station = item == null ? "sense dades" : item.optString("estacion", "sense dades");
+            track = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
+            ageAtFetch = item == null ? -1 : (int) age;
+            fetchedAt = System.currentTimeMillis();
+        }
+        return true;
+    }
+
     private void fetchTrain() {
+        if (destroyed || applyDirectTrain()) { updateLine(); return; }
         if (requestInFlight) return;
         requestInFlight = true;
         final String requestedTrain = train;
@@ -628,18 +675,19 @@ public class TrainOverlayService extends Service {
                 String newStation = item == null ? "sense dades" : item.optString("station", "sense dades");
                 String newTrack = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
                 int newAge = response.isNull("ageSeconds") ? -1 : response.optInt("ageSeconds", -1);
-                synchronized (this) {
-                    if (train.equals(requestedTrain)) {
+                handler.post(() -> {
+                    if (!destroyed && train.equals(requestedTrain) && !applyDirectTrain() &&
+                        (fetchedAt == 0 || (newAge >= 0 && newAge < 45))) {
                         station = newStation;
                         track = newTrack;
                         ageAtFetch = newAge;
                         fetchedAt = System.currentTimeMillis();
                     }
-                }
+                });
             } catch (Exception ignored) {
-                synchronized (this) {
-                    if (fetchedAt == 0) station = "sense connexió";
-                }
+                handler.post(() -> {
+                    if (!destroyed && !applyDirectTrain() && fetchedAt == 0) station = "sense connexió";
+                });
             } finally {
                 if (connection != null) connection.disconnect();
                 requestInFlight = false;
@@ -727,6 +775,8 @@ public class TrainOverlayService extends Service {
 
     @Override
     public void onDestroy() {
+        destroyed = true;
+        if (directClient != null) directClient.close();
         handler.removeCallbacks(poll);
         handler.removeCallbacks(ageTicker);
         if (popupRoot != null) {
