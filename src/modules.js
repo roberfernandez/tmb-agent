@@ -26,7 +26,7 @@ export const modules = [
   { id: 'tramits', name: 'Tràmits i ajuts', initials: 'TA', description: 'Formularis, préstecs i ajuts socials', icon: './assets/icons/tramits-400.webp' },
   { id: 'cobraments', name: 'Dates de cobrament', initials: 'DC', description: 'Pagues extraordinàries, complements i bestretes', icon: './assets/icons/cobraments-400.webp' },
   { id: 'rc', name: 'Reglament de Circulació', initials: 'RC', description: 'Consulta el RC, les IRC i els annexos', icon: './assets/icons/rc-400.webp' },
-  { id: 'risc-percebut', name: 'Risc percebut', initials: 'RP', description: 'Formulari del risc percebut', externalUrl: 'https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=rfBXvdn2FUWjv6q_le9PiXW87w_G89lNuGHEQPWIqOhUMjVXR09IQjlHSzBDSFUyMTgxU005T0E1Ni4u' },
+  { id: 'risc-percebut', name: 'Risc percebut', initials: 'RP', description: 'Formulari del risc percebut', icon: './assets/icons/risc-percebut-400.svg', externalUrl: 'https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=rfBXvdn2FUWjv6q_le9PiXW87w_G89lNuGHEQPWIqOhUMjVXR09IQjlHSzBDSFUyMTgxU005T0E1Ni4u' },
   { id: 'el-meu-servei', name: 'El meu servei · Proves', initials: 'ES', description: 'Seguiment personal del servei L4 en fase de prova', appUrl: './proves/servei/', icon: './assets/icons/el-meu-servei-512.webp', adminOnly: true },
   { id: 'administracio', name: 'Administració', initials: 'AD', description: 'Administració privada del launcher', icon: './assets/icons/administracio-eye-256.webp', adminOnly: true },
 ];
