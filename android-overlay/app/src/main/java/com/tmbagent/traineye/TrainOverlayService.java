@@ -21,6 +21,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Base64;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -45,6 +46,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class TrainOverlayService extends Service {
+    static volatile boolean isActive;
+    public static final String EXTRA_ALERTS = "alerts";
+    public static final String EXTRA_MARGIN = "margin";
     public static final String EXTRA_TRAIN = "train";
     public static final String EXTRA_MODE = "mode";
     public static final String EXTRA_SERVICE_DATE = "serviceDate";
@@ -89,6 +93,13 @@ public class TrainOverlayService extends Service {
     private long directMapAt;
     private String connectionStatus = "Miralin directe · connectant…";
     private boolean destroyed;
+    private ServicePlan servicePlan = new ServicePlan("");
+    private ServiceAlerts serviceAlerts;
+    private String alertPlanKey = "";
+    private boolean alertsEnabled;
+    private int alertMargin = 5;
+    private PowerManager.WakeLock alertWakeLock;
+    private long wakeRenewAt;
 
     private final Runnable poll = new Runnable() {
         @Override public void run() {
@@ -103,6 +114,7 @@ public class TrainOverlayService extends Service {
             applyScheduledTrain(true);
             updateLine();
             updatePopupHighlight();
+            tickServiceAlerts();
             handler.postDelayed(this, 1000);
         }
     };
@@ -125,7 +137,12 @@ public class TrainOverlayService extends Service {
             return START_STICKY;
         }
         android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
+        if (intent != null && "CONFIGURE_ALERTS".equals(intent.getAction()) && isActive) {
+            configureAlerts();
+            return START_STICKY;
+        }
         if (intent != null) {
+            if (popupRoot != null) closeServicePopup();
             train = intent.getStringExtra(EXTRA_TRAIN) == null ? train : intent.getStringExtra(EXTRA_TRAIN);
             mode = intent.getStringExtra(EXTRA_MODE) == null ? "manual" : intent.getStringExtra(EXTRA_MODE);
             serviceDate = intent.getStringExtra(EXTRA_SERVICE_DATE) == null ? "" : intent.getStringExtra(EXTRA_SERVICE_DATE);
@@ -143,6 +160,8 @@ public class TrainOverlayService extends Service {
             serviceImage = prefs.getString(EXTRA_SERVICE_IMAGE, "");
             serviceRowBounds = prefs.getString(EXTRA_SERVICE_ROW_BOUNDS, "");
         }
+        servicePlan = new ServicePlan(schedule);
+        configureAlerts();
         applyScheduledTrain(false);
         startAsForeground();
         if (!android.provider.Settings.canDrawOverlays(this)) {
@@ -150,6 +169,7 @@ public class TrainOverlayService extends Service {
             return START_NOT_STICKY;
         }
         showOverlay();
+        isActive = true;
         startDirectConnection();
         handler.removeCallbacks(poll);
         handler.post(poll);
@@ -183,6 +203,9 @@ public class TrainOverlayService extends Service {
             channel.setDescription("Manté actiu el seguiment del tren seleccionat.");
             channel.setSound(null, null);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
+            NotificationChannel alerts = new NotificationChannel("service_alerts", "Avisos del servei", NotificationManager.IMPORTANCE_HIGH);
+            alerts.setDescription("Trasllats, preses i pas del tren assignat amb la pantalla apagada.");
+            getSystemService(NotificationManager.class).createNotificationChannel(alerts);
         }
     }
 
@@ -629,11 +652,71 @@ public class TrainOverlayService extends Service {
                 handler.post(() -> {
                     if (destroyed || status.equals(connectionStatus)) return;
                     connectionStatus = status;
+                    if (serviceAlerts != null && !status.contains("dades rebudes")) serviceAlerts.clearBoards();
                     startAsForeground();
                 });
             }
+            @Override public void onBoard(JSONObject board) {
+                final long received = System.currentTimeMillis();
+                handler.post(() -> { if (!destroyed && serviceAlerts != null) serviceAlerts.acceptBoard(board, received); });
+            }
         });
         directClient.start();
+        updateAlertStops();
+    }
+
+    private void configureAlerts() {
+        android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
+        alertsEnabled = prefs.getBoolean(EXTRA_ALERTS, false);
+        alertMargin = Math.max(1, Math.min(120, prefs.getInt(EXTRA_MARGIN, 5)));
+        long now = System.currentTimeMillis();
+        String key = servicePlan.anchorAt(now) + ":" + schedule;
+        if ("service".equals(mode) && !schedule.isEmpty() && (!key.equals(alertPlanKey) || serviceAlerts == null)) {
+            alertPlanKey = key;
+            serviceAlerts = new ServiceAlerts(servicePlan, now);
+            if (key.equals(prefs.getString("alertPlan", ""))) serviceAlerts.sent.addAll(new java.util.HashSet<>(prefs.getStringSet("alertSent", java.util.Collections.emptySet())));
+            else prefs.edit().putString("alertPlan", key).putStringSet("alertSent", java.util.Collections.emptySet()).apply();
+        }
+        if (!"service".equals(mode)) serviceAlerts = null;
+        updateAlertStops();
+        updateAlertWakeLock();
+    }
+
+    private void updateAlertStops() {
+        if (directClient != null) directClient.setStops(alertsEnabled && serviceAlerts != null ? serviceAlerts.requiredStops(System.currentTimeMillis()) : java.util.Collections.emptySet());
+    }
+
+    private void updateAlertWakeLock() {
+        if (!alertsEnabled || serviceAlerts == null || !serviceAlerts.hasPending(System.currentTimeMillis())) {
+            if (alertWakeLock != null && alertWakeLock.isHeld()) alertWakeLock.release();
+            wakeRenewAt = 0; return;
+        }
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (alertWakeLock == null) {
+            alertWakeLock = getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tmbagent:service-alerts");
+            alertWakeLock.setReferenceCounted(false);
+        }
+        if (!alertWakeLock.isHeld() || now >= wakeRenewAt) { alertWakeLock.acquire(10 * 60000L); wakeRenewAt = now + 5 * 60000L; }
+    }
+
+    private void tickServiceAlerts() {
+        updateAlertStops(); updateAlertWakeLock();
+        if (!alertsEnabled || serviceAlerts == null || getSystemService(PowerManager.class).isInteractive()) return;
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (!manager.areNotificationsEnabled()) return;
+        for (ServiceAlerts.Alert alert : serviceAlerts.due(System.currentTimeMillis(), alertMargin)) {
+            Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(SERVICE_VIEWER_URL));
+            PendingIntent content = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            Notification notification = new Notification.Builder(this, "service_alerts")
+                .setSmallIcon(android.R.drawable.ic_menu_view).setContentTitle(alert.title).setContentText(alert.body)
+                .setStyle(new Notification.BigTextStyle().bigText(alert.body)).setCategory(Notification.CATEGORY_REMINDER)
+                .setContentIntent(content).setAutoCancel(true).setTimeoutAfter(180000).build();
+            try {
+                manager.notify("service-" + alert.key, 9414, notification);
+                serviceAlerts.markSent(alert);
+                getSharedPreferences("overlay", MODE_PRIVATE).edit().putStringSet("alertSent", new java.util.HashSet<>(serviceAlerts.sent)).apply();
+            } catch (SecurityException ignored) {}
+        }
     }
 
     // Called on the main thread. Reception age uses a monotonic clock.
@@ -698,27 +781,7 @@ public class TrainOverlayService extends Service {
 
     private void applyScheduledTrain(boolean refreshNow) {
         if (!"service".equals(mode) || schedule == null || schedule.isEmpty()) return;
-        String selected = null;
-        int now = serviceMinutesNow();
-        int bestUpcoming = Integer.MAX_VALUE;
-        String latestTrain = null;
-        int latestEnd = -1;
-        for (String entry : schedule.split(";")) {
-            String[] parts = entry.split(",", -1);
-            if (parts.length != 3 && parts.length != 8) continue;
-            try {
-                int start = Integer.parseInt(parts[0]);
-                int end = Integer.parseInt(parts[1]);
-                String type = parts.length == 8 ? parts[2] : "CON";
-                String candidate = parts.length == 8 ? parts[5] : parts[2];
-                if (!"CON".equals(type) || !candidate.matches("4\\d{2}") ||
-                    Integer.parseInt(candidate) < 401 || Integer.parseInt(candidate) > 416) continue;
-                if (now >= start && now < end) { selected = candidate; break; }
-                if (start > now && start < bestUpcoming) { bestUpcoming = start; selected = candidate; }
-                if (end > latestEnd) { latestEnd = end; latestTrain = candidate; }
-            } catch (NumberFormatException ignored) {}
-        }
-        if (selected == null) selected = latestTrain;
+        String selected = servicePlan.trainAt(System.currentTimeMillis(), null);
         if (selected != null && !selected.equals(train)) {
             train = selected;
             station = "connectant…";
@@ -732,21 +795,7 @@ public class TrainOverlayService extends Service {
     }
 
     private int serviceMinutesNow() {
-        java.util.Calendar clock = java.util.Calendar.getInstance();
-        int minutes = clock.get(java.util.Calendar.HOUR_OF_DAY) * 60 + clock.get(java.util.Calendar.MINUTE);
-        int firstStart = Integer.MAX_VALUE;
-        int latestEnd = -1;
-        for (String entry : schedule.split(";")) {
-            String[] parts = entry.split(",", -1);
-            if (parts.length != 3 && parts.length != 8) continue;
-            try {
-                firstStart = Math.min(firstStart, Integer.parseInt(parts[0]));
-                latestEnd = Math.max(latestEnd, Integer.parseInt(parts[1]));
-            } catch (NumberFormatException ignored) {}
-        }
-        int endClock = latestEnd % 1440;
-        if (latestEnd > 1440 && minutes < firstStart && minutes < endClock) minutes += 1440;
-        return minutes;
+        return servicePlan.minutesAt(System.currentTimeMillis());
     }
 
     private void updateLine() {
@@ -775,6 +824,8 @@ public class TrainOverlayService extends Service {
 
     @Override
     public void onDestroy() {
+        isActive = false;
+        if (alertWakeLock != null && alertWakeLock.isHeld()) alertWakeLock.release();
         destroyed = true;
         if (directClient != null) directClient.close();
         handler.removeCallbacks(poll);
