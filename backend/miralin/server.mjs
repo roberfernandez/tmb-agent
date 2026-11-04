@@ -232,6 +232,16 @@ async function networkDiagnostic() {
   diagnostic('upstream_runtime',{node:process.version,transport:'https',family:4});
   try{diagnostic('upstream_dns',{addresses:await lookup('miralin.cat',{all:true})})}
   catch(e){diagnostic('upstream_dns_failed',{errorName:e.name,code:e.code||null})}
+  await Promise.all([
+    ['google','https://dns.google/resolve?name=miralin.cat&type=A'],
+    ['cloudflare','https://cloudflare-dns.com/dns-query?name=miralin.cat&type=A']
+  ].map(async ([provider,url])=>{
+    try{
+      const result=await httpsText(url,{agent:false,timeoutMs:5000});
+      const answer=JSON.parse(result.text);
+      diagnostic('upstream_public_dns',{provider,statusCode:result.status,status:answer.Status,answers:(answer.Answer||[]).map(a=>({type:a.type,data:a.data,ttl:a.TTL}))});
+    }catch(e){diagnostic('upstream_public_dns_failed',{provider,errorName:e.name,code:e.code||null})}
+  }));
   const probes=[
     {name:'control_ipv4',url:'https://example.com/',family:4},
     {name:'miralin_ipv4',url:UPSTREAM+'?EIO=4&transport=polling',family:4},
