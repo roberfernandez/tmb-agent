@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="title desc">
+<title id="title">Risc percebut</title>
+<desc id="desc">Una lupa turquesa que enfoca un senyal groc d’advertència.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071943"/><stop offset="1" stop-color="#092b69"/></linearGradient>
+  <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#064578"/><stop offset="1" stop-color="#062653"/></linearGradient>
+  <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#42edf0"/><stop offset="1" stop-color="#08bfc9"/></linearGradient>
+  <linearGradient id="yellow" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#ffe333"/><stop offset="1" stop-color="#ffbf00"/></linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#00102d" flood-opacity=".55"/></filter>
+</defs>
+<rect width="400" height="400" rx="68" fill="url(#bg)"/>
+<path d="M258 258 326 326" fill="none" stroke="url(#cyan)" stroke-width="38" stroke-linecap="round"/>
+<path d="M304 304 352 352" fill="none" stroke="url(#yellow)" stroke-width="38" stroke-linecap="round"/>
+<circle cx="169" cy="166" r="120" fill="url(#glass)" stroke="url(#cyan)" stroke-width="23" filter="url(#shadow)"/>
+<circle cx="169" cy="166" r="103" fill="none" stroke="#8ffcff" stroke-opacity=".22" stroke-width="3"/>
+<path d="M91 135c10-24 27-43 51-56" fill="none" stroke="#d3f5ff" stroke-opacity=".82" stroke-width="17" stroke-linecap="round"/>
+<path d="M169 94 245 229c8 14-2 31-18 31H111c-16 0-26-17-18-31l76-135c8-14 28-14 36 0Z" fill="url(#yellow)" filter="url(#shadow)"/>
+<path d="M166 137c0-8 6-14 14-14s14 6 14 14l-4 48c-.5 6-5 10-10 10s-9.5-4-10-10z" fill="#08265d"/>
+<circle cx="180" cy="218" r="10" fill="#08265d"/>
+</svg>
