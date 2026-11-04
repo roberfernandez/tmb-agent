@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ca"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prova de connexió · El meu servei</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#08111e;color:#edf3fc}body{max-width:620px;margin:auto;padding:24px}h1{font-size:25px}button{font:inherit;font-weight:700;border:0;border-radius:14px;padding:16px 20px;background:#ffdf00;color:#08111e;cursor:pointer}button:disabled{opacity:.5}section{border:1px solid #34455c;background:#132134;border-radius:18px;padding:20px;margin:22px 0}p{line-height:1.5}.muted{color:#b5c5d9}#status{font-size:21px;font-weight:700}pre{white-space:pre-wrap;font-size:14px;line-height:1.5}li{margin:12px 0}a{color:#ffdf00}
+</style>
+<h1>Connexió directa amb Miralin</h1>
+<p>Prem el botó des del mòbil on Miralin funciona. Aquesta prova comprova si podem rebre posicions directament, sense Render.</p>
+<button id="start">Comprova la connexió</button>
+<section aria-live="polite"><div id="status">Pendent de comprovar</div><p id="detail" class="muted">La prova dura un màxim de 40 segons i s'atura automàticament.</p><ul id="trains"></ul></section>
+<details><summary>Detalls de la prova</summary><pre id="log"></pre></details>
+<p class="muted">No es carrega cap servei personal ni es canvia el seguiment actual.</p>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+let dispose=null;
+function log(message){$('log').textContent+=new Date().toLocaleTimeString('ca-ES')+' · '+message+'\n'}
+function showTrains(trains){
+ const list=$('trains');list.replaceChildren();
+ for(const [id,t] of Object.entries(trains).slice(0,4)){
+  const li=document.createElement('li');li.textContent='Tren '+id+' · '+String(t.estacion||'—')+' · via '+String(t.platformTrack??t.track??'—');list.append(li);
+ }
+}
+function observePacket(packet,onMap){
+ if(!packet.startsWith('42'))return;
+ try{const [event,data]=JSON.parse(packet.slice(2));if(event==='mapUpdate'&&data?.L4?.trains&&Object.keys(data.L4.trains).length)onMap(data.L4.trains)}catch{}
+}
+function websocketProbe(){
+ return new Promise((resolve,reject)=>{
+  const socket=new WebSocket('wss://miralin.cat/socket.io/?EIO=4&transport=websocket');
+  let updates=0,finished=false;
+  const finish=error=>{if(finished)return;finished=true;clearTimeout(timer);socket.onmessage=null;socket.onerror=null;socket.onclose=null;socket.close();dispose=null;error?reject(error):resolve()};
+  const timer=setTimeout(()=>finish(Error('No s’han rebut dues actualitzacions per WebSocket.')),20000);
+  dispose=()=>finish(Error('Prova aturada.'));
+  socket.onmessage=message=>{
+   for(const packet of String(message.data).split('\x1e')){
+    if(packet.startsWith('0'))socket.send('40');
+    else if(packet==='2')socket.send('3');
+    else if(packet==='1'||packet.startsWith('41')){finish(Error('Miralin ha tancat la connexió.'));return}
+    observePacket(packet,trains=>{updates++;showTrains(trains);log('WebSocket: actualització '+updates+' rebuda');if(updates>=2)finish()});
+   }
+  };
+  socket.onerror=()=>finish(Error('El navegador no ha pogut establir WebSocket.'));
+  socket.onclose=()=>finish(Error('La connexió WebSocket s’ha tancat.'));
+ });
+}
+async function pollingProbe(){
+ const controller=new AbortController();dispose=()=>controller.abort();
+ const timer=setTimeout(()=>controller.abort(),20000);
+ let sid=null;
+ const endpoint='https://miralin.cat/socket.io/';
+ async function request(body){
+  const params=new URLSearchParams({EIO:'4',transport:'polling',...(sid?{sid}:{})});
+  const response=await fetch(endpoint+'?'+params,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'text/plain;charset=UTF-8'},body,signal:controller.signal,credentials:'omit',cache:'no-store'});
+  if(!response.ok)throw Error('Resposta HTTP '+response.status);
+  return response.text();
+ }
+ try{
+  const hello=await request();if(!hello.startsWith('0'))throw Error('Resposta inicial no reconeguda.');
+  sid=JSON.parse(hello.slice(1)).sid;if(!sid)throw Error('Falta la sessió.');
+  await request('40');let updates=0;
+  while(updates<2){
+   for(const packet of (await request()).split('\x1e')){
+    if(packet==='2')await request('3');
+    else if(packet==='1'||packet.startsWith('41'))throw Error('Miralin ha tancat la connexió.');
+    observePacket(packet,trains=>{updates++;showTrains(trains);log('HTTP: actualització '+updates+' rebuda')});
+   }
+  }
+ }finally{
+  clearTimeout(timer);controller.abort();dispose=null;
+  if(sid){
+   const params=new URLSearchParams({EIO:'4',transport:'polling',sid});
+   fetch(endpoint+'?'+params,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:'1',credentials:'omit',signal:AbortSignal.timeout(1500)}).catch(()=>{});
+  }
+ }
+}
+$('start').onclick=async()=>{
+ $('start').disabled=true;$('log').textContent='';$('trains').replaceChildren();
+ $('status').textContent='Connectant directament…';$('detail').textContent='Primer comprovem WebSocket; si no funciona, comprovarem HTTP.';
+ try{
+  let method='WebSocket';
+  try{await websocketProbe()}catch(error){log(error.message);method='HTTP';await pollingProbe()}
+  $('status').textContent='Connexió directa disponible';
+  $('detail').textContent='Hem rebut dues actualitzacions de la L4 per '+method+'. La prova ha acabat.';
+  log('RESULTAT: correcte per '+method);
+ }catch(error){
+  $('status').textContent='Connexió directa no confirmada';
+  $('detail').textContent='La prova no ha rebut dades. Això pot ser un problema de xarxa o una restricció del navegador entre webs; encara no determina si l’APK podria connectar.';
+  log('RESULTAT: sense dades · '+error.name+' · '+error.message);
+ }finally{$('start').disabled=false}
+};
+addEventListener('pagehide',()=>dispose?.());
+</script></html>
