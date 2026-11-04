@@ -16,7 +16,11 @@ Si no hi ha dades directes de menys de 45 segons, consulta `/api/trains` de Rend
 
 La notificació persistent indica l’estat de la connexió directa. No s’envien imatges ni dades del servei personal a Miralin. La superposició es tanca amb ×.
 
-Els avisos web del servei continuen calculant-se a Render. Aquesta connexió Android no restaura per si sola els càlculs d’arribades i alternatives del servidor si aquest no pot accedir a Miralin.
+Des de la versió 0.14.15, Android també calcula els avisos al dispositiu. Amb els avisos habilitats i el seguiment automàtic actiu, se subscriu a les estacions de desplaçament i presa del proper tram. Avisa de trasllats, preses i pas del tren assignat quan la pantalla està apagada. Els marges de les tres alternatives (via contrària) es comparen amb l’arribada real del tren assignat, no només amb l’hora del paper. Si el mateix tren permet arribar-hi, indica aquesta darrera opció, inclòs el canvi de sentit a terminal. No calcula alternatives amb quadres de més de 60 segons ni sense identificar l’estació i la via.
+
+Els avisos emesos es desen per servei i jornada per evitar repeticions després d’un reinici. Android ofereix permetre l’activitat en segon pla per mantenir connexió i CPU amb el mòbil bloquejat; el bloqueig de pantalla, l’estalvi de bateria i el comportament del fabricant requereixen una prova real al telèfon. El manteniment de CPU només s’aplica amb avisos automàtics pendents i s’allibera en aturar-los. Els avisos web de la resta de plataformes continuen depenent de Render.
+
+La miniapp mostra el tren previst. Quan s’interpreta una captura diferent amb el seguiment ja actiu, apareix «Actualitza el seguiment» perquè l’usuari transfereixi l’horari nou a Android. La sessió actual continua fins que es prem aquest botó o «Atura». Els avisos Android es desactiven temporalment si es detecta un servei nou pendent d’aplicar. Activar o actualitzar envia l’horari complet, el marge i la configuració d’avisos.
 
 ## Instal·lació de prova
 
