@@ -1,6 +1,8 @@
 import http from 'node:http';
 import {createHash,randomUUID,createSign} from 'node:crypto';
 import http2 from 'node:http2';
+import https from 'node:https';
+import {lookup} from 'node:dns/promises';
 const bootId=randomUUID();
 function diagnostic(event,details={}) { console.log(JSON.stringify({at:new Date().toISOString(),bootId,event,...details})); }
 const watchId=endpoint=>createHash('sha256').update(endpoint).digest('hex').slice(0,12);
@@ -201,15 +203,56 @@ function requestStopBoard(stop){
   lastUse=Date.now();start();
  });
 }
-async function request(params, body, signal) {
-  const response = await fetch(UPSTREAM + '?' + new URLSearchParams(params), {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: body === undefined ? {} : { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body, signal: AbortSignal.any([signal, AbortSignal.timeout(40000)])
+// Keep the address family explicit rather than depending on fetch's DNS selection.
+const upstreamAgent = new https.Agent({keepAlive:true,maxSockets:8,family:4});
+function httpsText(url,{body,signal,family=4,agent=upstreamAgent,timeoutMs=40000}={}) {
+  const signals=[AbortSignal.timeout(timeoutMs)];
+  if(signal)signals.push(signal);
+  const boundedSignal=AbortSignal.any(signals);
+  return new Promise((resolve,reject)=>{
+    const req=https.request(url,{
+      method:body===undefined?'GET':'POST',family,agent,signal:boundedSignal,
+      headers:body===undefined?{}:{'Content-Type':'text/plain;charset=UTF-8','Content-Length':Buffer.byteLength(body)}
+    },res=>{
+      const chunks=[];let size=0;
+      res.on('data',chunk=>{size+=chunk.length;if(size>16*1024*1024){res.destroy(new Error('Upstream response too large'));return}chunks.push(chunk)});
+      res.on('error',reject);
+      res.on('end',()=>resolve({status:res.statusCode,text:Buffer.concat(chunks).toString('utf8')}));
+    });
+    req.on('error',reject);
+    req.end(body);
   });
-  if (!response.ok) throw Object.assign(new Error('Upstream HTTP ' + response.status), {statusCode:response.status});
-  return response.text();
 }
+async function request(params, body, signal) {
+  const result=await httpsText(UPSTREAM+'?'+new URLSearchParams(params),{body,signal});
+  if(result.status<200||result.status>=300)throw Object.assign(new Error('Upstream HTTP '+result.status),{statusCode:result.status});
+  return result.text;
+}
+async function networkDiagnostic() {
+  diagnostic('upstream_runtime',{node:process.version,transport:'https',family:4});
+  try{diagnostic('upstream_dns',{addresses:await lookup('miralin.cat',{all:true})})}
+  catch(e){diagnostic('upstream_dns_failed',{errorName:e.name,code:e.code||null})}
+  const probes=[
+    {name:'control_ipv4',url:'https://example.com/',family:4},
+    {name:'miralin_ipv4',url:UPSTREAM+'?EIO=4&transport=polling',family:4},
+    {name:'miralin_ipv6',url:UPSTREAM+'?EIO=4&transport=polling',family:6}
+  ];
+  await Promise.all(probes.map(async probe=>{
+    const started=Date.now();
+    try{
+      const result=await httpsText(probe.url,{family:probe.family,agent:false,timeoutMs:12000});
+      let sid=null;
+      if(probe.name.startsWith('miralin_')&&result.text.startsWith('0')){
+        try{sid=JSON.parse(result.text.slice(1)).sid||null}catch{}
+      }
+      diagnostic('network_probe',{probe:probe.name,statusCode:result.status,handshake:!!sid,elapsedMs:Date.now()-started});
+      // Close the diagnostic Engine.IO session; it is never used for live data.
+      if(sid)await httpsText(UPSTREAM+'?'+new URLSearchParams({EIO:'4',transport:'polling',sid}),{body:'1',family:probe.family,agent:false,timeoutMs:3000}).catch(()=>{});
+    }catch(e){diagnostic('network_probe',{probe:probe.name,errorName:e.name,code:e.code||e.cause?.code||null,elapsedMs:Date.now()-started})}
+  }));
+}
+void networkDiagnostic().catch(e=>diagnostic('network_diagnostic_failed',{errorName:e.name}));
+
 function start() {
   if (running || stopping) return;
   running = true;
@@ -219,6 +262,14 @@ function start() {
     while (!stopping && watchNeeded()) {
       controller = new AbortController();
       const signal = controller.signal;
+      const sessionStarted=Date.now();
+      const idleGuard=setInterval(()=>{
+        if(Date.now()-Math.max(sessionStarted,receivedAt)>90000){
+          diagnostic('upstream_stale_reconnect',{ageSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null});
+          controller.abort(new Error('No map data received for 90 seconds'));
+        }
+      },10000);
+      idleGuard.unref();
       let params;
       try {
         const hello = await request({EIO:'4',transport:'polling'}, undefined, signal);
@@ -254,6 +305,7 @@ function start() {
         connected = false;
         if (!stopping) { console.warn('Connection interrupted:', e.message); diagnostic('upstream_interrupted',{errorName:e.name,errorMessage:String(e.message||'').slice(0,240),statusCode:e.statusCode||null,causeName:e.cause?.name||null,causeCode:e.cause?.code||e.cause?.errno||null,causeMessage:String(e.cause?.message||'').slice(0,240)}); }
       } finally {
+        clearInterval(idleGuard);
         if(activePollingSignal===signal){activePollingParams=null;activePollingSignal=null;activeBoardStops.clear()}
         if (params && !signal.aborted) {
           try { await request(params, '41', signal); } catch {}
@@ -509,7 +561,7 @@ const server = http.createServer((req, res) => {
   if (req.method !== 'GET') { res.writeHead(405); return res.end(); }
   const url = new URL(req.url, 'http://localhost');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  if (url.pathname === '/health') return res.end(JSON.stringify({ok:true, connected}));
+  if (url.pathname === '/health') return res.end(JSON.stringify({ok:true,connected,running,mapUpdates,ageSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null,feedFresh:!!(connected&&receivedAt&&Date.now()-receivedAt<=45000)}));
   if(url.pathname==='/api/station-board'){
     const ids=(url.searchParams.get('stops')||url.searchParams.get('stop')||'').split(',').filter(Boolean);
     if(!ids.length||ids.length>4||ids.some(id=>!/^4(?:1[3-9]|2[0-9]|3[0-4])$/.test(id))){res.writeHead(400);return res.end(JSON.stringify({error:'Invalid L4 station IDs'}))}
