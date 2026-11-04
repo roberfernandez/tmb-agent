@@ -11,6 +11,9 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Collections;
 
 /** One Engine.IO polling session, owned by the active foreground service. */
 final class MiralinDirectClient implements AutoCloseable {
@@ -20,6 +23,7 @@ final class MiralinDirectClient implements AutoCloseable {
     interface Listener {
         void onMap(JSONObject trains);
         void onState(String status);
+        default void onBoard(JSONObject board) {}
     }
 
     interface Transport {
@@ -32,6 +36,9 @@ final class MiralinDirectClient implements AutoCloseable {
     private volatile boolean closed;
     private Thread worker;
     private boolean sessionHadMap;
+    private volatile Set<String> stops = Collections.emptySet();
+
+    void setStops(Set<String> requested) { stops = new HashSet<>(requested); }
 
     MiralinDirectClient(Listener listener) { this(listener, new HttpsTransport()); }
 
@@ -74,7 +81,12 @@ final class MiralinDirectClient implements AutoCloseable {
         try {
             transport.request(session, "40");
             long lastMap = System.nanoTime();
+            Set<String> subscribed = new HashSet<>();
             while (!closed) {
+                for (String stop : stops) {
+                    if (!stop.matches("41[3-9]|42[0-9]|43[0-4]") || !subscribed.add(stop)) continue;
+                    transport.request(session, "42" + new JSONArray().put("subscribeStop").put(new JSONObject().put("line", "L4").put("stop", stop)).toString());
+                }
                 String payload = transport.request(session, null);
                 for (String packet : payload.split("\u001e")) {
                     if (closed) return;
@@ -83,6 +95,11 @@ final class MiralinDirectClient implements AutoCloseable {
                     else if (packet.startsWith("44")) throw new IOException("Connection rejected");
                     else if (packet.startsWith("42")) {
                         JSONArray event = new JSONArray(packet.substring(2));
+                        if ("stopDataUpdate".equals(event.optString(0))) {
+                            JSONObject board = event.optJSONObject(1);
+                            if (board != null) listener.onBoard(board);
+                            continue;
+                        }
                         if (!"mapUpdate".equals(event.optString(0))) continue;
                         JSONObject data = event.optJSONObject(1);
                         JSONObject line = data == null ? null : data.optJSONObject("L4");
