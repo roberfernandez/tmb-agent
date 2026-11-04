@@ -145,14 +145,16 @@ async function syncServiceAlerts(stop=false){
  remoteAlertsActive=!stop;localStorage.setItem('tmb-servei-alerts',String(!stop));
  return {events:buildServiceAlertEvents().length,native:true,pending};
 }
-let alertSyncTimer;
-function scheduleAlertSync(){clearTimeout(alertSyncTimer);alertSyncTimer=setTimeout(()=>{if(enabled)syncServiceAlerts().then(()=>{$('alarmStatus').textContent=isAndroid?'Avisos configurats al mòbil · '+state.margin+' min. Aplica el servei amb el botó de seguiment.':'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut actualitzar els avisos: '+e.message})},700)}
-function setMargin(value){const n=Math.max(1,Math.min(120,Math.round(Number(value)||1)));state.margin=n;$('margin').value=String(n);persist();if(enabled)scheduleAlertSync()}
+let alertSyncTimer,alertSettingsDirty=false;
+function scheduleAlertSync(){if(isAndroid){$('alarmStatus').textContent='Servei actualitzat. Aplica el seguiment per utilitzar el nou horari i els avisos.';return}clearTimeout(alertSyncTimer);alertSyncTimer=setTimeout(()=>{if(enabled)syncServiceAlerts().then(()=>{$('alarmStatus').textContent=isAndroid?'Avisos configurats al mòbil · '+state.margin+' min. Aplica el servei amb el botó de seguiment.':'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut actualitzar els avisos: '+e.message})},700)}
+function setMargin(value){const n=Math.max(1,Math.min(120,Math.round(Number(value)||1)));state.margin=n;$('margin').value=String(n);persist();if(enabled&&isAndroid){alertSettingsDirty=true;$('enable').textContent='Aplica els canvis';$('alarmStatus').textContent='Antelació nova: '+n+' min. Prem «Aplica els canvis».'}else if(enabled)scheduleAlertSync()}
 $('margin').onchange=()=>setMargin($('margin').value);$('margin').oninput=()=>setMargin($('margin').value);$('marginUp').onclick=()=>setMargin(Number($('margin').value)+1);$('marginDown').onclick=()=>setMargin(Number($('margin').value)-1);$('test').onclick=()=>notify('Prova de so · El meu servei');
 $('enable').onclick=async()=>{
  const button=$('enable');button.disabled=true;
  try{
-  if(enabled){
+  if(enabled&&alertSettingsDirty){
+   const result=await syncServiceAlerts(false);alertSettingsDirty=false;$('alarmStatus').textContent=result.pending?'Actualitza el seguiment per aplicar els avisos al servei nou.':'Avisos actualitzats · '+state.margin+' min.';
+  }else if(enabled){
    await syncServiceAlerts(true);enabled=false;remoteAlertsActive=false;$('alarmStatus').textContent='Avisos desactivats.';
   }else{
    const result=await syncServiceAlerts(false);enabled=true;remoteAlertsActive=true;sound();$('alarmStatus').textContent=result.native?(result.pending?'Actualitza el seguiment per aplicar els avisos al servei nou.':'Avisos configurats al mòbil · '+state.margin+' min. S’emeten amb el seguiment automàtic actiu i la pantalla apagada.'):'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats. '+result.events+' avisos programats.';
@@ -163,7 +165,7 @@ $('enable').onclick=async()=>{
 };
 $('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
 $('alarmStatus').textContent=enabled?'Avisos activats; comprovant la programació…':'Avisos desactivats.';
-if(enabled)setTimeout(()=>syncServiceAlerts().then(result=>{$('alarmStatus').textContent=result.native?(result.pending?'Actualitza el seguiment per aplicar els avisos al servei nou.':'Avisos configurats al mòbil · '+state.margin+' min. S’emeten amb el seguiment automàtic actiu i la pantalla apagada.'):'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats. '+result.events+' avisos programats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut restaurar els avisos: '+e.message;remoteAlertsActive=false}),800);
+if(enabled&&!isAndroid)setTimeout(()=>syncServiceAlerts().then(result=>{$('alarmStatus').textContent=result.native?(result.pending?'Actualitza el seguiment per aplicar els avisos al servei nou.':'Avisos configurats al mòbil · '+state.margin+' min. S’emeten amb el seguiment automàtic actiu i la pantalla apagada.'):'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats. '+result.events+' avisos programats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut restaurar els avisos: '+e.message;remoteAlertsActive=false}),800);
 $('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();if(enabled)scheduleAlertSync();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render()}catch(e){$('error').textContent=e.message}};
 $('reset').onclick=()=>{state.date=new Date().toISOString().slice(0,10);state.text='';state.taken=[];state.location=null;state.photoData=null;state.photoRows=null;state.photoSize=null;state.manualRowIndex=null;state.manualSince=null;manualRowIndex=null;manualSince=0;ocrRowBounds=null;photoSize=null;photoRowsReady=false;lastPhotoRow=null;$('photoPreview').removeAttribute('src');$('photoViewport').hidden=true;$('activePhotoRow').style.display='none';fired.clear();if(enabled){void syncServiceAlerts(true).catch(()=>{});enabled=false;remoteAlertsActive=false;localStorage.removeItem('tmb-servei-alerts');$('enable').textContent='Activa els avisos';$('alarmStatus').textContent='Avisos desactivats.'}persist();load()};
 function renderViewerTimeline(active){
@@ -285,6 +287,7 @@ $('startServiceEye').onclick=async()=>{
   if(bounds)query.set('rowBounds',bounds);
   openAndroidEye(query);
  }else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString();
+ alertSettingsDirty=false;$('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
  $('startServiceEye').disabled=false;
 };
 $('stopServiceEye').onclick=async()=>{showFollowMode('');await stopNativeEye()};
