@@ -367,3 +367,14 @@ body:not(.home) .header .brand:focus-visible{outline:3px solid #98c5e0;outline-o
 
 .miralin-station::after{content:"";position:absolute;inset:-8px;border-radius:50%}
 @media(max-width:760px){.miralin-station-413,.miralin-station-417{top:-8px}.miralin-station-428,.miralin-station-434{bottom:-8px}.miralin-station-413,.miralin-station-428{left:-8px}.miralin-station-417,.miralin-station-434{right:-8px}}
+
+
+/* Graella compacta de quatre miniapps per fila en mòbil. */
+@media(max-width:760px){
+  .home .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(6px,1.6vw,10px)}
+  .home .grid>.card{padding:clamp(4px,1.3vw,8px);gap:clamp(5px,1.4vw,8px);border-radius:15px}
+  .home .grid>.card h2{font-size:clamp(9px,2.8vw,12px);line-height:1.15;min-height:3.45em;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;overflow-wrap:anywhere}
+  .home .cquadre-overlay-badge{top:80%;min-width:18px;height:18px;padding:0 2px;font-size:8px;border-width:1px}
+  .home .cquadre-overlay-badge-cquadre{left:14%}
+  .home .cquadre-overlay-badge-avisos{right:14%}
+}
