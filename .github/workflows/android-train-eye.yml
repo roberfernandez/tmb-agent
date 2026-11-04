@@ -20,7 +20,7 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build Android test app
-        run: gradle -p android-overlay :app:assembleDebug
+        run: gradle -p android-overlay :app:testDebugUnitTest :app:assembleDebug
       - name: Read app version
         id: app-version
         run: |
