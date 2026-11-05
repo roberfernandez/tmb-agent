@@ -8,7 +8,7 @@ import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from '
 let canAdmin = false;
 import { renderMap } from './map.js?v=image-gestures-v1';
 import { modules } from './modules.js?v=miniapps-v1';
-import { renderCalendaris, renderTramits, renderCobraments, renderRC } from './miniapps.js?v=calendaris-v2';
+import { renderCalendaris, renderTramits, renderCobraments, renderRC } from './miniapps.js?v=calendaris-v3';
 import { renderTMobilitat } from './tmobilitat.js?v=image-gestures-v1';
 import { renderAscensors } from './ascensors.js?v=ascensors-v1';
 import { renderPAE } from './pae.js?v=pae-v3';
