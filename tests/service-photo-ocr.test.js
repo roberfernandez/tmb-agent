@@ -66,3 +66,14 @@ test('fast capture path does not run photo retries and unreadable inputs never r
  await assert.rejects(readServiceImage(worker,{width:1000,height:800},{validate:()=>validated++}),/columnes/);
  assert.equal(validated,0);
 });
+
+
+test('train 417 is accepted in short and full form in a screenshot',()=>{
+ for(const code of ['17','417']){
+  const data=fixture();
+  data.words.find(w=>w.text==='16').text=code;
+  const result=interpretSchedule(data,{width:1000,height:800});
+  assert.equal(result.text,expected.replace('|416|','|417|'));
+  assert.deepEqual(result.repairs,[]);
+ }
+});

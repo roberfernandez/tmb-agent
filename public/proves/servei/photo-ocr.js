@@ -1,4 +1,4 @@
-import {interpretSchedule} from './schedule-ocr.js?v=7';
+import {interpretSchedule} from './schedule-ocr.js?v=8';
 
 function cropCell(source,cell){
  const box=cell.rect,canvas=document.createElement('canvas'),scale=Math.max(1,Math.min(3,160/box.height));
@@ -34,7 +34,7 @@ export async function readServiceImage(worker,canvas,{validate,onProgress=()=>{}
     result=interpretSchedule(data,{width:source.width,height:source.height},overrides);
     }
    }
-   if(result.repairs.length)throw Error('Hi ha caselles de la foto que no s’han pogut llegir amb seguretat. Prova una foto més frontal o una captura.');
+   if(result.repairs.length)throw Error('No s’han pogut validar totes les caselles de l’horari. Comprova que la imatge inclogui la taula sencera.');
    const parsed=validate?validate(result.text):null;
    if(source!==canvas){
     const sx=canvas.width/source.width,sy=canvas.height/source.height;
@@ -46,3 +46,4 @@ export async function readServiceImage(worker,canvas,{validate,onProgress=()=>{}
  }
  throw lastError||Error('No s’ha pogut interpretar la foto.');
 }
+

@@ -76,8 +76,7 @@ public class MainActivity extends Activity {
         }
 
         String train = data.getQueryParameter("train");
-        if (train != null && train.matches("4\\d{2}") &&
-            Integer.parseInt(train) >= 401 && Integer.parseInt(train) <= 416) {
+        if (ServicePlan.isTrain(train)) {
             pendingTrain = train;
             pendingMode = "manual";
             pendingDate = null;
@@ -131,8 +130,7 @@ public class MainActivity extends Activity {
                     (!from.matches("4\\d{2}") || Integer.parseInt(from) < 413 || Integer.parseInt(from) > 434 ||
                      !to.matches("4\\d{2}") || Integer.parseInt(to) < 413 || Integer.parseInt(to) > 434)) continue;
                 if ("CON".equals(type)) {
-                    if (!candidate.matches("4\\d{2}") ||
-                        Integer.parseInt(candidate) < 401 || Integer.parseInt(candidate) > 416 ||
+                    if (!ServicePlan.isTrain(candidate) ||
                         (parts.length == 8 && (!"1".equals(via) && !"2".equals(via) ||
                             (!"1".equals(out) && !"2".equals(out) && !"RET".equals(out))))) continue;
                     if (firstTrain == null) firstTrain = candidate;
@@ -255,3 +253,4 @@ public class MainActivity extends Activity {
         finish();
     }
 }
+

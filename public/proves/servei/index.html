@@ -7,7 +7,7 @@
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .viewer-shell{height:100%;display:flex;flex-direction:column;min-height:0}.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.viewer-head h2{margin:0}.viewer-status{margin:8px 0 10px;flex:none}#viewerPhotoHome{min-height:0;flex:1;display:flex}#viewerPhotoHome #photoViewport{width:100%;height:100%;max-width:none;max-height:none;margin:0}.viewer-timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.viewer-timeline .journey-row{grid-template-columns:88px minmax(0,1fr);padding:10px}#viewerPhotoHome[hidden],.viewer-timeline[hidden]{display:none}@media(max-width:480px){#serviceViewer{width:100vw;height:88dvh;max-height:780px;border-radius:0;padding:14px}}
 </style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.24.1</span></header><h1>El meu servei</h1>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.24.2</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
@@ -34,12 +34,12 @@
  <h2>Segueix el servei</h2><p>El seguiment automàtic segueix el tren que toca segons l’horari del servei.</p><p id="serviceTrainPreview" class="service-current" aria-live="polite"></p>
  <div class="row"><button id="startServiceEye" class="primary"><span aria-hidden="true">👁</span> Activa el seguiment automàtic</button><button id="stopServiceEye" hidden>Atura</button></div>
  <p id="serviceEyeStatus" role="status" class="muted" hidden></p>
- <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-tren-ull-v0.14.15/Miralin-Tren-Ull-v0.14.15.apk" target="_blank" rel="noopener">Android · baixa l’APK</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
+ <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-tren-ull-v0.14.16/Miralin-Tren-Ull-v0.14.16.apk" target="_blank" rel="noopener">Android · baixa l’APK 0.14.16</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
  <p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
 </section>
 <section class="card">
  <h2>Segueix un tren</h2><p>Escull manualment el tren que vols seguir. Aquest mode atura el seguiment automàtic del servei.</p>
- <label for="watchTrain">Tren de la L4</label><select id="watchTrain"><option value="" selected disabled>Tria un tren…</option><option value="401">401</option><option value="402">402</option><option value="403">403</option><option value="404">404</option><option value="405">405</option><option value="406">406</option><option value="407">407</option><option value="408">408</option><option value="409">409</option><option value="410">410</option><option value="411">411</option><option value="412">412</option><option value="413">413</option><option value="414">414</option><option value="415">415</option><option value="416">416</option></select>
+ <label for="watchTrain">Tren de la L4</label><select id="watchTrain"><option value="" selected disabled>Tria un tren…</option><option value="401">401</option><option value="402">402</option><option value="403">403</option><option value="404">404</option><option value="405">405</option><option value="406">406</option><option value="407">407</option><option value="408">408</option><option value="409">409</option><option value="410">410</option><option value="411">411</option><option value="412">412</option><option value="413">413</option><option value="414">414</option><option value="415">415</option><option value="416">416</option><option value="417">417</option></select>
  <div class="row" style="margin-top:12px"><button id="startTrainWatch" class="primary">Segueix aquest tren</button><button id="stopTrainWatch">Atura</button></div>
  <p id="trainWatchStatus" role="status" class="muted">Seguiment manual desactivat.</p>
  </section>
@@ -49,7 +49,7 @@
 </section>
 <p class="muted"><small>Les dades del servei es desen en aquest navegador. Pàgina de proves accessible per enllaç, sense control d’accés.</small></p></main><dialog id="serviceViewer" aria-labelledby="viewerTitle"><div class="viewer-shell"><div class="viewer-head"><h2 id="viewerTitle">El meu servei</h2><button id="closeServiceViewer" type="button" aria-label="Tanca el visor">Tanca ×</button></div><p id="viewerStatus" class="muted viewer-status" aria-live="polite"></p><div id="viewerPhotoHome"></div><div id="viewerTimeline" class="viewer-timeline" hidden></div></div></dialog><div id="toast" role="alert"></div>
 <script type="module">
-import {readServiceImage} from './photo-ocr.js?v=1';
+import {readServiceImage} from './photo-ocr.js?v=2';
 'use strict';
 const names=['La Pau','Besòs','Besòs Mar','El Maresme | Fòrum','Selva de Mar','Poblenou','Llacuna','Bogatell','Ciutadella | Vila Olímpica','Barceloneta','Jaume I','Urquinaona','Passeig de Gràcia','Girona','Verdaguer','Joanic','Alfons X','Guinardó | Hospital de Sant Pau','Maragall','Llucmajor','Via Júlia','Trinitat Nova'];
 const stations=Object.fromEntries(names.map((n,i)=>[413+i,n]));const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -58,18 +58,23 @@ const isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navi
 const isAndroid=/Android/i.test(ua)||platform==='Android';
 if(isIOS)$('androidOption').hidden=true;
 else if(isAndroid){$('iosOption').hidden=true;$('iosInstructions').hidden=true;}
-const androidOpenedKey='tmb-servei-android-app-opened-v0.14.15';let androidAppOpened=localStorage.getItem(androidOpenedKey)==='true';
+const androidOpenedKey='tmb-servei-android-app-opened-v0.14.16';let androidAppOpened=localStorage.getItem(androidOpenedKey)==='true';
 function refreshAndroidDownload(){if(isAndroid)$('androidOption').hidden=androidAppOpened}
 function rememberAndroidLaunch(params){const mark=()=>{if(document.visibilityState==='hidden'){androidAppOpened=true;localStorage.setItem(androidOpenedKey,'true');if(params?.get('mode')==='service')localStorage.setItem(nativeServiceKey,params.get('schedule')||'');refreshAndroidDownload();refreshServiceFollowControls()}};document.addEventListener('visibilitychange',mark);window.addEventListener('pagehide',mark);setTimeout(()=>{document.removeEventListener('visibilitychange',mark);window.removeEventListener('pagehide',mark)},6000)}
 function openAndroidEye(params){rememberAndroidLaunch(params);location.href='intent://watch?'+params.toString()+'#Intent;scheme=tmbservei;package=com.tmbagent.traineye;end'}
 refreshAndroidDownload();
 
-let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,manualRowIndex:null,manualSince:null};
+let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,photoPending:false,manualRowIndex:null,manualSince:null};
 const nativeServiceKey='tmb-servei-native-service-v1';
 const followModeKey='tmb-servei-follow-mode-v1';let followMode=localStorage.getItem(followModeKey)||'';
 let rows=[],manualRowIndex=null,manualSince=0,enabled=localStorage.getItem('tmb-servei-alerts')==='true',remoteAlertsActive=localStorage.getItem('tmb-servei-alerts')==='true',audioCtx=null;
 const fired=new Set();
-let ocrImage=null,ocrRotation=0,ocrRowBounds=null,photoRowsReady=false,photoSize=null,lastPhotoRow=null,ocrDraft=false,ocrBusy=false;try{Object.assign(state,JSON.parse(localStorage.getItem('tmb-servei-v01')||'{}'))}catch{}
+let ocrImage=null,ocrRotation=0,ocrRowBounds=null,photoRowsReady=false,photoSize=null,lastPhotoRow=null,ocrDraft=false,ocrBusy=false,serviceLaunchBusy=false;try{
+ const saved=JSON.parse(localStorage.getItem('tmb-servei-v01')||'{}');
+ Object.assign(state,saved);
+ // Previous versions discarded the validated image when a replacement was selected.
+ if(saved.photoPending===undefined&&saved.text&&!saved.photoData)state.photoPending=true;
+}catch{}
 function persist(){try{localStorage.setItem('tmb-servei-v01',JSON.stringify(state))}catch{$('error').textContent='No s’ha pogut desar al navegador.'}}
 function minutes(s){if(!/^\d{2}:[0-5]\d$/.test(s)||Number(s.slice(0,2))>47)throw Error('Hora no vàlida: '+s);return Number(s.slice(0,2))*60+Number(s.slice(3))}
 function parse(text){let previous=-1;return text.trim().split('\n').filter(l=>l.trim()).map((l,i)=>{let [start,end,type,from,to,train='',via='',out='']=l.split('|').map(s=>s.trim());let a,b;try{a=minutes(start)}catch{throw Error('Fila '+(i+1)+': hora d’inici no reconeguda ('+(start||'buida')+').')}try{b=minutes(end)}catch{throw Error('Fila '+(i+1)+': hora final no reconeguda ('+(end||'buida')+').')}if(b<=a||a<previous)throw Error('Fila '+(i+1)+': horari solapat o final anterior a inici.');if(!['TRA','EST','CON'].includes(type)||!stations[from]||!stations[to])throw Error('Fila '+(i+1)+': tipus o estació no vàlids.');if(type==='CON'&&(!/^4\d{2}$/.test(train)||!['1','2'].includes(via)||!['1','2','RET'].includes(out)))throw Error('Fila '+(i+1)+': revisa tren i vies.');previous=b;return {start,end,type,from,to,train,via,out,a,b,i}})}
@@ -78,16 +83,16 @@ function desc(r){return r.type==='CON'?'Conducció · '+r.train:r.type==='TRA'?'
 function notify(text){$('toast').textContent=text;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',12000);sound();if(navigator.vibrate)navigator.vibrate([250,100,250]);if(document.hidden&&'Notification'in window&&Notification.permission==='granted'){try{new Notification('El meu servei · Horari previst',{body:text,tag:'service-'+Date.now()})}catch{}}}
 navigator.serviceWorker?.addEventListener('message',event=>{if(event.data?.type==='service-alert')notify(event.data.body||event.data.title||'Avís del servei')});
 function sound(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=740;g.gain.value=.12;o.start();o.stop(audioCtx.currentTime+.5)}catch{}}
-function activeServiceRow(now){if(manualRowIndex!==null){const chosen=rows.find(r=>r.i===manualRowIndex),next=followMode==='service'&&chosen&&rows.find(r=>r.i>chosen.i&&when(r.a)>manualSince);if(!chosen){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else if(next&&now>=when(next.a)){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else return chosen}if(followMode!=='service')return null;return rows.find(r=>now>=when(r.a)&&now<when(r.b))||rows.find(r=>now<when(r.a))||null}
-function render(){let now=Date.now();refreshServiceFollowControls();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now);$('serviceNow').innerHTML=active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció manual · seguiment automàtic aturat</span>':''):rows.length?(followMode==='service'?'No hi ha cap tram actiu en aquesta franja.':'Tria una línia manualment o activa el seguiment automàtic.'):'Carrega una captura o foto del servei per començar.';let next=rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));let driving=active?.type==='CON'?active:null;
+function activeServiceRow(now){if(state.photoPending)return null;if(manualRowIndex!==null){const chosen=rows.find(r=>r.i===manualRowIndex),next=followMode==='service'&&chosen&&rows.find(r=>r.i>chosen.i&&when(r.a)>manualSince);if(!chosen){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else if(next&&now>=when(next.a)){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else return chosen}if(followMode!=='service')return null;return rows.find(r=>now>=when(r.a)&&now<when(r.b))||rows.find(r=>now<when(r.a))||null}
+function render(){let now=Date.now();refreshServiceFollowControls();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now);$('serviceNow').innerHTML=state.photoPending?'':active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció manual · seguiment automàtic aturat</span>':''):rows.length?(followMode==='service'?'No hi ha cap tram actiu en aquesta franja.':'Tria una línia manualment o activa el seguiment automàtic.'):'Carrega una captura o foto del servei per començar.';let next=rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));let driving=active?.type==='CON'?active:null;
 $('next').innerHTML=driving?`<p class="tag">TRAM DE CONDUCCIÓ PREVIST</p><span class="train">${esc(driving.train)}</span><p>Deixa a ${esc(stations[driving.to])} · via ${esc(driving.out)}</p><div class="time">${esc(driving.end)}</div>`:next?`<div class="time">${esc(next.start)}</div><p><span class="train">${esc(next.train)}</span> · ${esc(stations[next.from])} · via ${esc(next.via)}</p><p class="muted">Horari previst · ${Math.ceil((when(next.a)-now)/60000)} min per a la presa</p>`:'<p>No queden preses pendents en aquesta jornada.</p>';
 $('taken').disabled=!next;$('taken').dataset.index=next?.i??'';
 $('expected').textContent=active?('Segons el servei: '+(active.type==='TRA'?'en trasllat a '+stations[active.to]:active.type==='CON'?'a bord del '+active.train:stations[active.from])):'Fora de l’horari del servei.';
 $('confirmed').textContent=state.location?'Confirmat: '+state.location.label+' · '+new Date(state.location.time).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'})+' (no és localització contínua)':'Ubicació prevista, pendent de confirmació.';
 $('timeline').innerHTML=rows.map(r=>`<div class="journey-row ${active===r?'active':''} ${when(r.b)<now?'done':''}"><span class="journey-time">${esc(r.start)}–${esc(r.end)}</span><span class="journey-detail"><strong>${esc(desc(r))}</strong><small>${esc(stations[r.from])}${r.from!==r.to?' → '+esc(stations[r.to]):''}${r.type==='CON'?' · v'+esc(r.via)+' → '+esc(r.out):''}${state.taken.includes(r.i)?' · presa':''}</small></span></div>`).join('');updatePhotoHighlight(active);
 
-if(enabled&&!remoteAlertsActive){for(const r of rows.filter(r=>r.type==='CON')){if(state.taken.includes(r.i))continue;const t=when(r.a),key=r.i+'presa';if(now>=t-state.margin*60000&&now<t&&!fired.has(key)){fired.add(key);notify('Horari previst: presa del '+r.train+' a '+stations[r.from]+' · '+r.start)}}}}
-function load(){try{rows=state.text?parse(state.text):[]}catch{rows=[]}manualRowIndex=Number.isInteger(state.manualRowIndex)?state.manualRowIndex:null;manualSince=Number(state.manualSince)||0;$('date').value=state.date;$('editor').value=state.text||'';$('margin').value=state.margin;if(state.photoData){$('photoPreview').src=state.photoData;const restoredImage=new Image();restoredImage.onload=()=>{ocrImage=restoredImage;$('readPhoto').disabled=false;$('rotatePhoto').disabled=false};restoredImage.src=state.photoData;$('photoViewport').hidden=false;$('photoProgress').hidden=false;$('photoPreview').hidden=false;ocrRowBounds=state.photoRows||null;photoSize=state.photoSize||null;photoRowsReady=Boolean(ocrRowBounds&&photoSize&&ocrRowBounds.length===rows.length);if(photoSize)$('photoOverlay').setAttribute('viewBox','0 0 '+photoSize.width+' '+photoSize.height);requestAnimationFrame(()=>{layoutPhotoOverlay();drawPhotoHitboxes()})}render()}
+if(enabled&&!remoteAlertsActive&&!state.photoPending){for(const r of rows.filter(r=>r.type==='CON')){if(state.taken.includes(r.i))continue;const t=when(r.a),key=r.i+'presa';if(now>=t-state.margin*60000&&now<t&&!fired.has(key)){fired.add(key);notify('Horari previst: presa del '+r.train+' a '+stations[r.from]+' · '+r.start)}}}}
+function load(){try{rows=state.text?parse(state.text):[]}catch{rows=[]}manualRowIndex=Number.isInteger(state.manualRowIndex)?state.manualRowIndex:null;manualSince=Number(state.manualSince)||0;$('date').value=state.date;$('editor').value=state.text||'';$('margin').value=state.margin;if(state.photoPending){$('ocrStatus').textContent='Hi ha una imatge pendent d’interpretar. Torna a carregar-la per continuar.'}else if(state.photoData){$('photoPreview').src=state.photoData;const restoredImage=new Image();restoredImage.onload=()=>{ocrImage=restoredImage;$('readPhoto').disabled=false;$('rotatePhoto').disabled=false};restoredImage.src=state.photoData;$('photoViewport').hidden=false;$('photoProgress').hidden=false;$('photoPreview').hidden=false;ocrRowBounds=state.photoRows||null;photoSize=state.photoSize||null;photoRowsReady=Boolean(ocrRowBounds&&photoSize&&ocrRowBounds.length===rows.length);if(photoSize)$('photoOverlay').setAttribute('viewBox','0 0 '+photoSize.width+' '+photoSize.height);requestAnimationFrame(()=>{layoutPhotoOverlay();drawPhotoHitboxes()})}render()}
 for(let id of ['location'])$(id).innerHTML=Object.entries(stations).map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join('');
 $('confirm').onclick=()=>{state.location={label:stations[$('location').value],time:Date.now()};persist();render()};$('auto').onclick=()=>{state.location=null;persist();render()};
 $('taken').onclick=()=>{let r=rows.find(r=>r.i===Number($('taken').dataset.index));if(!r)return;state.taken.push(r.i);state.location={label:'A bord del '+r.train,time:Date.now()};persist();render()};
@@ -140,6 +145,7 @@ async function stopLegacyServiceAlerts(){
  localStorage.setItem('tmb-servei-native-alerts-migrated-v1','true');
 }
 async function syncServiceAlerts(stop=false){
+ if(!stop&&state.photoPending)throw Error('Interpreta la imatge del servei abans d’aplicar els avisos.');
  if(!isAndroid)return syncWebServiceAlerts(stop);
  if(!stop&&!rows.length)throw Error('Carrega i interpreta el servei abans d’activar-ne els avisos.');
  await stopLegacyServiceAlerts();
@@ -169,9 +175,9 @@ $('enable').onclick=async()=>{
 };
 $('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
 $('alarmStatus').textContent=enabled?(isAndroid?'Avisos configurats. Activa o actualitza el seguiment per aplicar-los al servei.':'Avisos activats; comprovant la programació…'):'Avisos desactivats.';
-if(enabled&&!isAndroid)setTimeout(()=>syncServiceAlerts().then(result=>{$('alarmStatus').textContent=result.native?(result.pending?'Actualitza el seguiment per aplicar els avisos al servei nou.':'Avisos configurats al mòbil · '+state.margin+' min. S’emeten amb el seguiment automàtic actiu i la pantalla apagada.'):'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats. '+result.events+' avisos programats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut restaurar els avisos: '+e.message;remoteAlertsActive=false}),800);
-$('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();if(enabled)scheduleAlertSync();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render()}catch(e){$('error').textContent=e.message}};
-$('reset').onclick=()=>{state.date=new Date().toISOString().slice(0,10);state.text='';state.taken=[];state.location=null;state.photoData=null;state.photoRows=null;state.photoSize=null;state.manualRowIndex=null;state.manualSince=null;manualRowIndex=null;manualSince=0;ocrRowBounds=null;photoSize=null;photoRowsReady=false;lastPhotoRow=null;$('photoPreview').removeAttribute('src');$('photoViewport').hidden=true;$('activePhotoRow').style.display='none';fired.clear();if(enabled){void syncServiceAlerts(true).catch(()=>{});enabled=false;remoteAlertsActive=false;localStorage.removeItem('tmb-servei-alerts');$('enable').textContent='Activa els avisos';$('alarmStatus').textContent='Avisos desactivats.'}persist();load()};
+if(enabled&&!isAndroid&&!state.photoPending)setTimeout(()=>syncServiceAlerts().then(result=>{$('alarmStatus').textContent=result.native?(result.pending?'Actualitza el seguiment per aplicar els avisos al servei nou.':'Avisos configurats al mòbil · '+state.margin+' min. S’emeten amb el seguiment automàtic actiu i la pantalla apagada.'):'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats. '+result.events+' avisos programats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut restaurar els avisos: '+e.message;remoteAlertsActive=false}),800);
+$('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.photoPending=false;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();if(enabled)scheduleAlertSync();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render()}catch(e){$('error').textContent=e.message}};
+$('reset').onclick=()=>{state.date=new Date().toISOString().slice(0,10);state.text='';state.photoPending=false;state.taken=[];state.location=null;state.photoData=null;state.photoRows=null;state.photoSize=null;state.manualRowIndex=null;state.manualSince=null;manualRowIndex=null;manualSince=0;ocrRowBounds=null;photoSize=null;photoRowsReady=false;lastPhotoRow=null;$('photoPreview').removeAttribute('src');$('photoViewport').hidden=true;$('activePhotoRow').style.display='none';fired.clear();if(enabled){void syncServiceAlerts(true).catch(()=>{});enabled=false;remoteAlertsActive=false;localStorage.removeItem('tmb-servei-alerts');$('enable').textContent='Activa els avisos';$('alarmStatus').textContent='Avisos desactivats.'}persist();load()};
 function renderViewerTimeline(active){
  $('viewerTimeline').innerHTML=rows.map(r=>'<div class="journey-row '+(active===r?'active':'')+' '+(when(r.b)<Date.now()?'done':'')+'" data-row-index="'+r.i+'" tabindex="0"><span class="journey-time">'+esc(r.start)+'–'+esc(r.end)+'</span><span class="journey-detail"><strong>'+esc(desc(r))+'</strong><small>'+esc(stations[r.from])+(r.to!==r.from?' → '+esc(stations[r.to]):'')+(r.type==='CON'?' · via '+esc(r.via)+' → '+esc(r.out):'')+'</small></span></div>').join('');
  $('viewerStatus').textContent=active?'Ara: '+active.start+'–'+active.end+' · '+desc(active)+' · '+stations[active.from]+(active.to!==active.from?' → '+stations[active.to]:''):'Servei carregat · selecciona una línia o consulta el recorregut.';
@@ -247,6 +253,11 @@ function refreshServiceFollowControls(){
  $('startServiceEye').hidden=followMode==='service'&&!dirty;
  $('startServiceEye').innerHTML='<span aria-hidden="true">👁</span> '+(dirty?'Actualitza el seguiment':'Activa el seguiment automàtic');
  $('stopServiceEye').hidden=followMode!=='service';
+ $('startServiceEye').disabled=state.photoPending||serviceLaunchBusy;
+ if(state.photoPending){
+  $('serviceTrainPreview').textContent=followMode==='service'?'Imatge pendent d’interpretar. El seguiment actiu correspon al servei anterior.':'Interpreta la imatge abans d’activar el seguiment.';
+  return;
+ }
  const now=Date.now(),driving=rows.filter(r=>r.type==='CON'),current=driving.find(r=>when(r.a)<=now&&now<when(r.b))||driving.find(r=>when(r.a)>now)||driving.at(-1);
  $('serviceTrainPreview').textContent=current?('Tren previst: '+current.train+' · '+current.start+' · '+stations[current.from]+(dirty?' · servei nou pendent d’aplicar':'')):'';
 }
@@ -278,21 +289,29 @@ function prepareNativeServiceImage(){
 }
 async function stopNativeEye(){if(isAndroid){location.href='tmbservei://stop';await new Promise(r=>setTimeout(r,450))}else if(isIOS){location.href='tmbservei-ios://stop';await new Promise(r=>setTimeout(r,450))}}
 $('startServiceEye').onclick=async()=>{
- $('startServiceEye').disabled=true;
- const stopped=await stopTrainPushWatch();
- if(!stopped){$('startServiceEye').disabled=false;showServiceEyeError('No s’ha pogut aturar el seguiment manual.');return}
- if(!rows.some(r=>r.type==='CON')){showServiceEyeError('Carrega un servei amb trams de conducció.');$('startServiceEye').disabled=false;return}
- manualRowIndex=null;manualSince=0;state.manualRowIndex=null;state.manualSince=null;persist();showFollowMode('service');render();
- if(isAndroid&&enabled){try{await stopLegacyServiceAlerts();remoteAlertsActive=true;localStorage.setItem('tmb-servei-alerts','true')}catch(e){showServiceEyeError('No s’han pogut desactivar els avisos web anteriors: '+e.message);$('startServiceEye').disabled=false;return}}
- const query=new URLSearchParams({mode:'service',date:state.date,schedule:serviceScheduleParam(),alerts:enabled?'1':'0',margin:String(state.margin)});
- if(isAndroid){
-  const [image,bounds]=await Promise.all([prepareNativeServiceImage(),Promise.resolve(serviceRowBoundsParam())]);
-  if(image)query.set('image',image);
-  if(bounds)query.set('rowBounds',bounds);
-  openAndroidEye(query);
- }else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString();
- alertSettingsDirty=false;$('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
- $('startServiceEye').disabled=false;
+ if(state.photoPending||serviceLaunchBusy)return;
+ if(!rows.some(r=>r.type==='CON')){showServiceEyeError('Carrega un servei amb trams de conducció.');return}
+ const schedule=serviceScheduleParam();
+ const photo=state.photoData;
+ serviceLaunchBusy=true;
+ refreshServiceFollowControls();
+ try{
+  if(!await stopTrainPushWatch())throw Error('No s’ha pogut aturar el seguiment manual.');
+  if(isAndroid&&enabled)await stopLegacyServiceAlerts();
+  const image=isAndroid?await prepareNativeServiceImage():'';
+  if(state.photoPending||schedule!==serviceScheduleParam()||photo!==state.photoData)return;
+  const query=new URLSearchParams({mode:'service',date:state.date,schedule,alerts:enabled?'1':'0',margin:String(state.margin)});
+  if(isAndroid){
+   const bounds=serviceRowBoundsParam();
+   if(image)query.set('image',image);
+   if(bounds)query.set('rowBounds',bounds);
+   if(enabled){remoteAlertsActive=true;localStorage.setItem('tmb-servei-alerts','true')}
+   openAndroidEye(query);
+  }else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString();
+  manualRowIndex=null;manualSince=0;state.manualRowIndex=null;state.manualSince=null;persist();showFollowMode('service');render();
+  alertSettingsDirty=false;$('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
+ }catch(e){showServiceEyeError(e.message)}
+ finally{serviceLaunchBusy=false;refreshServiceFollowControls()}
 };
 $('stopServiceEye').onclick=async()=>{showFollowMode('');await stopNativeEye()};
 $('stopTrainWatch').onclick=async()=>{const ok=await stopTrainPushWatch();if(ok){showFollowMode('');await stopNativeEye()}};
@@ -408,20 +427,28 @@ function showPhoto(){
  $('photoViewport').hidden=false;$('photoProgress').hidden=false;$('photoPreview').hidden=false;
  $('activePhotoRow').style.display='none';lastPhotoRow=null;drawPhotoHitboxes();requestAnimationFrame(layoutPhotoOverlay);
 }
+function markPhotoPending(){
+ state.photoPending=true;
+ ocrRowBounds=null;photoRowsReady=false;
+ drawPhotoHitboxes();
+ persist();render();
+}
 async function handlePhotoSelection(input){
- const f=input.files&&input.files[0];if(!f)return;
+ const f=input.files&&input.files[0];if(!f||ocrBusy)return;
  if(f.size>20*1024*1024){$('ocrStatus').textContent='La imatge supera 20 MB. Redueix-la o fes una captura.';return}
+ ocrBusy=true;
  try{
-  ocrRowBounds=null;photoRowsReady=false;drawPhotoHitboxes();state.photoData=null;state.photoRows=null;state.photoSize=null;persist();$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;
+  markPhotoPending();$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;
   $('ocrStatus').textContent='Carregant la imatge…';ocrImage=await imageFromFile(f);ocrRotation=0;showPhoto();
   $('readPhoto').disabled=false;$('rotatePhoto').disabled=false;
   $('ocrStatus').textContent='Imatge preparada. Comprova que estigui dreta i prem «Interpreta el servei».';
   $('photoProgress').textContent='Interpreta la captura per poder tocar i ressaltar la línia on ets.';
  }catch(e){console.error('Error en previsualitzar la imatge del servei',e);$('photoViewport').hidden=true;$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;$('ocrStatus').textContent='No s’ha pogut carregar la imatge: '+(e?.message||String(e))}
+ finally{ocrBusy=false}
 }
 $('photo').addEventListener('change',()=>handlePhotoSelection($('photo')));
 $('cameraPhoto').addEventListener('change',()=>handlePhotoSelection($('cameraPhoto')));
-$('rotatePhoto').onclick=()=>{if(!ocrImage||ocrBusy)return;ocrRotation=(ocrRotation+90)%360;ocrRowBounds=null;photoRowsReady=false;showPhoto();$('ocrStatus').textContent='Imatge girada. Torna a interpretar-la per seleccionar les línies.'};
+$('rotatePhoto').onclick=()=>{if(!ocrImage||ocrBusy)return;ocrRotation=(ocrRotation+90)%360;markPhotoPending();showPhoto();$('ocrStatus').textContent='Imatge girada. Torna a interpretar-la per seleccionar les línies.'};
 let enginePromise;
 function loadOCR(){
  if(window.Tesseract)return Promise.resolve(window.Tesseract);
@@ -433,19 +460,22 @@ function loadOCR(){
  return enginePromise;
 }
 $('readPhoto').onclick=async()=>{
- if(!ocrImage||ocrBusy)return;ocrBusy=true;$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;$('photo').disabled=true;
+ if(!ocrImage||ocrBusy)return;ocrBusy=true;$('readPhoto').disabled=true;$('rotatePhoto').disabled=true;$('photo').disabled=true;$('cameraPhoto').disabled=true;
  let worker;
  try{
+  markPhotoPending();
   $('ocrStatus').textContent='Carregant el lector…';const engine=await loadOCR();
   worker=await engine.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')$('ocrStatus').textContent='Llegint… '+Math.round((m.progress||0)*100)+'%'}});
   const canvas=photoCanvas();
   const {result,parsed}=await readServiceImage(worker,canvas,{validate:parse,fallbackCanvas:photoCanvas(1),onProgress:message=>{$('ocrStatus').textContent=message}});
   if(!result.rowBounds||result.rowBounds.length!==parsed.length)throw Error('No he pogut associar totes les línies de la captura amb l’horari. Prova una captura més nítida.');
   ocrRowBounds=result.rowBounds;photoSize={width:canvas.width,height:canvas.height};photoRowsReady=true;lastPhotoRow=null;rows=parsed;state.text=result.text;state.date=result.date||state.date;state.taken=[];state.location=null;state.manualRowIndex=null;manualRowIndex=null;manualSince=0;state.manualSince=null;state.photoData=$('photoPreview').src;state.photoRows=ocrRowBounds;state.photoSize=photoSize;
+  state.photoPending=false;
   $('editor').value=result.text;$('date').value=state.date;ocrDraft=false;persist();if(enabled)scheduleAlertSync();drawPhotoHitboxes();render();
   $('ocrStatus').textContent=result.count+' línies interpretades i servei desat. Toca a la imatge la línia on ets.'+(result.issues.length?' '+result.issues.join(' '):'')+(!result.date?' Es conserva la data anterior.':'');
  }catch(e){$('ocrStatus').textContent=e.message+' No he actualitzat l’horari desat.'}
- finally{if(worker)await worker.terminate().catch(()=>{});ocrBusy=false;$('readPhoto').disabled=!ocrImage;$('rotatePhoto').disabled=!ocrImage;$('photo').disabled=false}
+ finally{if(worker)await worker.terminate().catch(()=>{});ocrBusy=false;$('readPhoto').disabled=!ocrImage;$('rotatePhoto').disabled=!ocrImage;$('photo').disabled=false;$('cameraPhoto').disabled=false}
 };
 
 </script></body></html>
+

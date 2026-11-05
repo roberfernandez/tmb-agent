@@ -7,7 +7,7 @@ const page=readFileSync(new URL('../public/proves/servei/index.html',import.meta
 function context(){
  const elements=new Map(),values=new Map();
  const rows=[{a:1264,b:1389,type:'EST',from:'423',to:'423',train:''},{a:1389,b:1409,type:'TRA',from:'423',to:'434',train:''},{a:1409,b:1469,type:'CON',from:'434',to:'413',train:'405',via:'2',out:'RET',start:'23:29'}];
- const ctx={isAndroid:true,isIOS:false,followMode:'service',nativeServiceKey:'native',rows,stations:{434:'Trinitat Nova'},Date:class extends Date{static now(){return 22*60*60000+23*60000}},when:m=>m*60000,
+ const ctx={isAndroid:true,isIOS:false,followMode:'service',serviceLaunchBusy:false,nativeServiceKey:'native',rows,stations:{434:'Trinitat Nova'},Date:class extends Date{static now(){return 22*60*60000+23*60000}},when:m=>m*60000,
   $:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id)},
   localStorage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)},
   serviceScheduleParam:()=>rows.map(r=>[r.a,r.b,r.type,r.from,r.to,r.train||'',r.via||'',r.out||''].join(',')).join(';'),
@@ -31,7 +31,7 @@ test('replacing an active service exposes update and previews 405, then leaves o
 
 test('activation passes the new schedule, alert switch and custom margin to Android',async()=>{
  const {ctx}=context();let captured;
- Object.assign(ctx,{stopTrainPushWatch:async()=>true,showServiceEyeError:()=>{},persist:()=>{},showFollowMode:()=>{},render:()=>{},prepareNativeServiceImage:async()=>'',serviceRowBoundsParam:()=>'',openAndroidEye:query=>captured=query});
+ Object.assign(ctx,{refreshServiceFollowControls:()=>{},stopTrainPushWatch:async()=>true,showServiceEyeError:()=>{},persist:()=>{},showFollowMode:()=>{},render:()=>{},prepareNativeServiceImage:async()=>'',serviceRowBoundsParam:()=>'',openAndroidEye:query=>captured=query});
  const start=page.indexOf("$('startServiceEye').onclick=async()=>{");
  vm.runInContext(page.slice(start,page.indexOf("$('stopServiceEye').onclick",start)),ctx);
  await ctx.$('startServiceEye').onclick();
@@ -58,4 +58,22 @@ test('legacy migration stops both web watches once and then works without Render
  await ctx.stopLegacyServiceAlerts();assert.equal(requests,2);
  ctx.fetch=()=>{throw Error('Render unavailable')};
  await ctx.stopLegacyServiceAlerts();assert.equal(requests,2);
+});
+
+
+test('a pending capture cannot start automatic tracking from the saved service',async()=>{
+ const {ctx,elements,values}=context();values.set('native','old service');ctx.state.photoPending=true;
+ let stopped=0,launched=0;
+ Object.assign(ctx,{stopTrainPushWatch:async()=>{stopped++;return true},openAndroidEye:()=>launched++});
+ const start=page.indexOf('function refreshServiceFollowControls()');
+ vm.runInContext(page.slice(start,page.indexOf('function serviceScheduleParam()',start)),ctx);
+ const handler=page.indexOf("$('startServiceEye').onclick=async()=>{");
+ vm.runInContext(page.slice(handler,page.indexOf("$('stopServiceEye').onclick",handler)),ctx);
+ ctx.refreshServiceFollowControls();
+ assert.equal(elements.get('startServiceEye').disabled,true);
+ assert.equal(elements.get('stopServiceEye').hidden,false);
+ assert.doesNotMatch(elements.get('serviceTrainPreview').textContent,/405/);
+ await ctx.$('startServiceEye').onclick();
+ assert.equal(stopped,0);
+ assert.equal(launched,0);
 });

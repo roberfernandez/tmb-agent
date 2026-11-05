@@ -8,6 +8,8 @@ import java.util.TimeZone;
 /** Shared schedule selection for launch, ongoing tracking and service alerts. */
 final class ServicePlan {
     static final TimeZone ZONE = TimeZone.getTimeZone("Europe/Madrid");
+    static boolean isTrain(String train) { return train != null && train.matches("40[1-9]|41[0-7]"); }
+
     static final class Row {
         final int start, end, index;
         final String type, from, to, train, via, out;
@@ -17,7 +19,7 @@ final class ServicePlan {
             from = p.length == 3 ? "" : p[3]; to = p.length == 3 ? "" : p[4];
             train = p.length == 3 ? p[2] : p[5]; via = p.length == 3 ? "" : p[6]; out = p.length == 3 ? "" : p[7];
         }
-        boolean driving() { return "CON".equals(type) && train.matches("40[1-9]|41[0-6]"); }
+        boolean driving() { return "CON".equals(type) && isTrain(train); }
     }
     final List<Row> rows = new ArrayList<>();
     ServicePlan(String schedule) {
@@ -70,3 +72,4 @@ final class ServicePlan {
         return "TRA".equals(previous.type) && previous.to.equals(row.from) ? previous.from : "";
     }
 }
+
