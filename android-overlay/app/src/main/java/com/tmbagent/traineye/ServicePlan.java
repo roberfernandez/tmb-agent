@@ -8,7 +8,7 @@ import java.util.TimeZone;
 /** Shared schedule selection for launch, ongoing tracking and service alerts. */
 final class ServicePlan {
     static final TimeZone ZONE = TimeZone.getTimeZone("Europe/Madrid");
-    static boolean isTrain(String train) { return train != null && train.matches("40[1-9]|41[0-7]"); }
+    static boolean isTrain(String train) { return train != null && train.matches("4(?:0[1-9]|[1-9]\\d)"); }
 
     static final class Row {
         final int start, end, index;

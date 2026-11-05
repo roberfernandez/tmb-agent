@@ -63,8 +63,8 @@ export function interpretSchedule(data,imageSize={},overrides={}){
   const from=number(c[1]),to=number(c[5]),te=normalize(c[3]),via=number(c[2]),out=normalize(c[6]);
   let type='',train='';
   if(te==='TRA')type='TRA';
-  else if(/^\d{1,2}$/.test(te)&&+te>0&&+te<=17){type='CON';train=String(400+Number(te))}
-  else if(/^(40[1-9]|41[0-7])$/.test(te)){type='CON';train=te}
+  else if(/^\d{1,2}$/.test(te)&&+te>0){type='CON';train=String(400+Number(te))}
+  else if(/^4(?:0[1-9]|[1-9]\d)$/.test(te)){type='CON';train=te}
   else if(!te&&from===to&&!via&&!out)type='EST';
   const line=[start,end,type,from,to,train,via,out].join('|');
   const validStations=/^4\d{2}$/.test(from)&&+from>=413&&+from<=434&&/^4\d{2}$/.test(to)&&+to>=413&&+to<=434;

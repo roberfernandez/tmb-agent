@@ -1,4 +1,4 @@
-import {interpretSchedule} from './schedule-ocr.js?v=8';
+import {interpretSchedule} from './schedule-ocr.js?v=9';
 
 function cropCell(source,cell){
  const box=cell.rect,canvas=document.createElement('canvas'),scale=Math.max(1,Math.min(3,160/box.height));

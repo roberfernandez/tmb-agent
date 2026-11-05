@@ -31,11 +31,12 @@ test('replacing an active service exposes update and previews 405, then leaves o
 
 test('activation passes the new schedule, alert switch and custom margin to Android',async()=>{
  const {ctx}=context();let captured;
+ ctx.rows[2].train='422';
  Object.assign(ctx,{refreshServiceFollowControls:()=>{},stopTrainPushWatch:async()=>true,showServiceEyeError:()=>{},persist:()=>{},showFollowMode:()=>{},render:()=>{},prepareNativeServiceImage:async()=>'',serviceRowBoundsParam:()=>'',openAndroidEye:query=>captured=query});
  const start=page.indexOf("$('startServiceEye').onclick=async()=>{");
  vm.runInContext(page.slice(start,page.indexOf("$('stopServiceEye').onclick",start)),ctx);
  await ctx.$('startServiceEye').onclick();
- assert.match(captured.get('schedule'),/,405,2,RET/);
+ assert.match(captured.get('schedule'),/,422,2,RET/);
  assert.equal(captured.get('alerts'),'1');assert.equal(captured.get('margin'),'7');
 });
 

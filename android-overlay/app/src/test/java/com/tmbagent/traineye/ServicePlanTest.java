@@ -27,10 +27,10 @@ public class ServicePlanTest {
         assertEquals("405", new ServicePlan(SCHEDULE).trainAt(now, null));
         assertEquals("423", new ServicePlan(SCHEDULE).sourceFor(new ServicePlan(SCHEDULE).rows.get(7)));
     }
-    @Test public void watchesTrain417InTheServicePlan() {
-        ServicePlan plan = new ServicePlan(SCHEDULE.replace(",405,", ",417,"));
-        assertTrue(ServicePlan.isTrain("417"));
-        assertEquals("417", plan.trainAt(time("2026-11-04T22:23:00"), "403"));
-        assertEquals("417", plan.trainAt(time("2026-11-05T00:15:00"), "403"));
+    @Test public void watchesTrain422InTheServicePlan() {
+        ServicePlan plan = new ServicePlan(SCHEDULE.replace(",405,", ",422,"));
+        assertTrue(ServicePlan.isTrain("422"));
+        assertEquals("422", plan.trainAt(time("2026-11-04T22:23:00"), "403"));
+        assertEquals("422", plan.trainAt(time("2026-11-05T00:15:00"), "403"));
     }
 }

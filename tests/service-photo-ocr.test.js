@@ -68,12 +68,12 @@ test('fast capture path does not run photo retries and unreadable inputs never r
 });
 
 
-test('train 417 is accepted in short and full form in a screenshot',()=>{
- for(const code of ['17','417']){
+test('train codes above 416 are accepted in short and full form',()=>{
+ for(const [code,train] of [['17','417'],['417','417'],['22','422'],['422','422'],['99','499']]){
   const data=fixture();
   data.words.find(w=>w.text==='16').text=code;
   const result=interpretSchedule(data,{width:1000,height:800});
-  assert.equal(result.text,expected.replace('|416|','|417|'));
+  assert.equal(result.text,expected.replace('|416|','|'+train+'|'));
   assert.deepEqual(result.repairs,[]);
  }
 });
