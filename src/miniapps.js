@@ -52,13 +52,19 @@ export function renderCobraments(){
 
 // Exact source-pixel regions: exclude proposal headers and handwriting.
 const calendars={
- '2026':[{id:'general',name:'General · CGT',file:'2026-general.png',width:1057,height:1518}],
+ '2026':[
+  {id:'general',name:'General · CGT',file:'2026-general.png',width:1282,height:1820},
+  {id:'k',name:'Lletra K',file:'2026-k.png',width:1282,height:1819},
+  {id:'l',name:'Lletra L',file:'2026-l.png',width:1282,height:1819},
+  {id:'m',name:'Lletra M',file:'2026-m.png',width:1282,height:1819},
+  {id:'n',name:'Lletra N',file:'2026-n.png',width:1282,height:1819},
+ ],
  '2027':[
   {id:'general',name:'General',file:'2027-general.jpg',width:905,height:1280,box:[88,176,730,1025]},
-  {id:'k',name:'Lletra K',file:'2027-k.jpg',width:1280,height:905,box:[180,175,920,585]},
-  {id:'l',name:'Lletra L',file:'2027-l.jpg',width:1280,height:905,box:[130,105,1035,590]},
-  {id:'m',name:'Lletra M',file:'2027-m.jpg',width:1280,height:905,box:[170,180,935,590]},
-  {id:'n',name:'Lletra N',file:'2027-n.jpg',width:1280,height:905,box:[170,180,930,590]},
+  {id:'k',name:'Lletra K',file:'2027-k.jpg',width:2105,height:1489,box:[170,240,1824,1030]},
+  {id:'l',name:'Lletra L',file:'2027-l.jpg',width:2977,height:2105,box:[302,244,2407,1372]},
+  {id:'m',name:'Lletra M',file:'2027-m.jpg',width:2105,height:1489,box:[170,240,1824,1030]},
+  {id:'n',name:'Lletra N',file:'2027-n.jpg',width:2105,height:1489,box:[170,240,1824,1030]},
  ]};
 export function renderCalendaris(){
  const root=shell('Calendaris','Festes AAC, lletres i miniperíodes.');
