@@ -63,4 +63,44 @@ public class ServiceAlertsTest {
         assertTrue(alerts.advice(alerts.plan.rows.get(1), NOW).contains("mateix 405"));
         assertFalse(alerts.advice(alerts.plan.rows.get(1), NOW).contains("Alternatives:"));
     }
+
+    @Test public void alertsAtLaPauFor406BeforeTheHandoverOf402AtJoanic() throws Exception {
+        long now = ServicePlanTest.time("2026-11-06T18:58:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("1126,1167,TRA,413,428,,,;1167,1245,CON,428,434,402,2,RET"), now);
+        assertEquals(java.util.Set.of("413", "428"), alerts.requiredStops(now));
+        alerts.acceptBoard(board("413", 1, arrival("405", 150), arrival("406", 180), arrival("407", 420)), now);
+        JSONObject joanic = board("428", 1, arrival("405", 1380), arrival("406", 1500), arrival("407", 1740));
+        joanic.put("via2", new JSONArray().put(arrival("402", 1740)));
+        alerts.acceptBoard(joanic, now);
+        assertTrue(alerts.due(now, 2).isEmpty());
+        List<ServiceAlerts.Alert> due = alerts.due(now, 5);
+        assertEquals(1, due.size());
+        ServiceAlerts.Alert alert = due.get(0);
+        assertEquals("Puja al tren 406", alert.title);
+        assertTrue(alert.body.contains("La Pau · via 1 · pas previst 19:01"));
+        assertTrue(alert.body.contains("Joanic cap a les 19:23 · marge estimat 4 min per prendre el 402 per via 2"));
+        assertTrue(alert.body.contains("405 (19:21, marge 6 min)"));
+        assertFalse(alert.body.contains("407 ("));
+        assertEquals(now + 180000L, alert.expiresAt);
+        alerts.markSent(alert);
+        assertTrue(alerts.due(now + 1000, 5).isEmpty());
+    }
+
+    @Test public void doesNotRecommendAConnectionWithoutAFreshAssignedArrivalOnTheRightTrack() throws Exception {
+        long now = ServicePlanTest.time("2026-11-06T18:58:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("1126,1167,TRA,413,428,,,;1167,1245,CON,428,434,402,2,RET"), now);
+        alerts.acceptBoard(board("413", 1, arrival("406", 180)), now);
+        JSONObject joanic = board("428", 1, arrival("406", 1500), arrival("402", 1740));
+        alerts.acceptBoard(joanic, now);
+        assertTrue(alerts.due(now, 5).isEmpty());
+        joanic.put("via2", new JSONArray().put(arrival("402", 1801)));
+        alerts.acceptBoard(joanic, now - 61000);
+        assertTrue(alerts.due(now, 5).isEmpty());
+    }
+
+    @Test public void requestsTheNextConnectionsBoardsWhileThePreviousHandoverIsRecent() {
+        long now = ServicePlanTest.time("2026-11-06T18:52:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("1122,1130,CON,416,413,401,2,2;1130,1150,TRA,413,428,,,;1150,1220,CON,428,434,402,2,RET"), now);
+        assertEquals(java.util.Set.of("416", "413", "428"), alerts.requiredStops(now));
+    }
 }

@@ -62,14 +62,14 @@ final class ServicePlan {
         }
         return next != null ? next : last != null ? last : fallback;
     }
-    Row nextDriving(long time, long anchor) {
-        for (Row row : rows) if (row.driving() && at(anchor, row.start) + 15 * 60000L > time) return row;
-        return null;
+    Row transferFor(Row row) {
+        if (row.index == 0) return null;
+        Row previous = rows.get(row.index - 1);
+        return "TRA".equals(previous.type) && previous.to.equals(row.from) ? previous : null;
     }
     String sourceFor(Row row) {
-        if (row.index == 0) return "";
-        Row previous = rows.get(row.index - 1);
-        return "TRA".equals(previous.type) && previous.to.equals(row.from) ? previous.from : "";
+        Row transfer = transferFor(row);
+        return transfer == null ? "" : transfer.from;
     }
 }
 

@@ -17,7 +17,11 @@ import java.util.Set;
 final class ServiceAlerts {
     static final class Alert {
         final String key, title, body;
-        Alert(String key, String title, String body) { this.key = key; this.title = title; this.body = body; }
+        final long expiresAt;
+        Alert(String key, String title, String body) { this(key, title, body, Long.MAX_VALUE); }
+        Alert(String key, String title, String body, long expiresAt) {
+            this.key = key; this.title = title; this.body = body; this.expiresAt = expiresAt;
+        }
     }
     private static final class Board {
         final JSONObject data; final long received;
@@ -41,11 +45,14 @@ final class ServiceAlerts {
 
     Set<String> requiredStops(long now) {
         Set<String> stops = new LinkedHashSet<>();
-        ServicePlan.Row row = plan.nextDriving(now, anchor);
-        if (row != null) {
+        for (ServicePlan.Row row : plan.rows) {
+            if (!row.driving()) continue;
+            long at = plan.at(anchor, row.start);
+            if (at + 15 * 60000L <= now) continue;
             String source = plan.sourceFor(row);
             if (!source.isEmpty()) stops.add(source);
             if (!row.from.isEmpty()) stops.add(row.from);
+            if (at >= now) break;
         }
         return stops;
     }
@@ -82,11 +89,16 @@ final class ServiceAlerts {
             if ("TRA".equals(row.type) && now >= at - margin * 60000L && now < at + 60000 && !sent.contains(key)) {
                 alerts.add(new Alert(key, "Servei · trasllat", "Trasllat " + station(row.from) + " → " + station(row.to) + " a les " + clock(at) + "."));
             } else if (row.driving()) {
+                Alert connection = connectionAlert(row, now, margin);
+                if (connection != null) {
+                    alerts.add(connection);
+                    continue;
+                }
                 String source = plan.sourceFor(row);
                 Option own = ownTrain(row, source, now);
-                if (own != null && own.departure > now + 5000 && own.departure <= now + margin * 60000L && !sent.contains("pas-" + row.index)) {
+                if (approaching(own, now, margin) && !sent.contains("pas-" + row.index)) {
                     alerts.add(new Alert("pas-" + row.index, "Puja al tren " + row.train,
-                        "El " + row.train + " passa per " + station(source) + " · via " + displacementVia(source, row.from) + " a les " + clock(own.departure) + ". Puja-hi per arribar a la presa a " + station(row.from) + ". " + advice(row, now)));
+                        "El " + row.train + " passa per " + station(source) + " · via " + displacementVia(source, row.from) + " a les " + clock(own.departure) + ". Puja-hi per arribar a la presa a " + station(row.from) + ". " + advice(row, now), own.departure));
                 } else if (now >= at - margin * 60000L && now < at + 60000 && !sent.contains(key)) {
                     alerts.add(new Alert(key, "Servei · presa del " + row.train,
                         "Presa prevista a " + station(row.from) + " · via " + row.via + " · " + clock(at) + ". " + advice(row, now)));
@@ -101,6 +113,35 @@ final class ServiceAlerts {
         if (alert.key.startsWith("pas-")) sent.add("CON-" + alert.key.substring(4));
     }
 
+    private Alert connectionAlert(ServicePlan.Row row, long now, int margin) {
+        ServicePlan.Row transfer = plan.transferFor(row);
+        if (transfer == null || transfer.from.equals(row.from)) return null;
+        String source = transfer.from, via = displacementVia(source, row.from);
+        if (via.equals(row.via)) return null;
+        long transferStart = plan.at(anchor, transfer.start);
+        if (now < transferStart - margin * 60000L) return null;
+
+        long deadline = assignedArrival(row, now);
+        if (deadline <= now) return null;
+        List<Option> options = options(row, source, deadline, now);
+        options.removeIf(option -> option.departure < transferStart);
+        Option last = options.stream().max(Comparator.comparingLong(option -> option.departure)).orElse(null);
+        if (!approaching(last, now, margin)) return null;
+        String key = "enllac-" + row.index + "-" + last.train;
+        if (sent.contains(key)) return null;
+
+        options.remove(last);
+        String body = "Últim enllaç segons Miralin. " + station(source) + " · via " + via + " · pas previst " + clock(last.departure)
+            + ". Arribada a " + station(row.from) + " cap a les " + clock(last.arrival) + " · marge estimat "
+            + marginText(deadline - last.arrival) + " per prendre el " + row.train + " per via " + row.via + ".";
+        if (!options.isEmpty()) body += " Altres enllaços: " + formatOptions(options, deadline, 2);
+        return new Alert(key, "Puja al tren " + last.train, body, last.departure);
+    }
+
+    private static boolean approaching(Option option, long now, int margin) {
+        return option != null && option.departure > now + 5000 && option.departure <= now + margin * 60000L;
+    }
+
     String advice(ServicePlan.Row row, long now) {
         String source = plan.sourceFor(row);
         if (source.isEmpty() || source.equals(row.from)) return "";
@@ -112,16 +153,24 @@ final class ServiceAlerts {
         if (row.via.equals(displacementVia(source, row.from))) return "El tren assignat encara no apareix entre les arribades de l’origen per la mateixa via.";
         List<Option> options = options(row, source, deadline, now);
         if (options.isEmpty()) return "Miralin no mostra cap tren que hi arribi a temps.";
-        options.sort((a,b) -> Long.compare(b.arrival, a.arrival));
-        StringBuilder result = new StringBuilder("Alternatives des de " + station(source) + " · via " + displacementVia(source, row.from) + ": ");
-        int count = Math.min(3, options.size());
+        return "Alternatives des de " + station(source) + " · via " + displacementVia(source, row.from) + ": " + formatOptions(options, deadline, 3);
+    }
+
+    private String formatOptions(List<Option> options, long deadline, int limit) {
+        options.sort(Comparator.comparingLong((Option option) -> option.arrival).reversed());
+        StringBuilder result = new StringBuilder();
+        int count = Math.min(limit, options.size());
         for (int i = 0; i < count; i++) {
             Option option = options.get(i);
             if (i > 0) result.append("; ");
             result.append(option.train).append(" (").append(clock(option.arrival)).append(", marge ")
-                .append(Math.max(0, (deadline - option.arrival) / 60000)).append(" min)");
+                .append(marginText(deadline - option.arrival)).append(')');
         }
         return result.append('.').toString();
+    }
+
+    private static String marginText(long millis) {
+        return millis >= 60000 ? (millis / 60000) + " min" : (millis / 1000) + " s";
     }
 
     private Option ownTrain(ServicePlan.Row row, String source, long now) {
@@ -145,7 +194,7 @@ final class ServiceAlerts {
         for (Arrival departure : arrivals(source, via, now)) {
             if (departure.at < now + 5000 || !seen.add(departure.train)) continue;
             for (Arrival arrival : destination) {
-                if (arrival.train.equals(departure.train) && arrival.at >= departure.at && arrival.at <= deadline) {
+                if (arrival.train.equals(departure.train) && arrival.at >= departure.at && arrival.at < deadline) {
                     options.add(new Option(departure.train, departure.at, arrival.at)); break;
                 }
             }

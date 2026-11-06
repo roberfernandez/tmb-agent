@@ -204,7 +204,7 @@ public class TrainOverlayService extends Service {
             channel.setSound(null, null);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
             NotificationChannel alerts = new NotificationChannel("service_alerts", "Avisos del servei", NotificationManager.IMPORTANCE_HIGH);
-            alerts.setDescription("Trasllats, preses i pas del tren assignat amb la pantalla apagada.");
+            alerts.setDescription("Trasllats, enllaços i preses amb la pantalla apagada.");
             getSystemService(NotificationManager.class).createNotificationChannel(alerts);
         }
     }
@@ -705,12 +705,14 @@ public class TrainOverlayService extends Service {
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (!manager.areNotificationsEnabled()) return;
         for (ServiceAlerts.Alert alert : serviceAlerts.due(System.currentTimeMillis(), alertMargin)) {
+            long timeout = Math.min(180000, alert.expiresAt - System.currentTimeMillis());
+            if (timeout <= 0) continue;
             Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(SERVICE_VIEWER_URL));
             PendingIntent content = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             Notification notification = new Notification.Builder(this, "service_alerts")
                 .setSmallIcon(android.R.drawable.ic_menu_view).setContentTitle(alert.title).setContentText(alert.body)
                 .setStyle(new Notification.BigTextStyle().bigText(alert.body)).setCategory(Notification.CATEGORY_REMINDER)
-                .setContentIntent(content).setAutoCancel(true).setTimeoutAfter(180000).build();
+                .setContentIntent(content).setAutoCancel(true).setTimeoutAfter(timeout).build();
             try {
                 manager.notify("service-" + alert.key, 9414, notification);
                 serviceAlerts.markSent(alert);
