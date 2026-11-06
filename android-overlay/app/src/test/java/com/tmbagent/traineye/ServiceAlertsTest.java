@@ -8,6 +8,8 @@ import static org.junit.Assert.*;
 
 public class ServiceAlertsTest {
     private static final long NOW = ServicePlanTest.time("2026-11-04T23:24:00");
+    private static final long MARESME = ServicePlanTest.time("2026-11-06T23:52:00");
+    private static final String MARESME_SCHEDULE = "1356,1436,CON,416,416,403,2,2;1436,1445,TRA,416,418,,,;1445,1534,EST,418,418,,,;1534,1605,CON,418,413,403,1,RET";
     private static JSONObject arrival(String train, int seconds) throws Exception { return new JSONObject().put("trainCode", train).put("secsLeft", seconds); }
     private static JSONObject board(String stop, int via, JSONObject... entries) throws Exception { return new JSONObject().put("stopCode", stop).put("via" + via, new JSONArray(entries)); }
     private static ServiceAlerts alerts() { return new ServiceAlerts(new ServicePlan(ServicePlanTest.SCHEDULE), NOW); }
@@ -71,7 +73,7 @@ public class ServiceAlertsTest {
     @Test public void listsTwoTrainsBeforeTheFirstPassesAndThenAlertsAbout406() throws Exception {
         long now = ServicePlanTest.time("2026-11-06T18:56:00");
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("1126,1167,TRA,413,428,,,;1167,1245,CON,428,434,402,2,RET"), now);
-        assertEquals(java.util.Set.of("413", "428"), alerts.requiredStops(now));
+        assertEquals(java.util.Set.of("413", "428"), alerts.requiredStops(now, 5));
         alerts.acceptBoard(board("413", 1, arrival("405", 150), arrival("406", 330), arrival("407", 420)), now);
         JSONObject joanic = board("428", 1, arrival("405", 1500), arrival("406", 1620), arrival("407", 1860));
         joanic.put("via2", new JSONArray().put(arrival("402", 1860)));
@@ -139,6 +141,93 @@ public class ServiceAlertsTest {
     @Test public void requestsTheNextConnectionsBoardsWhileThePreviousHandoverIsRecent() {
         long now = ServicePlanTest.time("2026-11-06T18:52:00");
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("1122,1130,CON,416,413,401,2,2;1130,1150,TRA,413,428,,,;1150,1220,CON,428,434,402,2,RET"), now);
-        assertEquals(java.util.Set.of("416", "413", "428"), alerts.requiredStops(now));
+        assertEquals(java.util.Set.of("416", "413", "428"), alerts.requiredStops(now, 5));
+    }
+
+    @Test public void comparesPoblenouArrivalWithThe403AfterItsTurnaround() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), MARESME);
+        assertEquals(java.util.Set.of("416", "418"), alerts.requiredStops(MARESME, 5));
+        JSONObject maresme = board("416", 2, arrival("403", 240));
+        maresme.put("via1", new JSONArray().put(arrival("405", 180)).put(arrival("406", 420)).put(arrival("403", 720)));
+        alerts.acceptBoard(maresme, MARESME);
+        alerts.acceptBoard(board("418", 1, arrival("403", 90), arrival("405", 510), arrival("406", 720), arrival("403", 960)), MARESME);
+        assertTrue(alerts.due(MARESME, 3).isEmpty());
+        List<ServiceAlerts.Alert> due = alerts.due(MARESME, 5);
+        assertEquals(1, due.size());
+        ServiceAlerts.Alert alert = due.get(0);
+        assertEquals("El 406 passa abans del 403", alert.title);
+        assertTrue(alert.body.contains("Maresme | Fòrum · via 1 · pas previst 23:59 · marge estimat de canvi 3 min"));
+        assertTrue(alert.body.contains("Poblenou cap a les 00:04 · 4 min abans del 403 (00:08)"));
+        assertEquals(MARESME + 240000L, alert.expiresAt);
+        alerts.markSent(alert);
+        assertTrue(alerts.due(MARESME + 1000, 5).isEmpty());
+    }
+
+    @Test public void ignoresAnEarlierTrainThatPassesBeforeTheLiveRelease() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), MARESME);
+        JSONObject maresme = board("416", 2, arrival("403", 300));
+        maresme.put("via1", new JSONArray().put(arrival("406", 270)).put(arrival("403", 720)));
+        alerts.acceptBoard(maresme, MARESME);
+        alerts.acceptBoard(board("418", 1, arrival("406", 510), arrival("403", 960)), MARESME);
+        List<ServiceAlerts.Alert> due = alerts.due(MARESME, 5);
+        assertEquals(1, due.size());
+        assertEquals("El 403 és la primera arribada prevista", due.get(0).title);
+        assertTrue(due.get(0).body.contains("via 1 · 00:04 i arriba a Poblenou cap a les 00:08"));
+    }
+
+    @Test public void keepsTheTransferReminderWhileTheReturnComparisonIsIncomplete() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), MARESME);
+        JSONObject maresme = board("416", 2, arrival("403", 240));
+        maresme.put("via1", new JSONArray().put(arrival("406", 420)).put(arrival("403", 720)));
+        alerts.acceptBoard(maresme, MARESME);
+        alerts.acceptBoard(board("418", 1, arrival("403", 960)), MARESME - 61000);
+        List<ServiceAlerts.Alert> due = alerts.due(MARESME, 5);
+        assertEquals(1, due.size());
+        assertEquals("Servei · trasllat", due.get(0).title);
+        alerts.markSent(due.get(0));
+
+        alerts.acceptBoard(board("418", 1, arrival("403", 960)), MARESME);
+        assertTrue(alerts.due(MARESME + 1000, 5).isEmpty());
+        alerts.acceptBoard(board("418", 1, arrival("406", 720), arrival("403", 960)), MARESME);
+        assertEquals("El 406 passa abans del 403", alerts.due(MARESME + 1000, 5).get(0).title);
+    }
+
+    @Test public void checksTheActualReleaseTrackAndSupportsTheReverseDirection() throws Exception {
+        for (String exitVia : List.of("1", "2", "RET")) {
+            ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(
+                "1356,1436,CON,416,428,411,2," + exitVia + ";1436,1445,TRA,428,417,,,"), MARESME);
+            JSONObject joanic = board("428", 1, arrival("411", 240));
+            joanic.put("via2", new JSONArray().put(arrival("414", 420)).put(arrival("411", 720)));
+            alerts.acceptBoard(joanic, MARESME);
+            alerts.acceptBoard(board("417", 2, arrival("414", 960), arrival("411", 1200)), MARESME);
+            List<ServiceAlerts.Alert> due = alerts.due(MARESME, 5);
+            assertEquals(1, due.size());
+            if ("1".equals(exitVia)) {
+                assertEquals(java.util.Set.of("428", "417"), alerts.requiredStops(MARESME, 5));
+                assertEquals("El 414 passa abans del 411", due.get(0).title);
+                assertTrue(due.get(0).body.contains("Joanic · via 2"));
+            } else {
+                assertTrue(alerts.requiredStops(MARESME, 5).isEmpty());
+                assertEquals("Servei · trasllat", due.get(0).title);
+            }
+        }
+    }
+
+    @Test public void canStartFollowingAfterMidnightBeforeADelayedRelease() throws Exception {
+        long now = ServicePlanTest.time("2026-11-07T00:00:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(
+            "1356,1436,CON,416,416,403,2,2;1436,1445,TRA,416,418,,,;1445,1534,EST,418,418,,,"), now);
+        assertTrue(alerts.hasPending(now));
+        assertEquals(java.util.Set.of("416", "418"), alerts.requiredStops(now, 5));
+        JSONObject maresme = board("416", 2, arrival("403", 120));
+        maresme.put("via1", new JSONArray().put(arrival("403", 480)));
+        alerts.acceptBoard(maresme, now);
+        alerts.acceptBoard(board("418", 1, arrival("403", 720)), now);
+        List<ServiceAlerts.Alert> due = alerts.due(now, 5);
+        assertEquals(1, due.size());
+        assertEquals("El 403 és la primera arribada prevista", due.get(0).title);
+        assertTrue(due.get(0).body.contains("Poblenou cap a les 00:12"));
+        alerts.markSent(due.get(0));
+        assertFalse(alerts.hasPending(now + 1000));
     }
 }

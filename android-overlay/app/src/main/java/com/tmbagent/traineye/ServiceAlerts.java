@@ -15,6 +15,9 @@ import java.util.Set;
 
 /** Local, per-device advice. Never treats old station boards as live arrivals. */
 final class ServiceAlerts {
+    private static final long RETURN_WINDOW = 15 * 60000L;
+    private static final String RETURN_ALERT_PREFIX = "retorn-";
+
     static final class Alert {
         final String key, title, body;
         final long expiresAt;
@@ -43,7 +46,7 @@ final class ServiceAlerts {
 
     ServiceAlerts(ServicePlan plan, long now) { this.plan = plan; anchor = plan.anchorAt(now); startedAt = now; }
 
-    Set<String> requiredStops(long now) {
+    Set<String> requiredStops(long now, int margin) {
         Set<String> stops = new LinkedHashSet<>();
         for (ServicePlan.Row row : plan.rows) {
             if (!row.driving()) continue;
@@ -53,6 +56,14 @@ final class ServiceAlerts {
             if (!source.isEmpty()) stops.add(source);
             if (!row.from.isEmpty()) stops.add(row.from);
             if (at >= now) break;
+        }
+        for (ServicePlan.Row row : plan.rows) {
+            if (releasedTrainFor(row) == null || sent.contains(RETURN_ALERT_PREFIX + row.index)) continue;
+            long at = plan.at(anchor, row.start);
+            if (now >= at - RETURN_WINDOW - margin * 60000L && now <= at + RETURN_WINDOW) {
+                stops.add(row.from);
+                stops.add(row.to);
+            }
         }
         return stops;
     }
@@ -75,7 +86,9 @@ final class ServiceAlerts {
     boolean hasPending(long now) {
         for (ServicePlan.Row row : plan.rows) {
             long at = plan.at(anchor, row.start);
-            if ((row.driving() || "TRA".equals(row.type)) && at >= startedAt - 30000 && at + 15 * 60000L > now) return true;
+            if (at + 15 * 60000L <= now) continue;
+            if ((row.driving() || "TRA".equals(row.type)) && at >= startedAt - 30000) return true;
+            if (releasedTrainFor(row) != null && !sent.contains(RETURN_ALERT_PREFIX + row.index)) return true;
         }
         return false;
     }
@@ -84,11 +97,17 @@ final class ServiceAlerts {
         List<Alert> alerts = new ArrayList<>();
         for (ServicePlan.Row row : plan.rows) {
             long at = plan.at(anchor, row.start);
-            if (at < startedAt - 30000 || now > at + 15 * 60000L) continue;
+            if (now > at + 15 * 60000L) continue;
+            boolean scheduledAlert = at >= startedAt - 30000;
             String key = row.type + "-" + row.index;
-            if ("TRA".equals(row.type) && now >= at - margin * 60000L && now < at + 60000 && !sent.contains(key)) {
-                alerts.add(new Alert(key, "Servei · trasllat", "Trasllat " + station(row.from) + " → " + station(row.to) + " a les " + clock(at) + "."));
-            } else if (row.driving()) {
+            if ("TRA".equals(row.type)) {
+                Alert returning = returnAlert(row, at, now, margin);
+                if (returning != null) {
+                    alerts.add(returning);
+                } else if (scheduledAlert && now >= at - margin * 60000L && now < at + 60000 && !sent.contains(key)) {
+                    alerts.add(new Alert(key, "Servei · trasllat", "Trasllat " + station(row.from) + " → " + station(row.to) + " a les " + clock(at) + "."));
+                }
+            } else if (row.driving() && scheduledAlert) {
                 Alert connection = connectionAlert(row, now, margin);
                 if (connection != null) {
                     alerts.add(connection);
@@ -112,6 +131,61 @@ final class ServiceAlerts {
     void markSent(Alert alert) {
         sent.add(alert.key);
         if (alert.key.startsWith("pas-")) sent.add("CON-" + alert.key.substring(4));
+        if (alert.key.startsWith(RETURN_ALERT_PREFIX)) sent.add("TRA-" + alert.key.substring(RETURN_ALERT_PREFIX.length()));
+    }
+
+    private ServicePlan.Row releasedTrainFor(ServicePlan.Row transfer) {
+        if (!"TRA".equals(transfer.type) || transfer.index == 0 || transfer.from.equals(transfer.to)) return null;
+        ServicePlan.Row previous = plan.rows.get(transfer.index - 1);
+        String via = displacementVia(transfer.from, transfer.to);
+        if (!previous.driving() || previous.end != transfer.start || !previous.to.equals(transfer.from)) return null;
+        if (!("1".equals(previous.out) || "2".equals(previous.out)) || via.isEmpty() || via.equals(previous.out)) return null;
+        return previous;
+    }
+
+    private Alert returnAlert(ServicePlan.Row transfer, long scheduled, long now, int margin) {
+        String key = RETURN_ALERT_PREFIX + transfer.index;
+        if (sent.contains(key) || now < scheduled - RETURN_WINDOW - margin * 60000L) return null;
+        ServicePlan.Row released = releasedTrainFor(transfer);
+        if (released == null || now < plan.at(anchor, released.start)) return null;
+
+        // Select the predicted release on the outgoing track before matching the train's next pass on the opposite track.
+        long handover = arrivalAtOrAfter(arrivals(transfer.from, released.out, now), released.train,
+            Math.max(now + 1, scheduled - RETURN_WINDOW));
+        if (handover == 0 || handover > scheduled + RETURN_WINDOW || handover > now + margin * 60000L) return null;
+
+        String via = displacementVia(transfer.from, transfer.to);
+        List<Arrival> departures = arrivals(transfer.from, via, now);
+        List<Arrival> destination = arrivals(transfer.to, via, now);
+        long returnPass = arrivalAtOrAfter(departures, released.train, handover + 1);
+        if (returnPass == 0) return null;
+        long returnArrival = arrivalAtOrAfter(destination, released.train, returnPass + 1);
+        if (returnArrival == 0) return null;
+
+        Option earlier = null;
+        boolean complete = true;
+        for (Arrival departure : departures) {
+            if (departure.at <= handover) continue;
+            if (departure.at >= returnPass) break;
+            long arrival = arrivalAtOrAfter(destination, departure.train, departure.at + 1);
+            if (arrival == 0) complete = false;
+            if (arrival > 0 && arrival < returnArrival && (earlier == null || arrival < earlier.arrival)) {
+                earlier = new Option(departure.train, departure.at, arrival);
+            }
+        }
+
+        String origin = station(transfer.from), target = station(transfer.to);
+        if (earlier != null) {
+            String body = origin + " · via " + via + " · pas previst " + clock(earlier.departure)
+                + " · marge estimat de canvi " + marginText(earlier.departure - handover) + ". Arribada a " + target
+                + " cap a les " + clock(earlier.arrival) + " · " + marginText(returnArrival - earlier.arrival)
+                + " abans del " + released.train + " (" + clock(returnArrival) + ").";
+            return new Alert(key, "El " + earlier.train + " passa abans del " + released.train, body, handover);
+        }
+        if (!complete) return null;
+        String body = "El " + released.train + " torna per " + origin + " · via " + via + " · " + clock(returnPass)
+            + " i arriba a " + target + " cap a les " + clock(returnArrival) + ".";
+        return new Alert(key, "El " + released.train + " és la primera arribada prevista", body, handover);
     }
 
     private Alert connectionAlert(ServicePlan.Row row, long now, int margin) {
@@ -204,7 +278,13 @@ final class ServiceAlerts {
     }
 
     private long assignedArrival(ServicePlan.Row row, long now) {
-        for (Arrival entry : arrivals(row.from, row.via, now)) if (entry.train.equals(row.train)) return entry.at;
+        return arrivalAtOrAfter(arrivals(row.from, row.via, now), row.train, 0);
+    }
+
+    private static long arrivalAtOrAfter(List<Arrival> arrivals, String train, long earliest) {
+        for (Arrival arrival : arrivals) {
+            if (arrival.at >= earliest && arrival.train.equals(train)) return arrival.at;
+        }
         return 0;
     }
 
@@ -214,11 +294,8 @@ final class ServiceAlerts {
         List<Option> options = new ArrayList<>(); Set<String> seen = new HashSet<>();
         for (Arrival departure : arrivals(source, via, now)) {
             if (departure.at <= now + 5000 || !seen.add(departure.train)) continue;
-            for (Arrival arrival : destination) {
-                if (arrival.train.equals(departure.train) && arrival.at >= departure.at && arrival.at < deadline) {
-                    options.add(new Option(departure.train, departure.at, arrival.at)); break;
-                }
-            }
+            long arrival = arrivalAtOrAfter(destination, departure.train, departure.at);
+            if (arrival > 0 && arrival < deadline) options.add(new Option(departure.train, departure.at, arrival));
         }
         return options;
     }

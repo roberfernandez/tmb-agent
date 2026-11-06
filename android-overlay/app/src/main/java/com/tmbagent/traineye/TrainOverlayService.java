@@ -683,7 +683,7 @@ public class TrainOverlayService extends Service {
     }
 
     private void updateAlertStops() {
-        if (directClient != null) directClient.setStops(alertsEnabled && serviceAlerts != null ? serviceAlerts.requiredStops(System.currentTimeMillis()) : java.util.Collections.emptySet());
+        if (directClient != null) directClient.setStops(alertsEnabled && serviceAlerts != null ? serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin) : java.util.Collections.emptySet());
     }
 
     private void updateAlertWakeLock() {
