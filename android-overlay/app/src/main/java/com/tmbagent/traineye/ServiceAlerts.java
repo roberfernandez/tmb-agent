@@ -15,7 +15,7 @@ import java.util.Set;
 
 /** Local, per-device advice. Never treats old station boards as live arrivals. */
 final class ServiceAlerts {
-    private static final long RETURN_WINDOW = 15 * 60000L;
+    private static final long LIVE_MATCH_WINDOW = 15 * 60000L;
     private static final String RETURN_ALERT_PREFIX = "retorn-";
 
     static final class Alert {
@@ -60,7 +60,7 @@ final class ServiceAlerts {
         for (ServicePlan.Row row : plan.rows) {
             if (releasedTrainFor(row) == null || sent.contains(RETURN_ALERT_PREFIX + row.index)) continue;
             long at = plan.at(anchor, row.start);
-            if (now >= at - RETURN_WINDOW - margin * 60000L && now <= at + RETURN_WINDOW) {
+            if (now >= at - LIVE_MATCH_WINDOW - margin * 60000L && now <= at + LIVE_MATCH_WINDOW) {
                 stops.add(row.from);
                 stops.add(row.to);
             }
@@ -119,9 +119,9 @@ final class ServiceAlerts {
                 if (approaching(own, now, margin) && !sent.contains("pas-" + row.index)) {
                     alerts.add(new Alert("pas-" + row.index, "Puja al tren " + row.train,
                         "El " + row.train + " passa per " + station(source) + " · via " + via + " a les " + clock(own.departure) + ". Puja-hi per arribar a la presa a " + station(row.from) + ". " + advice(row, now), own.departure));
-                } else if (now >= at - margin * 60000L && now < at + 60000 && !sent.contains(key)) {
-                    alerts.add(new Alert(key, "Servei · presa del " + row.train,
-                        "Presa prevista a " + station(row.from) + " · via " + row.via + " · " + clock(at) + ". " + advice(row, now)));
+                } else if (!sent.contains(key)) {
+                    Alert take = takeAlert(row, source, key, at, now, margin);
+                    if (take != null) alerts.add(take);
                 }
             }
         }
@@ -132,6 +132,23 @@ final class ServiceAlerts {
         sent.add(alert.key);
         if (alert.key.startsWith("pas-")) sent.add("CON-" + alert.key.substring(4));
         if (alert.key.startsWith(RETURN_ALERT_PREFIX)) sent.add("TRA-" + alert.key.substring(RETURN_ALERT_PREFIX.length()));
+    }
+
+    private Alert takeAlert(ServicePlan.Row row, String source, String key, long scheduled, long now, int margin) {
+        long lead = margin * 60000L;
+        if (source.isEmpty() || source.equals(row.from)) {
+            long arrival = arrivalAtOrAfter(arrivals(row.from, row.via, now), row.train,
+                Math.max(now + 1, scheduled - LIVE_MATCH_WINDOW));
+            if (arrival > 0 && arrival < scheduled && arrival <= now + lead) {
+                String body = station(row.from) + " · via " + row.via + " · arribada estimada " + clock(arrival)
+                    + " segons Miralin. Presa prevista al servei a les " + clock(scheduled)
+                    + " · avançament estimat " + marginText(scheduled - arrival) + ".";
+                return new Alert(key, "Presa del " + row.train + " · arribada avançada", body, arrival);
+            }
+        }
+        if (now < scheduled - lead || now >= scheduled + 60000) return null;
+        return new Alert(key, "Servei · presa del " + row.train,
+            "Presa prevista a " + station(row.from) + " · via " + row.via + " · " + clock(scheduled) + ". " + advice(row, now));
     }
 
     private ServicePlan.Row releasedTrainFor(ServicePlan.Row transfer) {
@@ -145,14 +162,14 @@ final class ServiceAlerts {
 
     private Alert returnAlert(ServicePlan.Row transfer, long scheduled, long now, int margin) {
         String key = RETURN_ALERT_PREFIX + transfer.index;
-        if (sent.contains(key) || now < scheduled - RETURN_WINDOW - margin * 60000L) return null;
+        if (sent.contains(key) || now < scheduled - LIVE_MATCH_WINDOW - margin * 60000L) return null;
         ServicePlan.Row released = releasedTrainFor(transfer);
         if (released == null || now < plan.at(anchor, released.start)) return null;
 
         // Select the predicted release on the outgoing track before matching the train's next pass on the opposite track.
         long handover = arrivalAtOrAfter(arrivals(transfer.from, released.out, now), released.train,
-            Math.max(now + 1, scheduled - RETURN_WINDOW));
-        if (handover == 0 || handover > scheduled + RETURN_WINDOW || handover > now + margin * 60000L) return null;
+            Math.max(now + 1, scheduled - LIVE_MATCH_WINDOW));
+        if (handover == 0 || handover > scheduled + LIVE_MATCH_WINDOW || handover > now + margin * 60000L) return null;
 
         String via = displacementVia(transfer.from, transfer.to);
         List<Arrival> departures = arrivals(transfer.from, via, now);

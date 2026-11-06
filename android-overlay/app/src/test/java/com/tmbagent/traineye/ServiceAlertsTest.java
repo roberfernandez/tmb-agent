@@ -230,4 +230,37 @@ public class ServiceAlertsTest {
         alerts.markSent(due.get(0));
         assertFalse(alerts.hasPending(now + 1000));
     }
+
+    @Test public void advancesAnOnStationTakeoverFrom0124To0115When403ArrivesEarly() throws Exception {
+        long now = ServicePlanTest.time("2026-11-07T01:14:59");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), now);
+        assertEquals(java.util.Set.of("418"), alerts.requiredStops(now, 10));
+        alerts.acceptBoard(board("418", 1, arrival("403", 181), arrival("403", 601)), now);
+        assertTrue(alerts.due(now, 10).isEmpty());
+
+        List<ServiceAlerts.Alert> due = alerts.due(now + 1000, 10);
+        assertEquals(1, due.size());
+        ServiceAlerts.Alert alert = due.get(0);
+        assertEquals("Presa del 403 · arribada avançada", alert.title);
+        assertTrue(alert.body.contains("Poblenou · via 1 · arribada estimada 01:25"));
+        assertTrue(alert.body.contains("01:34 · avançament estimat 9 min"));
+        assertEquals(now + 601000L, alert.expiresAt);
+        alerts.markSent(alert);
+        assertTrue(alerts.due(now + 541000L, 10).isEmpty());
+    }
+
+    @Test public void retainsTheScheduledTakeoverForLateMissingOrWrongTrackArrivals() throws Exception {
+        long now = ServicePlanTest.time("2026-11-07T01:24:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), now);
+        JSONObject poblenou = board("418", 1, arrival("403", 900));
+        poblenou.put("via2", new JSONArray().put(arrival("403", 60)));
+        alerts.acceptBoard(poblenou, now);
+        List<ServiceAlerts.Alert> due = alerts.due(now, 10);
+        assertEquals(1, due.size());
+        assertEquals("Servei · presa del 403", due.get(0).title);
+        assertTrue(due.get(0).body.contains("via 1 · 01:34"));
+
+        alerts.clearBoards();
+        assertEquals("Servei · presa del 403", alerts.due(now, 10).get(0).title);
+    }
 }
