@@ -12,6 +12,13 @@ public class ServiceAlertsTest {
     private static final String MARESME_SCHEDULE = "1356,1436,CON,416,416,403,2,2;1436,1445,TRA,416,418,,,;1445,1534,EST,418,418,,,;1534,1605,CON,418,413,403,1,RET";
     private static JSONObject arrival(String train, int seconds) throws Exception { return new JSONObject().put("trainCode", train).put("secsLeft", seconds); }
     private static JSONObject board(String stop, int via, JSONObject... entries) throws Exception { return new JSONObject().put("stopCode", stop).put("via" + via, new JSONArray(entries)); }
+    private static JSONObject position(String train, String stop, int via) throws Exception {
+        return new JSONObject().put(train, new JSONObject().put("estacion", stop).put("platformTrack", via));
+    }
+    private static void forecast(ServiceAlerts alerts, long now, String stop, int via, int seconds) throws Exception {
+        alerts.acceptMap(position("403", stop, via), now);
+        alerts.acceptBoard(board("418", 1, arrival("403", seconds)), now);
+    }
     private static ServiceAlerts alerts() { return new ServiceAlerts(new ServicePlan(ServicePlanTest.SCHEDULE), NOW); }
 
     @Test public void warnsAboutOwnTrainPassingJaumeIOnVia1BeforeTrinitatVia2() throws Exception {
@@ -231,36 +238,133 @@ public class ServiceAlertsTest {
         assertFalse(alerts.hasPending(now + 1000));
     }
 
-    @Test public void advancesAnOnStationTakeoverFrom0124To0115When403ArrivesEarly() throws Exception {
+    @Test public void alertsTenMinutesBeforeTheMatchedPassEvenFiveStationsAway() throws Exception {
         long now = ServicePlanTest.time("2026-11-07T01:14:59");
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), now);
         assertEquals(java.util.Set.of("418"), alerts.requiredStops(now, 10));
+        alerts.acceptMap(position("403", "La Pau", 1), now);
         alerts.acceptBoard(board("418", 1, arrival("403", 181), arrival("403", 601)), now);
         assertTrue(alerts.due(now, 10).isEmpty());
 
         List<ServiceAlerts.Alert> due = alerts.due(now + 1000, 10);
         assertEquals(1, due.size());
         ServiceAlerts.Alert alert = due.get(0);
-        assertEquals("Presa del 403 · arribada avançada", alert.title);
+        assertEquals("Servei · presa del 403", alert.title);
         assertTrue(alert.body.contains("Poblenou · via 1 · arribada estimada 01:25"));
-        assertTrue(alert.body.contains("01:34 · avançament estimat 9 min"));
+        assertTrue(alert.body.contains("Presa prevista al servei a les 01:34"));
         assertEquals(now + 601000L, alert.expiresAt);
         alerts.markSent(alert);
-        assertTrue(alerts.due(now + 541000L, 10).isEmpty());
+        assertTrue(alerts.due(now + 2000L, 10).isEmpty());
     }
 
-    @Test public void retainsTheScheduledTakeoverForLateMissingOrWrongTrackArrivals() throws Exception {
+    @Test public void warnsImmediatelyWhenThePredictionJumpsInsideTheMargin() throws Exception {
+        long now = ServicePlanTest.time("2026-11-07T01:13:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), now);
+        forecast(alerts, now, "La Pau", 1, 720);
+        assertTrue(alerts.due(now, 10).isEmpty());
+        forecast(alerts, now + 60000, "Besos", 1, 420);
+        assertTrue(alerts.due(now + 60000, 10).get(0).body.contains("arribada estimada 01:21"));
+    }
+
+    @Test public void postponesTheFirstNoticeAndKeepsWatchingPastTheScheduledTime() throws Exception {
         long now = ServicePlanTest.time("2026-11-07T01:24:00");
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), now);
-        JSONObject poblenou = board("418", 1, arrival("403", 900));
-        poblenou.put("via2", new JSONArray().put(arrival("403", 60)));
-        alerts.acceptBoard(poblenou, now);
-        List<ServiceAlerts.Alert> due = alerts.due(now, 10);
-        assertEquals(1, due.size());
-        assertEquals("Servei · presa del 403", due.get(0).title);
-        assertTrue(due.get(0).body.contains("via 1 · 01:34"));
+        forecast(alerts, now, "Besòs Mar", 1, 900);
+        assertTrue(alerts.due(now, 10).isEmpty());
+        long delayed = now + 8 * 60000;
+        forecast(alerts, delayed, "Maresme", 1, 28 * 60);
+        assertTrue(alerts.due(delayed, 10).isEmpty());
+        long inside = now + 26 * 60000;
+        assertTrue(alerts.hasPending(inside));
+        assertEquals(java.util.Set.of("418"), alerts.requiredStops(inside, 10));
+        forecast(alerts, inside, "Maresme | Fòrum", 1, 600);
+        assertTrue(alerts.due(inside, 10).get(0).body.contains("arribada estimada 02:00"));
+    }
 
-        alerts.clearBoards();
-        assertEquals("Servei · presa del 403", alerts.due(now, 10).get(0).title);
+    @Test public void correctsAMeaningfulAdvanceAndRearmsAfterALongerDelay() throws Exception {
+        long now = ServicePlanTest.time("2026-11-07T01:24:00");
+        ServicePlan plan = new ServicePlan(MARESME_SCHEDULE);
+        ServiceAlerts alerts = new ServiceAlerts(plan, now);
+        forecast(alerts, now, "Besòs", 1, 600);
+        alerts.markSent(alerts.due(now, 10).get(0));
+
+        long after = now + 60000;
+        forecast(alerts, after, "Besòs Mar", 1, 480);
+        assertTrue(alerts.due(after, 10).isEmpty());
+        forecast(alerts, after, "Besòs Mar", 1, 420);
+        ServiceAlerts.Alert advance = alerts.due(after, 10).get(0);
+        assertEquals("Nova previsió · presa del 403", advance.title);
+        assertTrue(advance.body.contains("arribada estimada 01:32"));
+        alerts.markSent(advance);
+
+        long delayed = now + 3 * 60000;
+        forecast(alerts, delayed, "El Maresme - Fòrum", 1, 900);
+        assertTrue(alerts.due(delayed, 10).isEmpty());
+
+        ServiceAlerts restarted = new ServiceAlerts(plan, delayed);
+        restarted.restoreTakeState(alerts.changedTakeState());
+        long inside = now + 8 * 60000;
+        forecast(restarted, inside, "Selva de Mar", 1, 600);
+        ServiceAlerts.Alert reentry = restarted.due(inside, 10).get(0);
+        assertTrue(reentry.body.contains("arribada estimada 01:42"));
+        restarted.markSent(reentry);
+        assertTrue(restarted.due(inside + 1000, 10).isEmpty());
+    }
+
+    @Test public void doesNotUseMissingStaleOrWrongTrackForecasts() throws Exception {
+        long now = ServicePlanTest.time("2026-11-07T01:24:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), now);
+        assertTrue(alerts.due(now, 10).isEmpty());
+        alerts.acceptMap(position("403", "Selva de Mar", 1), now);
+        alerts.acceptBoard(board("418", 2, arrival("403", 120)), now);
+        assertTrue(alerts.due(now, 10).isEmpty());
+        forecast(alerts, now, "Selva de Mar", 2, 120);
+        assertTrue(alerts.due(now, 10).isEmpty());
+        alerts.acceptMap(position("403", "Selva de Mar", 1), now - 45000);
+        assertTrue(alerts.due(now, 10).isEmpty());
+        forecast(alerts, now, "Selva de Mar", 1, 120);
+        alerts.acceptMap(position("403", "Selva de Mar", 1), now + 60000);
+        assertTrue(alerts.due(now + 60000, 10).isEmpty());
+        alerts.clearLiveData();
+        assertTrue(alerts.due(now, 10).isEmpty());
+    }
+
+    @Test public void finishesTheTakeAfterTheTrainPassesEvenWhenNoNoticeWasSent() throws Exception {
+        long now = ServicePlanTest.time("2026-11-07T01:24:00");
+        ServicePlan plan = new ServicePlan(MARESME_SCHEDULE);
+        ServiceAlerts alerts = new ServiceAlerts(plan, now);
+        forecast(alerts, now, "Selva de Mar", 1, 120);
+        assertEquals(1, alerts.due(now, 10).size());
+
+        long passed = now + 3 * 60000;
+        forecast(alerts, passed, "Llacuna", 1, 600);
+        assertTrue(alerts.due(passed, 10).isEmpty());
+        assertFalse(alerts.hasPending(passed));
+        assertTrue(alerts.requiredStops(passed, 10).isEmpty());
+
+        ServiceAlerts restarted = new ServiceAlerts(plan, passed);
+        restarted.restoreTakeState(alerts.changedTakeState());
+        forecast(restarted, passed, "Selva de Mar", 1, 300);
+        assertTrue(restarted.due(passed, 10).isEmpty());
+    }
+
+    @Test public void canStartTrackingADelayedDirectTakeAfterItsScheduledStart() throws Exception {
+        long now = ServicePlanTest.time("2026-11-07T01:40:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(MARESME_SCHEDULE), now);
+        forecast(alerts, now, "Selva de Mar", 1, 180);
+        assertTrue(alerts.due(now, 10).get(0).body.contains("arribada estimada 01:43"));
+    }
+
+    @Test public void matchesABoardingTrackAtATerminusAndFinishesAfterDeparture() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("1409,1469,CON,434,423,405,2,1"), NOW);
+        alerts.acceptMap(position("405", "Via Júlia", 1), NOW);
+        alerts.acceptBoard(board("434", 2, arrival("405", 300)), NOW);
+        assertEquals(1, alerts.due(NOW, 5).size());
+
+        long after = NOW + 8 * 60000;
+        alerts.acceptMap(position("405", "Via Júlia", 2), after);
+        alerts.acceptBoard(board("434", 2, arrival("405", 300)), after);
+        assertTrue(alerts.due(after, 5).isEmpty());
+        assertFalse(alerts.hasPending(after));
     }
 }

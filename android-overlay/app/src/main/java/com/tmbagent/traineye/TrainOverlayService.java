@@ -640,10 +640,12 @@ public class TrainOverlayService extends Service {
         directClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
             @Override public void onMap(JSONObject trains) {
                 final long received = android.os.SystemClock.elapsedRealtime();
+                final long receivedAt = System.currentTimeMillis();
                 handler.post(() -> {
                     if (destroyed) return;
                     directMap = trains;
                     directMapAt = received;
+                    if (serviceAlerts != null) serviceAlerts.acceptMap(trains, receivedAt);
                     applyDirectTrain();
                     updateLine();
                 });
@@ -652,7 +654,7 @@ public class TrainOverlayService extends Service {
                 handler.post(() -> {
                     if (destroyed || status.equals(connectionStatus)) return;
                     connectionStatus = status;
-                    if (serviceAlerts != null && !status.contains("dades rebudes")) serviceAlerts.clearBoards();
+                    if (serviceAlerts != null && !status.contains("dades rebudes")) serviceAlerts.clearLiveData();
                     startAsForeground();
                 });
             }
@@ -674,8 +676,12 @@ public class TrainOverlayService extends Service {
         if ("service".equals(mode) && !schedule.isEmpty() && (!key.equals(alertPlanKey) || serviceAlerts == null)) {
             alertPlanKey = key;
             serviceAlerts = new ServiceAlerts(servicePlan, now);
-            if (key.equals(prefs.getString("alertPlan", ""))) serviceAlerts.sent.addAll(new java.util.HashSet<>(prefs.getStringSet("alertSent", java.util.Collections.emptySet())));
-            else prefs.edit().putString("alertPlan", key).putStringSet("alertSent", java.util.Collections.emptySet()).apply();
+            if (key.equals(prefs.getString("alertPlan", ""))) {
+                serviceAlerts.sent.addAll(prefs.getStringSet("alertSent", java.util.Collections.emptySet()));
+                serviceAlerts.restoreTakeState(prefs.getString("liveTakeState", "[]"));
+            } else {
+                prefs.edit().putString("alertPlan", key).putStringSet("alertSent", java.util.Collections.emptySet()).remove("liveTakeState").apply();
+            }
         }
         if (!"service".equals(mode)) serviceAlerts = null;
         updateAlertStops();
@@ -701,24 +707,38 @@ public class TrainOverlayService extends Service {
 
     private void tickServiceAlerts() {
         updateAlertStops(); updateAlertWakeLock();
-        if (!alertsEnabled || serviceAlerts == null || getSystemService(PowerManager.class).isInteractive()) return;
+        if (!alertsEnabled || serviceAlerts == null) return;
+        List<ServiceAlerts.Alert> due = serviceAlerts.due(System.currentTimeMillis(), alertMargin);
         NotificationManager manager = getSystemService(NotificationManager.class);
-        if (!manager.areNotificationsEnabled()) return;
-        for (ServiceAlerts.Alert alert : serviceAlerts.due(System.currentTimeMillis(), alertMargin)) {
-            long timeout = Math.min(180000, alert.expiresAt - System.currentTimeMillis());
-            if (timeout <= 0) continue;
-            Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(SERVICE_VIEWER_URL));
-            PendingIntent content = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            Notification notification = new Notification.Builder(this, "service_alerts")
-                .setSmallIcon(android.R.drawable.ic_menu_view).setContentTitle(alert.title).setContentText(alert.body)
-                .setStyle(new Notification.BigTextStyle().bigText(alert.body)).setCategory(Notification.CATEGORY_REMINDER)
-                .setContentIntent(content).setAutoCancel(true).setTimeoutAfter(timeout).build();
-            try {
-                manager.notify("service-" + alert.key, 9414, notification);
-                serviceAlerts.markSent(alert);
-                getSharedPreferences("overlay", MODE_PRIVATE).edit().putStringSet("alertSent", new java.util.HashSet<>(serviceAlerts.sent)).apply();
-            } catch (SecurityException ignored) {}
+        boolean scheduledSent = false;
+        if (!due.isEmpty() && !getSystemService(PowerManager.class).isInteractive() && manager.areNotificationsEnabled()) {
+            for (ServiceAlerts.Alert alert : due) {
+                if (postServiceAlert(manager, alert) && alert.takeRow < 0) scheduledSent = true;
+            }
         }
+        String takeState = serviceAlerts.changedTakeState();
+        if (scheduledSent || takeState != null) {
+            android.content.SharedPreferences.Editor edit = getSharedPreferences("overlay", MODE_PRIVATE).edit();
+            if (scheduledSent) edit.putStringSet("alertSent", new java.util.HashSet<>(serviceAlerts.sent));
+            if (takeState != null) edit.putString("liveTakeState", takeState);
+            edit.apply();
+        }
+    }
+
+    private boolean postServiceAlert(NotificationManager manager, ServiceAlerts.Alert alert) {
+        long timeout = Math.min(180000, alert.expiresAt - System.currentTimeMillis());
+        if (timeout <= 0) return false;
+        Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(SERVICE_VIEWER_URL));
+        PendingIntent content = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification notification = new Notification.Builder(this, "service_alerts")
+            .setSmallIcon(android.R.drawable.ic_menu_view).setContentTitle(alert.title).setContentText(alert.body)
+            .setStyle(new Notification.BigTextStyle().bigText(alert.body)).setCategory(Notification.CATEGORY_REMINDER)
+            .setContentIntent(content).setAutoCancel(true).setTimeoutAfter(timeout).build();
+        try {
+            manager.notify("service-" + alert.key, 9414, notification);
+            serviceAlerts.markSent(alert);
+            return true;
+        } catch (SecurityException ignored) { return false; }
     }
 
     // Called on the main thread. Reception age uses a monotonic clock.

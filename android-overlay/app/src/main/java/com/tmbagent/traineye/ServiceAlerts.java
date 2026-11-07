@@ -1,7 +1,9 @@
 package com.tmbagent.traineye;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+import java.text.Normalizer;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -10,21 +12,34 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 /** Local, per-device advice. Never treats old station boards as live arrivals. */
 final class ServiceAlerts {
     private static final long LIVE_MATCH_WINDOW = 15 * 60000L;
+    private static final long TAKE_MATCH_WINDOW = 30 * 60000L;
+    private static final long NOTICE_CHANGE = 2 * 60000L;
     private static final String RETURN_ALERT_PREFIX = "retorn-";
 
     static final class Alert {
         final String key, title, body;
         final long expiresAt;
+        final int takeRow;
         Alert(String key, String title, String body) { this(key, title, body, Long.MAX_VALUE); }
         Alert(String key, String title, String body, long expiresAt) {
-            this.key = key; this.title = title; this.body = body; this.expiresAt = expiresAt;
+            this(key, title, body, expiresAt, -1);
         }
+        Alert(String key, String title, String body, long expiresAt, int takeRow) {
+            this.key = key; this.title = title; this.body = body; this.expiresAt = expiresAt;
+            this.takeRow = takeRow;
+        }
+    }
+    private static final class TakeWatch {
+        int distance;
+        long forecast, seenAt, announcedArrival;
+        boolean rearmed, finished;
     }
     private static final class Board {
         final JSONObject data; final long received;
@@ -42,7 +57,24 @@ final class ServiceAlerts {
     final long anchor, startedAt;
     final Set<String> sent = new HashSet<>();
     private final Map<String, Board> boards = new HashMap<>();
+    private final Map<Integer, TakeWatch> takes = new HashMap<>();
+    private JSONObject map;
+    private long mapReceived;
+    private boolean takeStateDirty;
     private static final String[] NAMES = {"La Pau","Besòs","Besòs Mar","El Maresme | Fòrum","Selva de Mar","Poblenou","Llacuna","Bogatell","Ciutadella | Vila Olímpica","Barceloneta","Jaume I","Urquinaona","Passeig de Gràcia","Girona","Verdaguer","Joanic","Alfons X","Guinardó | Hospital de Sant Pau","Maragall","Llucmajor","Via Júlia","Trinitat Nova"};
+    private static final Map<String, Integer> STOP_POSITIONS = new HashMap<>();
+    static {
+        for (int i = 0; i < NAMES.length; i++) STOP_POSITIONS.put(stationKey(NAMES[i]), 413 + i);
+        STOP_POSITIONS.put("maresme", 416);
+        STOP_POSITIONS.put("elmaresme", 416);
+        STOP_POSITIONS.put("maresmeforum", 416);
+        STOP_POSITIONS.put("forum", 416);
+        STOP_POSITIONS.put("ciutadella", 421);
+        STOP_POSITIONS.put("vilaolimpica", 421);
+        STOP_POSITIONS.put("pggracia", 425);
+        STOP_POSITIONS.put("guinardo", 430);
+        STOP_POSITIONS.put("hospitaldesantpau", 430);
+    }
 
     ServiceAlerts(ServicePlan plan, long now) { this.plan = plan; anchor = plan.anchorAt(now); startedAt = now; }
 
@@ -51,10 +83,15 @@ final class ServiceAlerts {
         for (ServicePlan.Row row : plan.rows) {
             if (!row.driving()) continue;
             long at = plan.at(anchor, row.start);
-            if (at + 15 * 60000L <= now) continue;
             String source = plan.sourceFor(row);
-            if (!source.isEmpty()) stops.add(source);
-            if (!row.from.isEmpty()) stops.add(row.from);
+            if (isDirectTake(row, source)) {
+                if (!pendingTake(row, at, now)) continue;
+                stops.add(row.from);
+            } else {
+                if (at + LIVE_MATCH_WINDOW <= now) continue;
+                stops.add(source);
+                stops.add(row.from);
+            }
             if (at >= now) break;
         }
         for (ServicePlan.Row row : plan.rows) {
@@ -81,12 +118,24 @@ final class ServiceAlerts {
         }
     }
 
-    void clearBoards() { boards.clear(); }
+    void acceptMap(JSONObject trains, long now) {
+        map = trains;
+        mapReceived = now;
+    }
+
+    void clearLiveData() {
+        boards.clear();
+        map = null;
+    }
 
     boolean hasPending(long now) {
         for (ServicePlan.Row row : plan.rows) {
             long at = plan.at(anchor, row.start);
-            if (at + 15 * 60000L <= now) continue;
+            if (row.driving() && isDirectTake(row, plan.sourceFor(row))) {
+                if (pendingTake(row, at, now)) return true;
+                continue;
+            }
+            if (at + LIVE_MATCH_WINDOW <= now) continue;
             if ((row.driving() || "TRA".equals(row.type)) && at >= startedAt - 30000) return true;
             if (releasedTrainFor(row) != null && !sent.contains(RETURN_ALERT_PREFIX + row.index)) return true;
         }
@@ -97,9 +146,15 @@ final class ServiceAlerts {
         List<Alert> alerts = new ArrayList<>();
         for (ServicePlan.Row row : plan.rows) {
             long at = plan.at(anchor, row.start);
-            if (now > at + 15 * 60000L) continue;
-            boolean scheduledAlert = at >= startedAt - 30000;
             String key = row.type + "-" + row.index;
+            String source = plan.sourceFor(row);
+            if (row.driving() && isDirectTake(row, source)) {
+                Alert take = liveTakeAlert(row, key, at, now, margin);
+                if (take != null) alerts.add(take);
+                continue;
+            }
+            if (now > at + LIVE_MATCH_WINDOW) continue;
+            boolean scheduledAlert = at >= startedAt - 30000;
             if ("TRA".equals(row.type)) {
                 Alert returning = returnAlert(row, at, now, margin);
                 if (returning != null) {
@@ -113,14 +168,13 @@ final class ServiceAlerts {
                     alerts.add(connection);
                     continue;
                 }
-                String source = plan.sourceFor(row);
                 String via = displacementVia(source, row.from);
                 Option own = usesConnectionOptions(row, via) ? null : ownTrain(row, source, now);
                 if (approaching(own, now, margin) && !sent.contains("pas-" + row.index)) {
                     alerts.add(new Alert("pas-" + row.index, "Puja al tren " + row.train,
                         "El " + row.train + " passa per " + station(source) + " · via " + via + " a les " + clock(own.departure) + ". Puja-hi per arribar a la presa a " + station(row.from) + ". " + advice(row, now), own.departure));
                 } else if (!sent.contains(key)) {
-                    Alert take = takeAlert(row, source, key, at, now, margin);
+                    Alert take = scheduledTakeAlert(row, key, at, now, margin);
                     if (take != null) alerts.add(take);
                 }
             }
@@ -129,23 +183,126 @@ final class ServiceAlerts {
     }
 
     void markSent(Alert alert) {
+        if (alert.takeRow >= 0) {
+            TakeWatch watch = takes.get(alert.takeRow);
+            watch.announcedArrival = alert.expiresAt;
+            watch.rearmed = false;
+            takeStateDirty = true;
+            return;
+        }
         sent.add(alert.key);
         if (alert.key.startsWith("pas-")) sent.add("CON-" + alert.key.substring(4));
         if (alert.key.startsWith(RETURN_ALERT_PREFIX)) sent.add("TRA-" + alert.key.substring(RETURN_ALERT_PREFIX.length()));
     }
 
-    private Alert takeAlert(ServicePlan.Row row, String source, String key, long scheduled, long now, int margin) {
-        long lead = margin * 60000L;
-        if (source.isEmpty() || source.equals(row.from)) {
-            long arrival = arrivalAtOrAfter(arrivals(row.from, row.via, now), row.train,
-                Math.max(now + 1, scheduled - LIVE_MATCH_WINDOW));
-            if (arrival > 0 && arrival < scheduled && arrival <= now + lead) {
-                String body = station(row.from) + " · via " + row.via + " · arribada estimada " + clock(arrival)
-                    + " segons Miralin. Presa prevista al servei a les " + clock(scheduled)
-                    + " · avançament estimat " + marginText(scheduled - arrival) + ".";
-                return new Alert(key, "Presa del " + row.train + " · arribada avançada", body, arrival);
-            }
+    private static boolean isDirectTake(ServicePlan.Row row, String source) {
+        return source.isEmpty() || source.equals(row.from);
+    }
+
+    private boolean pendingTake(ServicePlan.Row row, long scheduled, long now) {
+        if (!row.from.matches("41[3-9]|42[0-9]|43[0-4]") || !("1".equals(row.via) || "2".equals(row.via))) return false;
+        TakeWatch watch = takes.get(row.index);
+        return watch == null ? now <= scheduled + TAKE_MATCH_WINDOW : !watch.finished && now - watch.seenAt < TAKE_MATCH_WINDOW;
+    }
+
+    private Alert liveTakeAlert(ServicePlan.Row row, String key, long scheduled, long now, int margin) {
+        if (!pendingTake(row, scheduled, now) || map == null || now < mapReceived || now - mapReceived >= 45000) return null;
+        JSONObject train = map.optJSONObject(row.train);
+        if (train == null) return null;
+        int position = stopPosition(train.optString("estacion", ""));
+        if (position == 0) return null;
+        int target = Integer.parseInt(row.from);
+        boolean terminus = target == 413 || target == 434;
+        String inbound = target == 413 ? "2" : target == 434 ? "1" : row.via;
+        String track = train.optString("platformTrack", train.optString("track", ""));
+        boolean onApproach = inbound.equals(track) || (terminus && position == target);
+        int distance = (target - position) * ("1".equals(inbound) ? 1 : -1);
+        TakeWatch watch = takes.get(row.index);
+        // Once the train has gone by, the next prediction for its number is another circuit.
+        if (watch != null && (distance < 0 || (onApproach && distance > watch.distance + 1)
+            || (!onApproach && (terminus || watch.distance == 0) && ("1".equals(track) || "2".equals(track))))) {
+            watch.finished = true;
+            takeStateDirty = true;
+            return null;
         }
+        if (!onApproach || distance < 0) return null;
+
+        // The timetable identifies the initial passage. Later changes use that passage's last prediction.
+        long reference = watch == null ? scheduled : watch.forecast;
+        long arrival = 0;
+        for (Arrival candidate : arrivals(row.from, row.via, now)) {
+            if (!row.train.equals(candidate.train) || candidate.at <= now) continue;
+            if (watch == null && Math.abs(candidate.at - scheduled) > TAKE_MATCH_WINDOW) continue;
+            if (arrival == 0 || Math.abs(candidate.at - reference) < Math.abs(arrival - reference)) arrival = candidate.at;
+        }
+        if (arrival == 0) return null;
+
+        if (watch == null) {
+            watch = new TakeWatch();
+            watch.distance = distance;
+            takes.put(row.index, watch);
+            takeStateDirty = true;
+        }
+        if (distance < watch.distance || watch.seenAt / 60000 != now / 60000) takeStateDirty = true;
+        watch.distance = Math.min(watch.distance, distance);
+        watch.forecast = arrival;
+        watch.seenAt = now;
+
+        long change = arrival - watch.announcedArrival;
+        if (arrival > now + margin * 60000L) {
+            if (watch.announcedArrival != 0 && change >= NOTICE_CHANGE && !watch.rearmed) {
+                watch.rearmed = true;
+                takeStateDirty = true;
+            }
+            return null;
+        }
+        boolean first = watch.announcedArrival == 0;
+        if (!first && change > -NOTICE_CHANGE && !(watch.rearmed && change >= NOTICE_CHANGE)) {
+            if (watch.rearmed) {
+                watch.rearmed = false;
+                takeStateDirty = true;
+            }
+            return null;
+        }
+        String body = station(row.from) + " · via " + row.via + " · arribada estimada " + clock(arrival)
+            + " segons Miralin. Presa prevista al servei a les " + clock(scheduled) + ".";
+        return new Alert(key, (first ? "Servei" : "Nova previsió") + " · presa del " + row.train, body, arrival, row.index);
+    }
+
+    void restoreTakeState(String value) {
+        try {
+            JSONArray state = new JSONArray(value);
+            for (int i = 0; i < state.length(); i++) {
+                JSONObject saved = state.getJSONObject(i);
+                TakeWatch watch = new TakeWatch();
+                watch.distance = saved.getInt("distance");
+                watch.forecast = saved.getLong("forecast");
+                watch.seenAt = saved.getLong("seenAt");
+                watch.announcedArrival = saved.optLong("announcedArrival");
+                watch.rearmed = saved.optBoolean("rearmed");
+                watch.finished = saved.optBoolean("finished");
+                takes.put(saved.getInt("row"), watch);
+            }
+        } catch (JSONException ignored) {}
+    }
+
+    String changedTakeState() {
+        if (!takeStateDirty) return null;
+        JSONArray state = new JSONArray();
+        for (Map.Entry<Integer, TakeWatch> entry : takes.entrySet()) {
+            TakeWatch watch = entry.getValue();
+            try {
+                state.put(new JSONObject().put("row", entry.getKey()).put("distance", watch.distance)
+                    .put("forecast", watch.forecast).put("seenAt", watch.seenAt).put("announcedArrival", watch.announcedArrival)
+                    .put("rearmed", watch.rearmed).put("finished", watch.finished));
+            } catch (JSONException ignored) {}
+        }
+        takeStateDirty = false;
+        return state.toString();
+    }
+
+    private Alert scheduledTakeAlert(ServicePlan.Row row, String key, long scheduled, long now, int margin) {
+        long lead = margin * 60000L;
         if (now < scheduled - lead || now >= scheduled + 60000) return null;
         return new Alert(key, "Servei · presa del " + row.train,
             "Presa prevista a " + station(row.from) + " · via " + row.via + " · " + clock(scheduled) + ". " + advice(row, now));
@@ -351,6 +508,13 @@ final class ServiceAlerts {
     }
     static String station(String stop) {
         try { int index = Integer.parseInt(stop) - 413; return index >= 0 && index < NAMES.length ? NAMES[index] : stop; } catch (NumberFormatException ignored) { return stop; }
+    }
+    private static int stopPosition(String station) {
+        if (station.matches("41[3-9]|42[0-9]|43[0-4]")) return Integer.parseInt(station);
+        return STOP_POSITIONS.getOrDefault(stationKey(station), 0);
+    }
+    private static String stationKey(String name) {
+        return Normalizer.normalize(name, Normalizer.Form.NFD).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
     }
     private static String clock(long time) { return DateTimeFormatter.ofPattern("HH:mm").withZone(ServicePlan.ZONE.toZoneId()).format(Instant.ofEpochMilli(time)); }
 }
