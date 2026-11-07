@@ -711,7 +711,7 @@ public class TrainOverlayService extends Service {
         List<ServiceAlerts.Alert> due = serviceAlerts.due(System.currentTimeMillis(), alertMargin);
         NotificationManager manager = getSystemService(NotificationManager.class);
         boolean scheduledSent = false;
-        if (!due.isEmpty() && !getSystemService(PowerManager.class).isInteractive() && manager.areNotificationsEnabled()) {
+        if (!due.isEmpty() && manager.areNotificationsEnabled()) {
             for (ServiceAlerts.Alert alert : due) {
                 if (postServiceAlert(manager, alert) && alert.takeRow < 0) scheduledSent = true;
             }
