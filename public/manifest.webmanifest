@@ -3,7 +3,7 @@
   "name": "TMB Agent",
   "short_name": "TMB Agent",
   "lang": "ca",
-  "start_url": "./",
+  "start_url": "./#/",
   "scope": "./",
   "display": "standalone",
   "background_color": "#080f1c",
@@ -57,5 +57,8 @@
         }
       ]
     }
-  ]
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }
