@@ -13,7 +13,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
@@ -28,6 +27,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -64,8 +65,7 @@ public class TrainOverlayService extends Service {
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WindowManager windowManager;
     private View overlay;
-    private TextView trainLine;
-    private TextView statusLine;
+    private TrainEyeView eye;
     private WindowManager.LayoutParams overlayParams;
     private View popupRoot;
     private ScrollView popupScroll;
@@ -86,7 +86,6 @@ public class TrainOverlayService extends Service {
     private String track = "—";
     private int ageAtFetch = -1;
     private long fetchedAt = 0;
-    private boolean expanded = true;
     private volatile boolean requestInFlight = false;
     private MiralinDirectClient directClient;
     private JSONObject directMap;
@@ -112,7 +111,7 @@ public class TrainOverlayService extends Service {
     private final Runnable ageTicker = new Runnable() {
         @Override public void run() {
             applyScheduledTrain(true);
-            updateLine();
+            updateEye();
             updatePopupHighlight();
             tickServiceAlerts();
             handler.postDelayed(this, 1000);
@@ -211,61 +210,25 @@ public class TrainOverlayService extends Service {
 
     private void showOverlay() {
         if (overlay != null) return;
-        LinearLayout bar = new LinearLayout(this);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setPadding(dp(5), dp(4), dp(5), dp(4));
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(0xff111e30);
-        background.setCornerRadius(dp(14));
-        background.setStroke(dp(1), 0xfff4d000);
-        bar.setBackground(background);
+        FrameLayout bubble = new FrameLayout(this);
+        eye = new TrainEyeView(this);
+        bubble.addView(eye, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        eye.setOnClickListener(view -> openServiceViewer());
 
-        TrainEyeIcon eye = new TrainEyeIcon(this);
-        bar.addView(eye, new LinearLayout.LayoutParams(dp(32), dp(32)));
-
-        LinearLayout details = new LinearLayout(this);
-        details.setOrientation(LinearLayout.VERTICAL);
-        details.setPadding(dp(6), 0, dp(2), 0);
-        details.setMinimumWidth(dp(175));
-        trainLine = new TextView(this);
-        trainLine.setTextColor(0xfff4d000);
-        trainLine.setTextSize(12);
-        trainLine.setTypeface(null, android.graphics.Typeface.BOLD);
-        trainLine.setSingleLine(true);
-        trainLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        trainLine.setMaxWidth(dp(220));
-        details.addView(trainLine, new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP));
-
-        LinearLayout secondLine = new LinearLayout(this);
-        secondLine.setGravity(Gravity.CENTER_VERTICAL);
-        secondLine.setOrientation(LinearLayout.HORIZONTAL);
-        statusLine = new TextView(this);
-        statusLine.setTextColor(0xffdce5ef);
-        statusLine.setTextSize(10);
-        statusLine.setSingleLine(true);
-        statusLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        statusLine.setMaxWidth(dp(155));
-        secondLine.addView(statusLine, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1f));
-
-        TextView close = new TextView(this);
-        close.setText("×");
-        close.setTextSize(18);
-        close.setTextColor(0xfff4d000);
-        close.setGravity(Gravity.CENTER);
-        close.setMinWidth(dp(28));
-        close.setMinHeight(dp(24));
-        secondLine.addView(close, new LinearLayout.LayoutParams(dp(30), dp(24)));
+        ImageButton close = new ImageButton(this);
+        close.setImageResource(R.drawable.ic_eye_stop);
+        close.setScaleType(ImageView.ScaleType.CENTER);
+        close.setBackground(null);
+        close.setPadding(0, 0, 0, 0);
+        close.setContentDescription("Atura el seguiment");
         close.setOnClickListener(v -> stopSelf());
+        bubble.addView(close, new FrameLayout.LayoutParams(
+            dp(TrainEyeView.CLOSE_WIDTH_DP), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT));
 
-        details.addView(secondLine, new LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, ViewGroupParams.WRAP));
-        LinearLayout.LayoutParams detailsLp = new LinearLayout.LayoutParams(ViewGroupParams.WRAP, ViewGroupParams.WRAP);
-        detailsLp.gravity = Gravity.CENTER_VERTICAL;
-        bar.addView(details, detailsLp);
-
-        View.OnTouchListener dragListener = (view, event) -> {
+        eye.setOnTouchListener((view, event) -> {
             if (overlayParams == null || overlay == null) return false;
-            switch (event.getAction()) {
+            switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     downRawX = event.getRawX();
                     downRawY = event.getRawY();
@@ -278,9 +241,7 @@ public class TrainOverlayService extends Service {
                     float deltaY = event.getRawY() - downRawY;
                     if (!dragging && (Math.abs(deltaX) > dp(9) || Math.abs(deltaY) > dp(9))) dragging = true;
                     if (dragging) {
-                        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
-                        overlayParams.x = Math.max(0, Math.min(metrics.widthPixels - overlay.getWidth(), downX + Math.round(deltaX)));
-                        overlayParams.y = Math.max(0, Math.min(metrics.heightPixels - overlay.getHeight(), downY + Math.round(deltaY)));
+                        setOverlayPosition(downX + Math.round(deltaX), downY + Math.round(deltaY));
                         try { windowManager.updateViewLayout(overlay, overlayParams); } catch (Exception ignored) {}
                     }
                     return true;
@@ -293,7 +254,7 @@ public class TrainOverlayService extends Service {
                     }
                     boolean wasDragging = dragging;
                     dragging = false;
-                    if (!wasDragging) openServiceViewer();
+                    if (!wasDragging) view.performClick();
                     return true;
                 case MotionEvent.ACTION_CANCEL:
                     dragging = false;
@@ -301,39 +262,39 @@ public class TrainOverlayService extends Service {
                 default:
                     return true;
             }
-        };
-        bar.setOnTouchListener(dragListener);
-        eye.setOnTouchListener(dragListener);
-        details.setOnTouchListener(dragListener);
-        trainLine.setOnTouchListener(dragListener);
-        statusLine.setOnTouchListener(dragListener);
-        overlay = bar;
+        });
+        overlay = bubble;
 
         int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
         overlayParams = new WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(TrainEyeView.WIDTH_DP),
+            dp(TrainEyeView.HEIGHT_DP),
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         );
-        overlayParams.gravity = Gravity.TOP | Gravity.START;
-        overlayParams.x = getSharedPreferences("overlay", MODE_PRIVATE).getInt("overlay_x", dp(12));
-        overlayParams.y = getSharedPreferences("overlay", MODE_PRIVATE).getInt("overlay_y", dp(38));
+        overlayParams.gravity = Gravity.TOP | Gravity.LEFT;
+        android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
+        setOverlayPosition(prefs.getInt("overlay_x", dp(12)), prefs.getInt("overlay_y", dp(38)));
         try {
             windowManager.addView(overlay, overlayParams);
-            updateLine();
+            updateEye();
         } catch (Exception ignored) {
             stopSelf();
         }
+    }
+
+    private void setOverlayPosition(int x, int y) {
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        overlayParams.x = Math.max(0, Math.min(metrics.widthPixels - overlayParams.width, x));
+        overlayParams.y = Math.max(0, Math.min(metrics.heightPixels - overlayParams.height, y));
     }
 
     private void hideOverlay() {
         if (overlay != null) {
             try { windowManager.removeView(overlay); } catch (Exception ignored) {}
             overlay = null;
-            trainLine = null;
-            statusLine = null;
+            eye = null;
         }
     }
 
@@ -647,7 +608,7 @@ public class TrainOverlayService extends Service {
                     directMapAt = received;
                     if (serviceAlerts != null) serviceAlerts.acceptMap(trains, receivedAt);
                     applyDirectTrain();
-                    updateLine();
+                    updateEye();
                 });
             }
             @Override public void onState(String status) {
@@ -757,7 +718,7 @@ public class TrainOverlayService extends Service {
     }
 
     private void fetchTrain() {
-        if (destroyed || applyDirectTrain()) { updateLine(); return; }
+        if (destroyed || applyDirectTrain()) { updateEye(); return; }
         if (requestInFlight) return;
         requestInFlight = true;
         final String requestedTrain = train;
@@ -796,7 +757,7 @@ public class TrainOverlayService extends Service {
             } finally {
                 if (connection != null) connection.disconnect();
                 requestInFlight = false;
-                handler.post(this::updateLine);
+                handler.post(this::updateEye);
             }
         });
     }
@@ -820,8 +781,8 @@ public class TrainOverlayService extends Service {
         return servicePlan.minutesAt(System.currentTimeMillis());
     }
 
-    private void updateLine() {
-        if (trainLine == null || statusLine == null) return;
+    private void updateEye() {
+        if (eye == null) return;
         int age;
         String currentStation;
         String currentTrack;
@@ -831,17 +792,7 @@ public class TrainOverlayService extends Service {
             currentTrack = track;
         }
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
-        trainLine.setText(train + " · " + compactStation(currentStation));
-        statusLine.setText("v" + currentTrack + " · " + ageText);
-    }
-
-    private String compactStation(String value) {
-        String normalized = value == null ? "" : value.toLowerCase(java.util.Locale.ROOT);
-        if (normalized.contains("maresme")) return "Maresme";
-        if (normalized.contains("ciutadella")) return "Ciutadella";
-        if (normalized.contains("guinardó") || normalized.contains("guinardo")) return "Guinardó";
-        if (normalized.contains("passeig de gràcia") || normalized.contains("passeig de gracia")) return "Pg. Gràcia";
-        return value == null ? "—" : value;
+        eye.setStatus(train, currentStation, currentTrack, ageText);
     }
 
     @Override
@@ -857,10 +808,7 @@ public class TrainOverlayService extends Service {
             popupRoot = null;
             popupImageView = null;
         }
-        if (overlay != null) {
-            try { windowManager.removeView(overlay); } catch (Exception ignored) {}
-            overlay = null;
-        }
+        hideOverlay();
         if (network != null) network.shutdownNow();
         stopForeground(true);
         super.onDestroy();
@@ -920,29 +868,4 @@ public class TrainOverlayService extends Service {
         }
     }
 
-    private static final class TrainEyeIcon extends View {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        TrainEyeIcon(android.content.Context context) { super(context); }
-        @Override protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            float s = getResources().getDisplayMetrics().density;
-            float cx = getWidth() / 2f, cy = getHeight() / 2f;
-            paint.setColor(0xfff4d000); paint.setStyle(Paint.Style.FILL);
-            canvas.drawCircle(cx, cy, 15*s, paint);
-            paint.setColor(0xff17202d);
-            canvas.drawRoundRect(cx-8*s, cy-7*s, cx+8*s, cy+9*s, 3*s, 3*s, paint);
-            paint.setColor(0xffdce5ef);
-            canvas.drawRoundRect(cx-5*s, cy-4*s, cx+5*s, cy+1*s, 1.5f*s, 1.5f*s, paint);
-            paint.setColor(0xff17202d);
-            canvas.drawCircle(cx-4.5f*s, cy+10*s, 1.5f*s, paint);
-            canvas.drawCircle(cx+4.5f*s, cy+10*s, 1.5f*s, paint);
-            Path eye = new Path();
-            eye.moveTo(cx-6*s, cy+4*s);
-            eye.quadTo(cx, cy-2*s, cx+6*s, cy+4*s);
-            eye.quadTo(cx, cy+10*s, cx-6*s, cy+4*s);
-            paint.setColor(0xffffffff); paint.setStyle(Paint.Style.FILL); canvas.drawPath(eye, paint);
-            paint.setColor(0xff17202d); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.2f*s); canvas.drawPath(eye, paint);
-            paint.setStyle(Paint.Style.FILL); canvas.drawCircle(cx, cy+4*s, 2*s, paint);
-        }
-    }
 }
