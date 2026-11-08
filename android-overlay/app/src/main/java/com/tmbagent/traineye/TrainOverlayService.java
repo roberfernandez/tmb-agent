@@ -352,13 +352,16 @@ public class TrainOverlayService extends Service {
             android.view.ViewGroup.LayoutParams.MATCH_PARENT);
         card.addView(popupScroll, scrollParams);
 
-        TextView close = popupText("×", 27, 0xfff4d000, true);
-        close.setGravity(Gravity.CENTER);
+        ImageButton close = new ImageButton(this);
+        close.setImageResource(R.drawable.ic_service_viewer_close);
+        close.setScaleType(ImageView.ScaleType.CENTER);
+        close.setContentDescription("Tanca el visor del servei");
         GradientDrawable closeBackground = new GradientDrawable();
         closeBackground.setColor(0xe6111e30);
         closeBackground.setCornerRadius(dp(20));
         closeBackground.setStroke(dp(1), 0xfff4d000);
         close.setBackground(closeBackground);
+        close.setPadding(0, 0, 0, 0);
         close.setElevation(dp(4));
         close.setOnClickListener(v -> closeServicePopup());
         FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP | Gravity.END);
