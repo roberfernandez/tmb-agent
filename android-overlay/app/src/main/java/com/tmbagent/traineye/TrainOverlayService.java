@@ -94,6 +94,7 @@ public class TrainOverlayService extends Service {
     private boolean destroyed;
     private ServicePlan servicePlan = new ServicePlan("");
     private ServiceAlerts serviceAlerts;
+    private final java.util.Map<String, Long> arrivalCache = new java.util.HashMap<>();
     private String alertPlanKey = "";
     private boolean alertsEnabled;
     private int alertMargin = 5;
@@ -614,7 +615,11 @@ public class TrainOverlayService extends Service {
             }
             @Override public void onBoard(JSONObject board) {
                 final long received = System.currentTimeMillis();
-                handler.post(() -> { if (!destroyed && serviceAlerts != null) serviceAlerts.acceptBoard(board, received); });
+                handler.post(() -> {
+                    if (destroyed) return;
+                    if (serviceAlerts != null) serviceAlerts.acceptBoard(board, received);
+                    updateEye();
+                });
             }
         });
         directClient.start();
@@ -643,7 +648,13 @@ public class TrainOverlayService extends Service {
     }
 
     private void updateAlertStops() {
-        if (directClient != null) directClient.setStops(alertsEnabled && serviceAlerts != null ? serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin) : java.util.Collections.emptySet());
+        if (directClient != null) {
+            java.util.Set<String> stops = new java.util.HashSet<>();
+            if (alertsEnabled && serviceAlerts != null) stops.addAll(serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin));
+            String theoretical = theoreticalStop();
+            if (!theoretical.isEmpty()) stops.add(theoretical);
+            directClient.setStops(stops);
+        }
     }
 
     private void updateAlertWakeLock() {
@@ -774,6 +785,41 @@ public class TrainOverlayService extends Service {
         return servicePlan.minutesAt(System.currentTimeMillis());
     }
 
+    // Only a stationary activity or a not-yet-started driving activity
+    // provides an unambiguous station from the compact service schedule.
+    // During driving, intermediate stations cannot be inferred safely.
+    private String theoreticalStop() {
+        if (!"service".equals(mode)) return "";
+        int minute = servicePlan.minutesAt(System.currentTimeMillis());
+        ServicePlan.Row next = null;
+        for (ServicePlan.Row row : servicePlan.rows) {
+            if (minute >= row.start && minute < row.end) {
+                if ("CON".equals(row.type)) return "";
+                return row.from.matches("41[3-9]|42[0-9]|43[0-4]") ? row.from : "";
+            }
+            if (row.start > minute && (next == null || row.start < next.start)) next = row;
+        }
+        return next != null && next.from.matches("41[3-9]|42[0-9]|43[0-4]") ? next.from : "";
+    }
+
+    private String arrivalCountdown(long now) {
+        if (serviceAlerts == null) return "--";
+        String stop = theoreticalStop();
+        if (stop.isEmpty()) return "--";
+        String via = "";
+        int minute = servicePlan.minutesAt(now);
+        for (ServicePlan.Row row : servicePlan.rows) {
+            if (row.driving() && row.train.equals(train) && row.from.equals(stop)
+                && row.start >= minute - 2) { via = row.via; break; }
+        }
+        if (via.isEmpty()) return "--";
+        long arrival = serviceAlerts.predictedArrival(stop, via, train, now);
+        if (arrival <= now) return "--";
+        long seconds = (arrival - now + 999) / 1000;
+        if (seconds >= 3600) return "--";
+        return (seconds / 60) + "'" + String.format(java.util.Locale.ROOT, "%02d", seconds % 60) + "''";
+    }
+
     private void updateEye() {
         if (eye == null) return;
         int age;
@@ -786,6 +832,7 @@ public class TrainOverlayService extends Service {
         }
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
         eye.setStatus(train, currentStation, currentTrack, ageText);
+        eye.setCountdown(arrivalCountdown(System.currentTimeMillis()));
     }
 
     @Override
