@@ -4,8 +4,52 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Probe station 413 independently of Android
-        run: python3 android-overlay/diagnostics/miralin_eta_probe.py 413
+      - name: Consultar Miralin y guardar diagnostico
+        id: eta
+        shell: bash
+        run: |
+          set +e
+          python3 -u android-overlay/diagnostics/miralin_eta_probe.py 413 > miralin-eta.log 2>&1
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "Probe exit code: $code"
+          cat miralin-eta.log
+          exit 0
+      - name: Mostrar resultado en resumen de Actions
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Diagnóstico ETA Miralín · La Pau (413)'
+            echo ''
+            echo '**Código de salida:** ${{ steps.eta.outputs.exit_code }}'
+            echo ''
+            echo '| Código | Significado |'
+            echo '| --- | --- |'
+            echo '| 0 | Se recibió al menos un stopDataUpdate |'
+            echo '| 3 | No se recibió stopDataUpdate durante la prueba |'
+            echo '| 2 | Socket cerrado o rechazado |'
+            echo '| 1 u otro | Error de red, protocolo o script: consultar detalle inferior |'
+            echo ''
+            echo '### Registro de la prueba'
+            echo '~~~text'
+            if [ -f miralin-eta.log ]; then
+              tail -c 11000 miralin-eta.log
+            else
+              echo 'No se generó registro; revisar el paso de ejecución.'
+            fi
+            echo ''
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publicar resultado de la prueba
+        if: always()
+        shell: bash
+        run: |
+          code="${{ steps.eta.outputs.exit_code }}"
+          if [ "$code" != "0" ]; then
+            echo "::error::ETA probe failed with code $code. Open the run Summary to see details."
+            exit 1
+          fi
