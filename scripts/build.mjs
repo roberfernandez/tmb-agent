@@ -4,6 +4,9 @@ await mkdir('dist', { recursive: true });
 await cp('index.html', 'dist/index.html');
 await cp('src', 'dist/src', { recursive: true });
 await cp('public', 'dist', { recursive: true });
+// Publish the isolated ETA diagnostic alongside the existing static site.
+await mkdir('dist/proves/servei', { recursive: true });
+await cp('proves/servei/diagnostic-eta.html', 'dist/proves/servei/diagnostic-eta.html');
 await cp('auth/build/web', 'dist/auth', { recursive: true });
 const hash = createHash('sha256');
 async function digest(path) {
