@@ -89,6 +89,7 @@ public class TrainOverlayService extends Service {
     private volatile boolean requestInFlight = false;
     private TrainPositionClient directClient;
     private MiralinDirectClient arrivalClient;
+    private MiralinDirectClient etaClient;
     private JSONObject directMap;
     private long directMapAt;
     private String connectionStatus = "Miralin directe · connectant…";
@@ -641,6 +642,25 @@ public class TrainOverlayService extends Service {
             }
         });
         arrivalClient.start();
+        // Isolate the one-stop ETA feed from multi-stop service-alert subscriptions.
+        // This matches the successful standalone diagnostic and preserves both
+        // the existing alerts client and the independent fast position client.
+        etaClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            @Override public void onMap(JSONObject trains) {}
+            @Override public void onState(String status) {
+                android.util.Log.d("TrainEyeETA", "Dedicated ETA socket: " + status);
+            }
+            @Override public void onBoard(JSONObject board) {
+                long received = System.currentTimeMillis();
+                handler.post(() -> {
+                    if (destroyed || etaBoards == null) return;
+                    etaBoards.acceptBoard(board, received);
+                    android.util.Log.d("TrainEyeETA", "Dedicated board: " + etaBoards.boardStatus(theoreticalStop(), train, received));
+                    updateEye();
+                });
+            }
+        });
+        etaClient.start();
         updateAlertStops();
     }
 
@@ -672,6 +692,12 @@ public class TrainOverlayService extends Service {
             String theoretical = theoreticalStop();
             if (!theoretical.isEmpty()) stops.add(theoretical);
             arrivalClient.setStops(stops);
+            if (etaClient != null) {
+                String stationStop = theoreticalStop();
+                etaClient.setStops(stationStop.isEmpty()
+                    ? java.util.Collections.emptySet()
+                    : java.util.Collections.singleton(stationStop));
+            }
             android.util.Log.d("TrainEyeETA", "Subscribed stops=" + stops + " mode=" + mode + " train=" + train);
         }
     }
@@ -918,6 +944,7 @@ public class TrainOverlayService extends Service {
         destroyed = true;
         if (directClient != null) directClient.close();
         if (arrivalClient != null) arrivalClient.close();
+        if (etaClient != null) etaClient.close();
         handler.removeCallbacks(poll);
         handler.removeCallbacks(ageTicker);
         if (popupRoot != null) {
