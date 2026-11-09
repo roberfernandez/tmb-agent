@@ -367,4 +367,55 @@ public class ServiceAlertsTest {
         assertTrue(alerts.due(after, 5).isEmpty());
         assertFalse(alerts.hasPending(after));
     }
+    @Test public void acceptsNumericStringArrivalTimeLikeBackend() throws Exception {
+        long now = 1800000000000L;
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,;630,690,CON,413,434,407,1,1"), now);
+        JSONObject board = new JSONObject();
+        board.put("stopCode", "413");
+        board.put("via1", new org.json.JSONArray().put(
+            new JSONObject().put("trainCode", "407").put("arrivalTime", String.valueOf(now + 300000L))));
+        alerts.acceptBoard(board, now);
+        assertEquals(now + 300000L, alerts.predictedArrival("413", "1", "407", now));
+    }
+
+    @Test public void findsTrain407OnVia2EvenWhenServiceExpectsVia1() throws Exception {
+        long now = 1800000000000L;
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,;630,690,CON,413,434,407,1,1"), now);
+        JSONObject board = new JSONObject().put("stopCode", "413")
+            .put("via1", new org.json.JSONArray())
+            .put("via2", new org.json.JSONArray().put(
+                new JSONObject().put("trainCode", "407").put("secsLeft", 300)));
+        alerts.acceptBoard(board, now);
+        assertEquals(0L, alerts.predictedArrival("413", "1", "407", now));
+        assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack("413", "1", "407", now));
+        assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack("413", "", "407", now));
+    }
+
+    @Test public void terminalStationsIgnoreViaAndUseEarliestMatchingTrain() throws Exception {
+        long now = 1800000000000L;
+        for (String stop : new String[]{"413", "434"}) {
+            ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST," + stop + "," + stop + ",,,"), now);
+            JSONObject board = new JSONObject().put("stopCode", stop)
+                .put("via1", new org.json.JSONArray().put(
+                    new JSONObject().put("trainCode", "407").put("secsLeft", 480)))
+                .put("via2", new org.json.JSONArray().put(
+                    new JSONObject().put("trainCode", "407").put("secsLeft", 300)));
+            alerts.acceptBoard(board, now);
+            assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack(stop, "1", "407", now));
+            assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack(stop, "2", "407", now));
+        }
+    }
+
+    @Test public void usesLineTrainsWhenPlatformArrayIsEmpty() throws Exception {
+        long now = 1800000000000L;
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,"), now);
+        JSONObject board = new JSONObject().put("stopCode", "413")
+            .put("via2", new org.json.JSONArray())
+            .put("lineTrains", new org.json.JSONArray().put(
+                new JSONObject().put("trainCode", "407").put("platformTrack", 2).put("secsLeft", 180)));
+        alerts.acceptBoard(board, now);
+        assertEquals(now + 180000L, alerts.predictedArrival("413", "2", "407", now));
+        assertEquals(now + 180000L, alerts.predictedArrivalEitherTrack("413", "1", "407", now));
+    }
+
 }

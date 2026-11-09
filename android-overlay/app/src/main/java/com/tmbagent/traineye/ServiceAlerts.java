@@ -113,9 +113,34 @@ final class ServiceAlerts {
             if (object != null) stop = object.optString("code", object.optString("id", ""));
             if (!stop.matches("41[3-9]|42[0-9]|43[0-4]")) stop = raw.optString(field, "");
             if (stop.matches("41[3-9]|42[0-9]|43[0-4]")) {
-                boards.put(stop, new Board(data, now)); return;
+                boards.put(stop, new Board(data, now));
+                return;
             }
         }
+    }
+
+    long predictedArrival(String stop, String via, String train, long now) {
+        if (stop == null || via == null || train == null || !("1".equals(via) || "2".equals(via))) return 0;
+        for (Arrival arrival : arrivals(stop, via, now)) {
+            if (train.equals(arrival.train) && arrival.at > now) return arrival.at;
+        }
+        return 0;
+    }
+
+    long predictedArrivalEitherTrack(String stop, String preferredVia, String train, long now) {
+        // La Pau (413) and Trinitat Nova (434) have one operational platform.
+        // Miralin's via label is not a constraint at these terminal stations.
+        if (("413".equals(stop) || "434".equals(stop))) preferredVia = "";
+        if ("1".equals(preferredVia) || "2".equals(preferredVia)) {
+            long preferred = predictedArrival(stop, preferredVia, train, now);
+            if (preferred > now) return preferred;
+            return predictedArrival(stop, "1".equals(preferredVia) ? "2" : "1", train, now);
+        }
+        long first = predictedArrival(stop, "1", train, now);
+        long second = predictedArrival(stop, "2", train, now);
+        if (first <= now) return second;
+        if (second <= now) return first;
+        return Math.min(first, second);
     }
 
     void acceptMap(JSONObject trains, long now) {
@@ -481,9 +506,11 @@ final class ServiceAlerts {
     private List<Arrival> arrivals(String stop, String via, long now) {
         List<Arrival> result = new ArrayList<>(); Board board = fresh(stop, now); if (board == null) return result;
         JSONArray entries = board.data.optJSONArray("via" + via);
-        boolean needsVia = entries == null;
-        if (entries == null) entries = board.data.optJSONArray("lineTrains");
-        if (entries == null) return result;
+        boolean needsVia = entries == null || entries.length() == 0;
+        if (needsVia) entries = board.data.optJSONArray("lineTrains");
+        if (entries == null) {
+            return result;
+        }
         for (int i = 0; i < entries.length(); i++) {
             JSONObject entry = entries.optJSONObject(i); if (entry == null) continue;
             String track = entry.optString("platformTrack", entry.optString("track", entry.optString("via", "")));
@@ -498,7 +525,14 @@ final class ServiceAlerts {
     private static long arrivalTime(JSONObject entry, long received) {
         Object value = entry.opt("arrivalTime");
         if (value instanceof Number && ((Number) value).longValue() > 100000000000L) return ((Number) value).longValue();
-        if (value instanceof String) try { return Instant.parse((String) value).toEpochMilli(); } catch (Exception ignored) {}
+        if (value instanceof String) {
+            String text = ((String) value).trim();
+            try {
+                long epoch = Long.parseLong(text);
+                if (epoch > 100000000000L) return epoch;
+            } catch (NumberFormatException ignored) {}
+            try { return Instant.parse(text).toEpochMilli(); } catch (Exception ignored) {}
+        }
         double seconds = entry.optDouble("secsLeft", Double.NaN);
         return Double.isFinite(seconds) ? received + Math.round(seconds * 1000) : 0;
     }

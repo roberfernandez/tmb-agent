@@ -17,6 +17,8 @@ import java.util.Collections;
 
 /** One Engine.IO polling session, owned by the active foreground service. */
 final class MiralinDirectClient implements AutoCloseable {
+    // Verified against live L4 station-board capture (La Pau, stop 413):
+    // stopDataUpdate carries trainCode and arrivalTime for the selected stop.
     private static final String ENDPOINT = "https://miralin.cat/socket.io/?EIO=4&transport=polling";
     private static final long STALE_NANOS = 90_000_000_000L;
 
@@ -82,8 +84,15 @@ final class MiralinDirectClient implements AutoCloseable {
             transport.request(session, "40");
             long lastMap = System.nanoTime();
             Set<String> subscribed = new HashSet<>();
+            boolean namespaceConnected = false;
             while (!closed) {
-                for (String stop : stops) {
+                // Socket subscriptions persist for the lifetime of a session.
+                // Reconnect when a station is no longer requested, otherwise
+                // stale subscriptions make unlabelled station boards ambiguous.
+                if (!stops.containsAll(subscribed)) {
+                    throw new IOException("Station subscriptions changed");
+                }
+                for (String stop : namespaceConnected ? stops : Collections.<String>emptySet()) {
                     if (!stop.matches("41[3-9]|42[0-9]|43[0-4]") || !subscribed.add(stop)) continue;
                     transport.request(session, "42" + new JSONArray().put("subscribeStop").put(new JSONObject().put("line", "L4").put("stop", stop)).toString());
                 }
@@ -93,11 +102,42 @@ final class MiralinDirectClient implements AutoCloseable {
                     if (packet.equals("2")) transport.request(session, "3");
                     else if (packet.equals("1") || packet.startsWith("41")) throw new IOException("Session closed");
                     else if (packet.startsWith("44")) throw new IOException("Connection rejected");
+                    else if (packet.startsWith("40")) {
+                        // Wait for the server namespace-connect acknowledgement before
+                        // sending station subscriptions; a POST of "40" is not an ACK.
+                        namespaceConnected = true;
+                        listener.onState("Miralin directe · socket connectat");
+                    }
                     else if (packet.startsWith("42")) {
                         JSONArray event = new JSONArray(packet.substring(2));
                         if ("stopDataUpdate".equals(event.optString(0))) {
                             JSONObject board = event.optJSONObject(1);
-                            if (board != null) listener.onBoard(board);
+                            if (board != null) {
+                                // An unlabelled board can only be assigned when
+                                // exactly one station is subscribed.
+                                JSONObject data = board.optJSONObject("data");
+                                if (data == null) data = board;
+                                boolean identified = false;
+                                for (String field : new String[]{"stopCode", "stop", "stopId", "stationId", "stationCode", "id"}) {
+                                    Object value = data.opt(field);
+                                    if (value instanceof JSONObject) {
+                                        JSONObject nested = (JSONObject) value;
+                                        value = nested.opt("code");
+                                        if (value == null) value = nested.opt("id");
+                                    }
+                                    if (value != null && String.valueOf(value).matches("41[3-9]|42[0-9]|43[0-4]")) {
+                                        identified = true;
+                                        break;
+                                    }
+                                }
+                                if (!identified && subscribed.size() == 1) {
+                                    JSONObject tagged = new JSONObject(board.toString());
+                                    tagged.put("stopCode", subscribed.iterator().next());
+                                    listener.onBoard(tagged);
+                                } else {
+                                    listener.onBoard(board);
+                                }
+                            }
                             continue;
                         }
                         if (!"mapUpdate".equals(event.optString(0))) continue;

@@ -87,13 +87,19 @@ public class TrainOverlayService extends Service {
     private int ageAtFetch = -1;
     private long fetchedAt = 0;
     private volatile boolean requestInFlight = false;
-    private MiralinDirectClient directClient;
+    private TrainPositionClient directClient;
+    private MiralinDirectClient arrivalClient;
     private JSONObject directMap;
     private long directMapAt;
     private String connectionStatus = "Miralin directe · connectant…";
     private boolean destroyed;
     private ServicePlan servicePlan = new ServicePlan("");
     private ServiceAlerts serviceAlerts;
+    private ServiceAlerts etaBoards;
+    private long countdownArrivalAt;
+    private long countdownCheckedAt;
+    private String countdownKey = "";
+    private String countdownTrain = "";
     private String alertPlanKey = "";
     private boolean alertsEnabled;
     private int alertMargin = 5;
@@ -160,6 +166,7 @@ public class TrainOverlayService extends Service {
             serviceRowBounds = prefs.getString(EXTRA_SERVICE_ROW_BOUNDS, "");
         }
         servicePlan = new ServicePlan(schedule);
+        etaBoards = new ServiceAlerts(servicePlan, System.currentTimeMillis());
         configureAlerts();
         applyScheduledTrain(false);
         startAsForeground();
@@ -215,16 +222,6 @@ public class TrainOverlayService extends Service {
         bubble.addView(eye, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         eye.setOnClickListener(view -> openServiceViewer());
-
-        ImageButton close = new ImageButton(this);
-        close.setImageResource(R.drawable.ic_eye_stop);
-        close.setScaleType(ImageView.ScaleType.CENTER);
-        close.setBackground(null);
-        close.setPadding(0, 0, 0, 0);
-        close.setContentDescription("Atura el seguiment");
-        close.setOnClickListener(v -> stopSelf());
-        bubble.addView(close, new FrameLayout.LayoutParams(
-            dp(TrainEyeView.CLOSE_WIDTH_DP), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT));
 
         eye.setOnTouchListener((view, event) -> {
             if (overlayParams == null || overlay == null) return false;
@@ -601,7 +598,7 @@ public class TrainOverlayService extends Service {
 
     private void startDirectConnection() {
         if (directClient != null) return;
-        directClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+        directClient = new TrainPositionClient(new TrainPositionClient.Listener() {
             @Override public void onMap(JSONObject trains) {
                 final long received = android.os.SystemClock.elapsedRealtime();
                 final long receivedAt = System.currentTimeMillis();
@@ -622,12 +619,25 @@ public class TrainOverlayService extends Service {
                     startAsForeground();
                 });
             }
-            @Override public void onBoard(JSONObject board) {
-                final long received = System.currentTimeMillis();
-                handler.post(() -> { if (!destroyed && serviceAlerts != null) serviceAlerts.acceptBoard(board, received); });
-            }
         });
         directClient.start();
+        // Independent Socket.IO session: arrival subscriptions cannot disrupt positions.
+        arrivalClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            @Override public void onMap(JSONObject trains) {}
+            @Override public void onState(String status) {
+                android.util.Log.d("TrainEyeETA", "Arrival socket: " + status);
+            }
+            @Override public void onBoard(JSONObject board) {
+                final long received = System.currentTimeMillis();
+                handler.post(() -> {
+                    if (destroyed) return;
+                    if (serviceAlerts != null) serviceAlerts.acceptBoard(board, received);
+                    if (etaBoards != null) etaBoards.acceptBoard(board, received);
+                    updateEye();
+                });
+            }
+        });
+        arrivalClient.start();
         updateAlertStops();
     }
 
@@ -653,7 +663,14 @@ public class TrainOverlayService extends Service {
     }
 
     private void updateAlertStops() {
-        if (directClient != null) directClient.setStops(alertsEnabled && serviceAlerts != null ? serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin) : java.util.Collections.emptySet());
+        if (arrivalClient != null) {
+            java.util.Set<String> stops = new java.util.HashSet<>();
+            if (alertsEnabled && serviceAlerts != null) stops.addAll(serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin));
+            String theoretical = theoreticalStop();
+            if (!theoretical.isEmpty()) stops.add(theoretical);
+            arrivalClient.setStops(stops);
+            android.util.Log.d("TrainEyeETA", "Subscribed stops=" + stops + " mode=" + mode + " train=" + train);
+        }
     }
 
     private void updateAlertWakeLock() {
@@ -712,9 +729,10 @@ public class TrainOverlayService extends Service {
         if (age >= 45) return false;
         JSONObject item = directMap.optJSONObject(train);
         synchronized (this) {
-            station = item == null ? "sense dades" : item.optString("estacion", "sense dades");
-            track = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
-            ageAtFetch = item == null ? -1 : (int) age;
+            if (item == null) return false; // Do not flash empty data between valid map frames.
+            station = item.optString("estacion", "sense dades");
+            track = item.optString("platformTrack", item.optString("track", "—"));
+            ageAtFetch = (int) age;
             fetchedAt = System.currentTimeMillis();
         }
         return true;
@@ -784,6 +802,85 @@ public class TrainOverlayService extends Service {
         return servicePlan.minutesAt(System.currentTimeMillis());
     }
 
+    // Only a stationary activity or a not-yet-started driving activity
+    // provides an unambiguous station from the compact service schedule.
+    // During driving, intermediate stations cannot be inferred safely.
+    private String theoreticalStop() {
+        if (!"service".equals(mode)) return "";
+        int minute = servicePlan.minutesAt(System.currentTimeMillis());
+        ServicePlan.Row next = null;
+        for (ServicePlan.Row row : servicePlan.rows) {
+            if (minute >= row.start && minute < row.end) {
+                if ("CON".equals(row.type)) return "";
+                return row.from.matches("41[3-9]|42[0-9]|43[0-4]") ? row.from : "";
+            }
+            if (row.start > minute && (next == null || row.start < next.start)) next = row;
+        }
+        return next != null && next.from.matches("41[3-9]|42[0-9]|43[0-4]") ? next.from : "";
+    }
+
+    private String arrivalCountdown(long now) {
+        // The ETA belongs to a stationary activity only: never to CON or TRA.
+        // In particular, station duties can last hours, not just the last
+        // 30 minutes before the next driving row.
+        if (!"service".equals(mode) || etaBoards == null) return resetCountdown();
+        int minute = servicePlan.minutesAt(now);
+        ServicePlan.Row current = null;
+        for (ServicePlan.Row row : servicePlan.rows) {
+            if (minute >= row.start && minute < row.end) { current = row; break; }
+        }
+        if (current == null || "CON".equals(current.type) || "TRA".equals(current.type)
+            || !current.from.matches("41[3-9]|42[0-9]|43[0-4]")) {
+            android.util.Log.d("TrainEyeETA", "No station ETA: activity=" + (current == null ? "none" : current.type) + " stop=" + (current == null ? "" : current.from));
+            return resetCountdown();
+        }
+
+        String stop = current.from;
+        String via = "";
+        // Use the platform of the following driving activity when available.
+        // If not known, look for this train on either station platform.
+        for (ServicePlan.Row row : servicePlan.rows) {
+            if (row.start >= current.end && row.driving() && row.from.equals(stop)) {
+                if ("1".equals(row.via) || "2".equals(row.via)) via = row.via;
+                break;
+            }
+        }
+        String key = stop + ":" + via;
+        if (!key.equals(countdownKey) || !train.equals(countdownTrain)) {
+            countdownKey = key;
+            countdownTrain = train;
+            countdownArrivalAt = 0;
+            countdownCheckedAt = 0;
+        }
+        if (countdownArrivalAt == 0 || now - countdownCheckedAt >= 60000L) {
+            long candidate = etaBoards.predictedArrivalEitherTrack(stop, via, train, now);
+            android.util.Log.d("TrainEyeETA", "ETA lookup train=" + train + " stop=" + stop + " via=" + via + " candidate=" + candidate + " now=" + now);
+            if (candidate > now && candidate < now + 3600000L) {
+                countdownArrivalAt = candidate;
+                countdownCheckedAt = now;
+            } else if (countdownArrivalAt > 0 && now - countdownCheckedAt >= 90000L) {
+                countdownArrivalAt = 0;
+                countdownCheckedAt = 0;
+            }
+        }
+        if (countdownArrivalAt <= now) return "--";
+        long seconds = (countdownArrivalAt - now + 999) / 1000;
+        return (seconds / 60) + "'" + String.format(java.util.Locale.ROOT, "%02d", seconds % 60) + "''";
+    }
+
+    private long nonzeroArrival(String stop, String via, long now) {
+        long at = etaBoards.predictedArrival(stop, via, train, now);
+        return at > now ? at : Long.MAX_VALUE;
+    }
+
+    private String resetCountdown() {
+        countdownKey = "";
+        countdownTrain = "";
+        countdownArrivalAt = 0;
+        countdownCheckedAt = 0;
+        return "--";
+    }
+
     private void updateEye() {
         if (eye == null) return;
         int age;
@@ -796,6 +893,7 @@ public class TrainOverlayService extends Service {
         }
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
         eye.setStatus(train, currentStation, currentTrack, ageText);
+        eye.setCountdown(arrivalCountdown(System.currentTimeMillis()));
     }
 
     @Override
@@ -804,6 +902,7 @@ public class TrainOverlayService extends Service {
         if (alertWakeLock != null && alertWakeLock.isHeld()) alertWakeLock.release();
         destroyed = true;
         if (directClient != null) directClient.close();
+        if (arrivalClient != null) arrivalClient.close();
         handler.removeCallbacks(poll);
         handler.removeCallbacks(ageTicker);
         if (popupRoot != null) {

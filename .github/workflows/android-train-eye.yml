@@ -21,6 +21,10 @@ jobs:
           gradle-version: '8.9'
       - name: Build Android test app
         run: gradle -p android-overlay :app:testDebugUnitTest :app:assembleDebug
+      - name: Show failing unit tests
+        if: failure()
+        run: |
+          find android-overlay/app/build/test-results/testDebugUnitTest -name '*.xml' -type f -print -exec grep -n -A 5 -B 2 '<failure' {} \; || true
       - name: Read app version
         id: app-version
         run: |
