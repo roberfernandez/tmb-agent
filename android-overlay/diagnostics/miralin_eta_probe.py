@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only diagnostic of Miralin's Engine.IO polling station subscription."""
-import json, time, urllib.request, urllib.parse, sys
+import json, time, urllib.request, urllib.parse, sys, socket, traceback
 BASE = "https://miralin.cat/socket.io/?EIO=4&transport=polling"
 stop = sys.argv[1] if len(sys.argv)>1 else "413"
 def request(sid=None,body=None):
@@ -8,7 +8,19 @@ def request(sid=None,body=None):
     data=body.encode() if body is not None else None
     req=urllib.request.Request(url,data=data,headers={"Content-Type":"text/plain;charset=UTF-8","User-Agent":"TMB-Agent-ETA-Diagnostic/1.0"})
     with urllib.request.urlopen(req,timeout=45) as r:return r.read().decode()
-hello=request()
+print("DNS:", flush=True)
+try:
+    addresses = socket.getaddrinfo("miralin.cat", 443, type=socket.SOCK_STREAM)
+    for family, _, _, _, address in addresses:
+        print("  ", "IPv4" if family == socket.AF_INET else "IPv6", address[0], flush=True)
+except Exception as exc:
+    print("DNS ERROR:", type(exc).__name__, str(exc), flush=True)
+try:
+    hello=request()
+except Exception as exc:
+    print("HANDSHAKE ERROR:", type(exc).__name__, str(exc), flush=True)
+    traceback.print_exc()
+    sys.exit(10)
 print("handshake:",hello[:160],flush=True)
 sid=json.loads(hello[1:])["sid"]
 request(sid,"40")
