@@ -21,6 +21,13 @@ jobs:
           gradle-version: '8.9'
       - name: Build Android test app
         run: gradle -p android-overlay :app:testDebugUnitTest :app:assembleDebug
+      - name: Build standalone ETA diagnostic APK
+        run: gradle -p android-overlay :eta-diagnostic:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: miralin-eta-diagnostic-apk
+          path: android-overlay/eta-diagnostic/build/outputs/apk/debug/eta-diagnostic-debug.apk
+          retention-days: 7
       - name: Show failing unit tests
         if: failure()
         run: |
