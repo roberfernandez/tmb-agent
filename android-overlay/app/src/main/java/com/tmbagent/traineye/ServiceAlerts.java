@@ -119,6 +119,29 @@ final class ServiceAlerts {
         }
     }
 
+    String boardStatus(String stop, String train, long now) {
+        Board board = fresh(stop, now);
+        if (board == null) return "no fresh board for stop " + stop;
+        StringBuilder summary = new StringBuilder("stop=").append(stop);
+        for (String via : new String[]{"1", "2"}) {
+            JSONArray entries = board.data.optJSONArray("via" + via);
+            summary.append(" via").append(via).append("=");
+            if (entries == null) { summary.append("missing"); continue; }
+            summary.append(entries.length());
+            for (int i = 0; i < entries.length(); i++) {
+                JSONObject entry = entries.optJSONObject(i);
+                if (entry == null) continue;
+                String code = entry.optString("trainCode", entry.optString("tren", ""));
+                if (train.equals(code)) {
+                    summary.append(" MATCH train=").append(code)
+                        .append(" arrival=").append(arrivalTime(entry, board.received))
+                        .append(" secsLeft=").append(entry.opt("secsLeft"));
+                }
+            }
+        }
+        return summary.toString();
+    }
+
     long predictedArrival(String stop, String via, String train, long now) {
         if (stop == null || via == null || train == null || !("1".equals(via) || "2".equals(via))) return 0;
         for (Arrival arrival : arrivals(stop, via, now)) {
