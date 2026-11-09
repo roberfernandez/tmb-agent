@@ -107,15 +107,19 @@ final class ServiceAlerts {
 
     void acceptBoard(JSONObject raw, long now) {
         JSONObject data = raw.optJSONObject("data"); if (data == null) data = raw;
+        android.util.Log.d("TrainEyeETA", "Board received keys=" + raw.names() + " dataKeys=" + data.names());
         for (String field : new String[]{"stopCode","stop","stopId","stationId","stationCode","id"}) {
             String stop = data.optString(field, "");
             JSONObject object = data.optJSONObject(field);
             if (object != null) stop = object.optString("code", object.optString("id", ""));
             if (!stop.matches("41[3-9]|42[0-9]|43[0-4]")) stop = raw.optString(field, "");
             if (stop.matches("41[3-9]|42[0-9]|43[0-4]")) {
-                boards.put(stop, new Board(data, now)); return;
+                boards.put(stop, new Board(data, now));
+                android.util.Log.d("TrainEyeETA", "Board accepted stop=" + stop + " via1=" + (data.optJSONArray("via1") == null ? "absent" : data.optJSONArray("via1").length()) + " via2=" + (data.optJSONArray("via2") == null ? "absent" : data.optJSONArray("via2").length()) + " lineTrains=" + (data.optJSONArray("lineTrains") == null ? "absent" : data.optJSONArray("lineTrains").length()));
+                return;
             }
         }
+        android.util.Log.w("TrainEyeETA", "Board discarded: no recognized station code");
     }
 
     long predictedArrival(String stop, String via, String train, long now) {
@@ -491,13 +495,17 @@ final class ServiceAlerts {
         JSONArray entries = board.data.optJSONArray("via" + via);
         boolean needsVia = entries == null;
         if (entries == null) entries = board.data.optJSONArray("lineTrains");
-        if (entries == null) return result;
+        if (entries == null) {
+            android.util.Log.d("TrainEyeETA", "No arrival array stop=" + stop + " via=" + via + " keys=" + board.data.names());
+            return result;
+        }
         for (int i = 0; i < entries.length(); i++) {
             JSONObject entry = entries.optJSONObject(i); if (entry == null) continue;
             String track = entry.optString("platformTrack", entry.optString("track", entry.optString("via", "")));
             if (needsVia && !via.equals(track)) continue;
             String train = entry.optString("trainCode", entry.optString("tren", entry.optString("id", "")));
             long at = arrivalTime(entry, board.received);
+            android.util.Log.d("TrainEyeETA", "Arrival row stop=" + stop + " via=" + via + " train=" + train + " track=" + track + " at=" + at + " keys=" + entry.names());
             if (!train.isEmpty() && at >= now - 15000) result.add(new Arrival(train, at));
         }
         result.sort(Comparator.comparingLong(entry -> entry.at)); return result;
