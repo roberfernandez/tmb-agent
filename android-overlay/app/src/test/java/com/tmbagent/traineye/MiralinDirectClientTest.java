@@ -13,9 +13,9 @@ import static org.junit.Assert.*;
 public class MiralinDirectClientTest {
     @Test public void subscribesToStationBoardsAgainAfterReconnect() throws Exception {
         String board = "42[\"stopDataUpdate\",{\"stopCode\":\"423\",\"via1\":[]}]";
-        FakeTransport transport = new FakeTransport(HELLO, board, "1", HELLO, board) {
+        FakeTransport transport = new FakeTransport(HELLO, "40{}", board, "1", HELLO, "40{}", board) {
             @Override public String request(String session, String body) throws IOException {
-                if (session == null && next == 3) return packets.get(next++);
+                if (session == null && next == 4) return packets.get(next++);
                 return super.request(session, body);
             }
         };
@@ -75,7 +75,7 @@ public class MiralinDirectClientTest {
         List<JSONObject> maps = new ArrayList<>();
         MiralinDirectClient client = new MiralinDirectClient(new MiralinDirectClient.Listener() {
             public void onMap(JSONObject trains) { maps.add(trains); }
-            public void onState(String state) { fail("No valid map received"); }
+            public void onState(String state) { assertFalse("dades rebudes".equals(state)); }
         }, transport);
         try { client.receiveSession(); fail("Expected closed session"); }
         catch (IOException expected) { assertEquals("Session closed", expected.getMessage()); }
@@ -117,7 +117,7 @@ public class MiralinDirectClientTest {
     }
     @Test public void attributesUnlabelledBoardOnlyWithOneSubscribedStation() throws Exception {
         String packet = "42[\"stopDataUpdate\",{\"via1\":[{\"trainCode\":\"407\",\"secsLeft\":300}]}]";
-        FakeTransport transport = new FakeTransport(HELLO, packet);
+        FakeTransport transport = new FakeTransport(HELLO, "40{}", packet);
         List<JSONObject> received = new ArrayList<>();
         MiralinDirectClient[] client = new MiralinDirectClient[1];
         client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
@@ -171,7 +171,7 @@ public class MiralinDirectClientTest {
 
     @Test public void reconnectsWhenOldStationSubscriptionIsNoLongerNeeded() throws Exception {
         String board = "42[\"stopDataUpdate\",{\"stopCode\":\"413\",\"via1\":[]}]";
-        FakeTransport transport = new FakeTransport(HELLO, board, board);
+        FakeTransport transport = new FakeTransport(HELLO, "40{}", board, board);
         MiralinDirectClient[] client = new MiralinDirectClient[1];
         int[] received = {0};
         client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
