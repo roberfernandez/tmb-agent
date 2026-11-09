@@ -632,7 +632,10 @@ public class TrainOverlayService extends Service {
                 handler.post(() -> {
                     if (destroyed) return;
                     if (serviceAlerts != null) serviceAlerts.acceptBoard(board, received);
-                    if (etaBoards != null) etaBoards.acceptBoard(board, received);
+                    if (etaBoards != null) {
+                        etaBoards.acceptBoard(board, received);
+                        android.util.Log.d("TrainEyeETA", "Board received: " + etaBoards.boardStatus(theoreticalStop(), train, received));
+                    }
                     updateEye();
                 });
             }
@@ -863,7 +866,8 @@ public class TrainOverlayService extends Service {
         }
         if (countdownArrivalAt == 0 || now - countdownCheckedAt >= 60000L) {
             long candidate = etaBoards.predictedArrivalEitherTrack(stop, via, train, now);
-            android.util.Log.d("TrainEyeETA", "ETA lookup train=" + train + " stop=" + stop + " via=" + via + " candidate=" + candidate + " now=" + now);
+            android.util.Log.d("TrainEyeETA", "ETA lookup train=" + train + " stop=" + stop + " via=" + via + " candidate=" + candidate + " now=" + now
+                + " board=" + etaBoards.boardStatus(stop, train, now));
             if (candidate > now && candidate < now + 3600000L) {
                 countdownArrivalAt = candidate;
                 countdownCheckedAt = now;
