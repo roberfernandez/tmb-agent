@@ -110,6 +110,7 @@ public class TrainOverlayService extends Service {
     private final Runnable poll = new Runnable() {
         @Override public void run() {
             applyScheduledTrain(false);
+            updateAlertStops();
             fetchTrain();
             handler.postDelayed(this, 15000);
         }
