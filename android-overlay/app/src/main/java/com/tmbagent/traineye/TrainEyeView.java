@@ -136,7 +136,9 @@ final class TrainEyeView extends View {
         text.setTextAlign(Paint.Align.CENTER);
         text.setTypeface(LABEL_FACE);
         text.setColor(0xff10243a);
-        drawMetric(canvas, "v." + track, 22f, 26f, 10.5f, 29f);
+        text.setTypeface(TRAIN_FACE);
+        drawMetric(canvas, "v." + track, 22f, 26f, 13f, 33f);
+        text.setTypeface(LABEL_FACE);
         drawMetric(canvas, age, 22f, 37f, 8.5f, 29f);
         drawMetric(canvas, countdown, 120f, 29f, 11f, 36f);
         text.setTypeface(TRAIN_FACE);
