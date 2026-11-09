@@ -118,6 +118,14 @@ final class ServiceAlerts {
         }
     }
 
+    long predictedArrival(String stop, String via, String train, long now) {
+        if (stop == null || via == null || train == null || !("1".equals(via) || "2".equals(via))) return 0;
+        for (Arrival arrival : arrivals(stop, via, now)) {
+            if (train.equals(arrival.train) && arrival.at > now) return arrival.at;
+        }
+        return 0;
+    }
+
     void acceptMap(JSONObject trains, long now) {
         map = trains;
         mapReceived = now;
