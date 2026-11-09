@@ -216,16 +216,6 @@ public class TrainOverlayService extends Service {
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         eye.setOnClickListener(view -> openServiceViewer());
 
-        ImageButton close = new ImageButton(this);
-        close.setImageResource(R.drawable.ic_eye_stop);
-        close.setScaleType(ImageView.ScaleType.CENTER);
-        close.setBackground(null);
-        close.setPadding(0, 0, 0, 0);
-        close.setContentDescription("Atura el seguiment");
-        close.setOnClickListener(v -> stopSelf());
-        bubble.addView(close, new FrameLayout.LayoutParams(
-            dp(TrainEyeView.CLOSE_WIDTH_DP), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT));
-
         eye.setOnTouchListener((view, event) -> {
             if (overlayParams == null || overlay == null) return false;
             switch (event.getActionMasked()) {
