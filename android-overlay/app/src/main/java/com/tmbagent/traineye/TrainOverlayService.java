@@ -90,6 +90,8 @@ public class TrainOverlayService extends Service {
     private MiralinDirectClient directClient;
     private JSONObject directMap;
     private long directMapAt;
+    private long lastValidTrainAt;
+    private String lastValidTrain = "";
     private String connectionStatus = "Miralin directe · connectant…";
     private boolean destroyed;
     private ServicePlan servicePlan = new ServicePlan("");
@@ -712,10 +714,17 @@ public class TrainOverlayService extends Service {
         if (age >= 45) return false;
         JSONObject item = directMap.optJSONObject(train);
         synchronized (this) {
-            station = item == null ? "sense dades" : item.optString("estacion", "sense dades");
-            track = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
-            ageAtFetch = item == null ? -1 : (int) age;
+            // A single missing train in a map update must not erase the last valid display.
+            if (item == null) {
+                if (!train.equals(lastValidTrain) || android.os.SystemClock.elapsedRealtime() - lastValidTrainAt > 45000) return false;
+                return true;
+            }
+            station = item.optString("estacion", "sense dades");
+            track = item.optString("platformTrack", item.optString("track", "—"));
+            ageAtFetch = (int) age;
             fetchedAt = System.currentTimeMillis();
+            lastValidTrain = train;
+            lastValidTrainAt = android.os.SystemClock.elapsedRealtime();
         }
         return true;
     }
@@ -770,6 +779,8 @@ public class TrainOverlayService extends Service {
         String selected = servicePlan.trainAt(System.currentTimeMillis(), null);
         if (selected != null && !selected.equals(train)) {
             train = selected;
+            lastValidTrain = "";
+            lastValidTrainAt = 0;
             station = "connectant…";
             track = "—";
             ageAtFetch = -1;
