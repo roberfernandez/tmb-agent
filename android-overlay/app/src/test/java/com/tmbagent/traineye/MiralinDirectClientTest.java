@@ -115,4 +115,40 @@ public class MiralinDirectClientTest {
         finally { client[0].close(); }
         assertTrue(transport.cancelled);
     }
+    @Test public void attributesUnlabelledBoardOnlyWithOneSubscribedStation() throws Exception {
+        String packet = "42[\\"stopDataUpdate\\",{\\"via1\\":[{\\"trainCode\\":\\"407\\",\\"secsLeft\\":300}]}]";
+        FakeTransport transport = new FakeTransport(HELLO, packet);
+        List<JSONObject> received = new ArrayList<>();
+        MiralinDirectClient[] client = new MiralinDirectClient[1];
+        client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            public void onMap(JSONObject trains) { fail(); }
+            public void onState(String status) {}
+            public void onBoard(JSONObject board) { received.add(board); client[0].close(); }
+        }, transport);
+        client[0].setStops(java.util.Collections.singleton("413"));
+        client[0].receiveSession();
+        assertEquals(1, received.size());
+        assertEquals("413", received.get(0).getString("stopCode"));
+        long now = 1800000000000L;
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,;630,690,CON,413,434,407,1,1"), now);
+        alerts.acceptBoard(received.get(0), now);
+        assertEquals(now + 300000L, alerts.predictedArrival("413", "1", "407", now));
+    }
+
+    @Test public void neverGuessesStationWhenSeveralAreSubscribed() throws Exception {
+        String packet = "42[\\"stopDataUpdate\\",{\\"via1\\":[{\\"trainCode\\":\\"407\\",\\"secsLeft\\":300}]}]";
+        FakeTransport transport = new FakeTransport(HELLO, packet);
+        List<JSONObject> received = new ArrayList<>();
+        MiralinDirectClient[] client = new MiralinDirectClient[1];
+        client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            public void onMap(JSONObject trains) { fail(); }
+            public void onState(String status) {}
+            public void onBoard(JSONObject board) { received.add(board); client[0].close(); }
+        }, transport);
+        client[0].setStops(java.util.Set.of("413", "423"));
+        client[0].receiveSession();
+        assertEquals(1, received.size());
+        assertFalse(received.get(0).has("stopCode"));
+    }
+
 }
