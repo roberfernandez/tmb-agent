@@ -367,4 +367,15 @@ public class ServiceAlertsTest {
         assertTrue(alerts.due(after, 5).isEmpty());
         assertFalse(alerts.hasPending(after));
     }
+    @Test public void acceptsNumericStringArrivalTimeLikeBackend() throws Exception {
+        long now = 1800000000000L;
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,;630,690,CON,413,434,407,1,1"), now);
+        JSONObject board = new JSONObject();
+        board.put("stopCode", "413");
+        board.put("via1", new org.json.JSONArray().put(
+            new JSONObject().put("trainCode", "407").put("arrivalTime", String.valueOf(now + 300000L))));
+        alerts.acceptBoard(board, now);
+        assertEquals(now + 300000L, alerts.predictedArrival("413", "1", "407", now));
+    }
+
 }
