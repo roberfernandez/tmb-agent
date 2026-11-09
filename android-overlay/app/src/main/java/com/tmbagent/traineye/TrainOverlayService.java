@@ -88,6 +88,7 @@ public class TrainOverlayService extends Service {
     private long fetchedAt = 0;
     private volatile boolean requestInFlight = false;
     private MiralinDirectClient directClient;
+    private MiralinDirectClient arrivalClient;
     private JSONObject directMap;
     private long directMapAt;
     private String connectionStatus = "Miralin directe · connectant…";
@@ -109,7 +110,7 @@ public class TrainOverlayService extends Service {
         @Override public void run() {
             applyScheduledTrain(false);
             fetchTrain();
-            handler.postDelayed(this, 7000);
+            handler.postDelayed(this, 15000);
         }
     };
 
@@ -618,6 +619,14 @@ public class TrainOverlayService extends Service {
                     startAsForeground();
                 });
             }
+        });
+        directClient.start();
+        // Independent Socket.IO session: arrival subscriptions cannot disrupt positions.
+        arrivalClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            @Override public void onMap(JSONObject trains) {}
+            @Override public void onState(String status) {
+                android.util.Log.d("TrainEyeETA", "Arrival socket: " + status);
+            }
             @Override public void onBoard(JSONObject board) {
                 final long received = System.currentTimeMillis();
                 handler.post(() -> {
@@ -628,7 +637,7 @@ public class TrainOverlayService extends Service {
                 });
             }
         });
-        directClient.start();
+        arrivalClient.start();
         updateAlertStops();
     }
 
@@ -654,12 +663,12 @@ public class TrainOverlayService extends Service {
     }
 
     private void updateAlertStops() {
-        if (directClient != null) {
+        if (arrivalClient != null) {
             java.util.Set<String> stops = new java.util.HashSet<>();
             if (alertsEnabled && serviceAlerts != null) stops.addAll(serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin));
             String theoretical = theoreticalStop();
             if (!theoretical.isEmpty()) stops.add(theoretical);
-            directClient.setStops(stops);
+            arrivalClient.setStops(stops);
             android.util.Log.d("TrainEyeETA", "Subscribed stops=" + stops + " mode=" + mode + " train=" + train);
         }
     }
@@ -717,7 +726,7 @@ public class TrainOverlayService extends Service {
     private boolean applyDirectTrain() {
         if (directMap == null) return false;
         long age = (android.os.SystemClock.elapsedRealtime() - directMapAt) / 1000;
-        if (age >= 12) return false;
+        if (age >= 45) return false;
         JSONObject item = directMap.optJSONObject(train);
         synchronized (this) {
             if (item == null) return false; // Do not flash empty data between valid map frames.
@@ -882,7 +891,7 @@ public class TrainOverlayService extends Service {
             currentStation = station;
             currentTrack = track;
         }
-        String ageText = age < 0 ? "—" : age >= 20 ? "⚠" + (age < 60 ? age + "s" : (age / 60) + "m") : age + "s";
+        String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
         eye.setStatus(train, currentStation, currentTrack, ageText);
         eye.setCountdown(arrivalCountdown(System.currentTimeMillis()));
     }
@@ -893,6 +902,7 @@ public class TrainOverlayService extends Service {
         if (alertWakeLock != null && alertWakeLock.isHeld()) alertWakeLock.release();
         destroyed = true;
         if (directClient != null) directClient.close();
+        if (arrivalClient != null) arrivalClient.close();
         handler.removeCallbacks(poll);
         handler.removeCallbacks(ageTicker);
         if (popupRoot != null) {
