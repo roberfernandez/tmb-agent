@@ -15,7 +15,7 @@ import android.view.View;
 
 import java.util.Locale;
 
-/** The floating eye, drawn in fixed proportions so updates never move the close button. */
+/** Floating train-status eye, with scalable station lettering above the iris. */
 final class TrainEyeView extends View {
     static final int WIDTH_DP = 142;
     static final int HEIGHT_DP = 58;
@@ -25,9 +25,9 @@ final class TrainEyeView extends View {
     private static final int INK = 0xff111e30;
     private static final float CENTER_X = 71f;
     private static final float PUPIL_Y = 29f;
-    private static final float PUPIL_RADIUS = 20.5f;
-    private static final float STATION_WIDTH = 39f;
-    private static final float STATION_SIZE = 9.2f;
+    private static final float PUPIL_RADIUS = 22f;
+    private static final float STATION_WIDTH = 109f;
+    private static final float STATION_SIZE = 13f;
     private static final Typeface LABEL_FACE = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     private static final Typeface STATION_FACE = Typeface.create("sans-serif-condensed", Typeface.NORMAL);
     private static final Typeface TRAIN_FACE = Typeface.create(STATION_FACE, Typeface.BOLD);
@@ -36,11 +36,11 @@ final class TrainEyeView extends View {
     private final Path lashes = new Path();
     private final Path stationArc = new Path();
     private final float stationArcLength;
-    private final RectF irisBounds = new RectF(CENTER_X - 26f, 4.5f, CENTER_X + 26f, 53.5f);
+    private final RectF irisBounds = new RectF(CENTER_X - 29f, 2.5f, CENTER_X + 29f, 55.5f);
     private final Paint surface = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rim = stroke(GOLD, 1.4f);
     private final Paint lashStroke = stroke(GOLD, 1.05f);
-    private final Paint irisRim = stroke(0xffc8a04a, 0.85f);
+    private final Paint irisRim = stroke(0xff0879c9, 0.85f);
     private final Paint iris = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pupil = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint text = new TextPaint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
@@ -65,8 +65,8 @@ final class TrainEyeView extends View {
         addLashes(eyelids, 0.20f * upperLength, 0.58f * upperLength, 7, 2.55f);
         addLashes(eyelids, upperLength + 0.24f * lowerLength, 0.54f * lowerLength, 5, 1.75f);
 
-        stationArc.moveTo(51f, 24f);
-        stationArc.cubicTo(54f, 17f, 88f, 17f, 91f, 24f);
+        stationArc.moveTo(17f, 27f);
+        stationArc.cubicTo(44f, 3f, 98f, 3f, 125f, 27f);
         stationArcLength = new PathMeasure(stationArc, false).getLength();
 
         surface.setShader(new LinearGradient(0, 4.5f, 0, 43.5f, 0xfffffdf7, 0xffe7edf2, Shader.TileMode.CLAMP));
@@ -134,21 +134,30 @@ final class TrainEyeView extends View {
         drawMetric(canvas, age, 120f, 29f, 11.5f, 27f);
         text.setTypeface(TRAIN_FACE);
         text.setColor(0xffffdc4f);
-        drawMetric(canvas, train, CENTER_X, 39f, 18f, 39f);
+        drawMetric(canvas, train, CENTER_X, 35f, 21f, 43f);
         canvas.restoreToCount(save);
     }
 
     private void drawStation(Canvas canvas) {
+        // One line across the upper sclera and iris, with a dark contour
+        // for contrast on both the white and blue backgrounds.
         text.setTextAlign(Paint.Align.LEFT);
-        text.setTypeface(STATION_FACE);
-        text.setColor(0xffffffff);
+        text.setTypeface(Typeface.create(STATION_FACE, Typeface.BOLD));
         text.setTextSize(STATION_SIZE);
-        float width = text.measureText(stationLabel);
-        if (width > STATION_WIDTH) {
-            text.setTextSize(Math.max(8.1f, STATION_SIZE * STATION_WIDTH / width));
+        float measured = text.measureText(stationLabel);
+        if (measured > STATION_WIDTH) {
+            text.setTextSize(Math.max(7.5f, STATION_SIZE * STATION_WIDTH / measured));
         }
-        String label = TextUtils.ellipsize(stationLabel, text, STATION_WIDTH, TextUtils.TruncateAt.END).toString();
+        String label = TextUtils.ellipsize(stationLabel, text, STATION_WIDTH,
+            TextUtils.TruncateAt.END).toString();
         float offset = (stationArcLength - text.measureText(label)) / 2f;
+        text.setStyle(Paint.Style.STROKE);
+        text.setStrokeJoin(Paint.Join.ROUND);
+        text.setStrokeWidth(2.4f);
+        text.setColor(0xff061424);
+        canvas.drawTextOnPath(label, stationArc, offset, 0, text);
+        text.setStyle(Paint.Style.FILL);
+        text.setColor(0xffffdf30);
         canvas.drawTextOnPath(label, stationArc, offset, 0, text);
     }
 
