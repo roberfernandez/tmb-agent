@@ -84,6 +84,7 @@ final class MiralinDirectClient implements AutoCloseable {
             transport.request(session, "40");
             long lastMap = System.nanoTime();
             Set<String> subscribed = new HashSet<>();
+            boolean namespaceConnected = false;
             while (!closed) {
                 // Socket subscriptions persist for the lifetime of a session.
                 // Reconnect when a station is no longer requested, otherwise
@@ -91,7 +92,7 @@ final class MiralinDirectClient implements AutoCloseable {
                 if (!stops.containsAll(subscribed)) {
                     throw new IOException("Station subscriptions changed");
                 }
-                for (String stop : stops) {
+                for (String stop : namespaceConnected ? stops : Collections.<String>emptySet()) {
                     if (!stop.matches("41[3-9]|42[0-9]|43[0-4]") || !subscribed.add(stop)) continue;
                     transport.request(session, "42" + new JSONArray().put("subscribeStop").put(new JSONObject().put("line", "L4").put("stop", stop)).toString());
                 }
@@ -101,6 +102,12 @@ final class MiralinDirectClient implements AutoCloseable {
                     if (packet.equals("2")) transport.request(session, "3");
                     else if (packet.equals("1") || packet.startsWith("41")) throw new IOException("Session closed");
                     else if (packet.startsWith("44")) throw new IOException("Connection rejected");
+                    else if (packet.startsWith("40")) {
+                        // Wait for the server namespace-connect acknowledgement before
+                        // sending station subscriptions; a POST of "40" is not an ACK.
+                        namespaceConnected = true;
+                        listener.onState("Miralin directe · socket connectat");
+                    }
                     else if (packet.startsWith("42")) {
                         JSONArray event = new JSONArray(packet.substring(2));
                         if ("stopDataUpdate".equals(event.optString(0))) {
