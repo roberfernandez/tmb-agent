@@ -17,6 +17,8 @@ import java.util.Collections;
 
 /** One Engine.IO polling session, owned by the active foreground service. */
 final class MiralinDirectClient implements AutoCloseable {
+    // Verified against live L4 station-board capture (La Pau, stop 413):
+    // stopDataUpdate carries trainCode and arrivalTime for the selected stop.
     private static final String ENDPOINT = "https://miralin.cat/socket.io/?EIO=4&transport=polling";
     private static final long STALE_NANOS = 90_000_000_000L;
 
