@@ -127,6 +127,19 @@ final class ServiceAlerts {
         return 0;
     }
 
+    long predictedArrivalEitherTrack(String stop, String preferredVia, String train, long now) {
+        if ("1".equals(preferredVia) || "2".equals(preferredVia)) {
+            long preferred = predictedArrival(stop, preferredVia, train, now);
+            if (preferred > now) return preferred;
+            return predictedArrival(stop, "1".equals(preferredVia) ? "2" : "1", train, now);
+        }
+        long first = predictedArrival(stop, "1", train, now);
+        long second = predictedArrival(stop, "2", train, now);
+        if (first <= now) return second;
+        if (second <= now) return first;
+        return Math.min(first, second);
+    }
+
     void acceptMap(JSONObject trains, long now) {
         map = trains;
         mapReceived = now;
