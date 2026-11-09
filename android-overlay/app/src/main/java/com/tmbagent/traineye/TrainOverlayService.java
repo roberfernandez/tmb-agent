@@ -87,7 +87,7 @@ public class TrainOverlayService extends Service {
     private int ageAtFetch = -1;
     private long fetchedAt = 0;
     private volatile boolean requestInFlight = false;
-    private MiralinDirectClient directClient;
+    private TrainPositionClient directClient;
     private MiralinDirectClient arrivalClient;
     private JSONObject directMap;
     private long directMapAt;
@@ -598,7 +598,7 @@ public class TrainOverlayService extends Service {
 
     private void startDirectConnection() {
         if (directClient != null) return;
-        directClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+        directClient = new TrainPositionClient(new TrainPositionClient.Listener() {
             @Override public void onMap(JSONObject trains) {
                 final long received = android.os.SystemClock.elapsedRealtime();
                 final long receivedAt = System.currentTimeMillis();
