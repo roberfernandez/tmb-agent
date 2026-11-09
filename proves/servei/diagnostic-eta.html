@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnóstico ETA Miralín</title>
+<style>body{font:16px system-ui;background:#101820;color:#eef3fa;max-width:750px;margin:auto;padding:18px}button,input{font:inherit;padding:10px;border-radius:8px}button{background:#f3d237;color:#111;border:0;font-weight:700}input{width:85px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#1d2b39;padding:12px;border-radius:8px;font-size:12px;max-height:65vh;overflow:auto}.muted{color:#b4c2d0}</style></head>
+<body><h2>Diagnóstico ETA Miralín</h2><p class="muted">Prueba independiente, solo lectura. No modifica TMB Agent. Comprueba la conexión WebSocket, la suscripción y los eventos de estación.</p>
+<label>Estación <input id="stop" value="413" inputmode="numeric" maxlength="3"></label>
+<button id="start">Iniciar prueba</button> <button id="end">Detener</button>
+<p id="state">Sin conectar</p><pre id="log"></pre>
+<script>
+const logEl=document.getElementById('log'),state=document.getElementById('state');
+let ws=null,connected=false,subscribed=false,events={},startTime=0;
+function log(s){const stamp=new Date().toLocaleTimeString();logEl.textContent+='['+stamp+'] '+s+'\n';logEl.scrollTop=logEl.scrollHeight;}
+function send(s){if(ws&&ws.readyState===1){ws.send(s);log('→ '+s);}}
+function start(){
+ if(ws){ws.onclose=null;ws.close();}
+ logEl.textContent='';events={};connected=false;subscribed=false;startTime=Date.now();
+ const stop=document.getElementById('stop').value.trim();
+ if(!/^41[3-9]$|^42[0-9]$|^43[0-4]$/.test(stop)){log('Estación no válida (413–434)');return;}
+ state.textContent='Conectando…';
+ const url='wss://miralin.cat/socket.io/?EIO=4&transport=websocket';
+ log('Abriendo '+url);
+ try{ws=new WebSocket(url);}catch(e){log('Error al crear WebSocket: '+e);return;}
+ ws.onopen=()=>{state.textContent='WebSocket abierto';log('WebSocket abierto. Esperando saludo Engine.IO');};
+ ws.onerror=()=>log('Error WebSocket (el navegador no expone el motivo detallado)');
+ ws.onclose=e=>{state.textContent='Conexión cerrada';log('Conexión cerrada: código='+e.code+' motivo='+e.reason);log('Eventos observados: '+JSON.stringify(events));};
+ ws.onmessage=e=>{
+  for(const p of String(e.data).split('\x1e')){
+   if(p==='2'){send('3');continue;}
+   if(p.startsWith('0')){log('Saludo Engine.IO: '+p.slice(0,250));send('40');continue;}
+   if(p.startsWith('40')){connected=true;state.textContent='Namespace conectado';log('Namespace Socket.IO conectado: '+p.slice(0,150));
+    if(!subscribed){const msg='42'+JSON.stringify(['subscribeStop',{line:'L4',stop}]);subscribed=true;send(msg);}continue;}
+   if(p.startsWith('42')){
+    try{const arr=JSON.parse(p.slice(2)),name=arr[0];events[name]=(events[name]||0)+1;
+      if(name==='stopDataUpdate'){state.textContent='Recibido stopDataUpdate';log('✓ stopDataUpdate #'+events[name]+': '+JSON.stringify(arr[1]).slice(0,3500));}
+      else if(events[name]===1)log('Evento '+name+': '+JSON.stringify(arr[1]).slice(0,350));
+    }catch(err){log('Error interpretando evento: '+err+' '+p.slice(0,250));}
+    continue;
+   }
+   if(p.startsWith('44')||p.startsWith('41'))log('Rechazo/cierre de namespace: '+p.slice(0,300));
+   else if(p!=='3')log('Paquete: '+p.slice(0,250));
+  }
+ };
+}
+document.getElementById('start').onclick=start;
+document.getElementById('end').onclick=()=>{if(ws)ws.close();};
+</script></body></html>
