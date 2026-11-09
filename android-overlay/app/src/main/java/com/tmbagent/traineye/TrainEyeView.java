@@ -26,7 +26,7 @@ final class TrainEyeView extends View {
     private static final float CENTER_X = 71f;
     private static final float PUPIL_Y = 29f;
     private static final float PUPIL_RADIUS = 22f;
-    private static final float STATION_WIDTH = 133f;
+    private static final float STATION_WIDTH = 137f;
     private static final float STATION_SIZE = 15f;
     private static final Typeface LABEL_FACE = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     private static final Typeface STATION_FACE = Typeface.create("sans-serif-condensed", Typeface.NORMAL);
@@ -66,8 +66,8 @@ final class TrainEyeView extends View {
         addLashes(eyelids, 0.20f * upperLength, 0.58f * upperLength, 7, 2.55f);
         addLashes(eyelids, upperLength + 0.24f * lowerLength, 0.54f * lowerLength, 5, 1.75f);
 
-        stationArc.moveTo(4f, 26f);
-        stationArc.cubicTo(41f, -7f, 101f, -7f, 138f, 26f);
+        stationArc.moveTo(4f, 30f);
+        stationArc.cubicTo(39f, 4f, 103f, 4f, 138f, 30f);
         stationArcLength = new PathMeasure(stationArc, false).getLength();
 
         surface.setShader(new LinearGradient(0, 4.5f, 0, 43.5f, 0xfffffdf7, 0xffe7edf2, Shader.TileMode.CLAMP));
