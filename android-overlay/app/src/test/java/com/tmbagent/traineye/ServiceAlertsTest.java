@@ -391,4 +391,19 @@ public class ServiceAlertsTest {
         assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack("413", "", "407", now));
     }
 
+    @Test public void terminalStationsIgnoreViaAndUseEarliestMatchingTrain() throws Exception {
+        long now = 1800000000000L;
+        for (String stop : new String[]{"413", "434"}) {
+            ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST," + stop + "," + stop + ",,,"), now);
+            JSONObject board = new JSONObject().put("stopCode", stop)
+                .put("via1", new org.json.JSONArray().put(
+                    new JSONObject().put("trainCode", "407").put("secsLeft", 480)))
+                .put("via2", new org.json.JSONArray().put(
+                    new JSONObject().put("trainCode", "407").put("secsLeft", 300)));
+            alerts.acceptBoard(board, now);
+            assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack(stop, "1", "407", now));
+            assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack(stop, "2", "407", now));
+        }
+    }
+
 }
