@@ -406,4 +406,16 @@ public class ServiceAlertsTest {
         }
     }
 
+    @Test public void usesLineTrainsWhenPlatformArrayIsEmpty() throws Exception {
+        long now = 1800000000000L;
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,"), now);
+        JSONObject board = new JSONObject().put("stopCode", "413")
+            .put("via2", new org.json.JSONArray())
+            .put("lineTrains", new org.json.JSONArray().put(
+                new JSONObject().put("trainCode", "407").put("platformTrack", 2).put("secsLeft", 180)));
+        alerts.acceptBoard(board, now);
+        assertEquals(now + 180000L, alerts.predictedArrival("413", "2", "407", now));
+        assertEquals(now + 180000L, alerts.predictedArrivalEitherTrack("413", "1", "407", now));
+    }
+
 }
