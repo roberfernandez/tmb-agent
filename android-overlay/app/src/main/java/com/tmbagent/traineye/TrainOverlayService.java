@@ -507,6 +507,7 @@ public class TrainOverlayService extends Service {
             popupStatus = null;
             popupRowViews.clear();
             popupImageView = null;
+            etaDiagnosticView = null;
             popupActiveIndex = -1;
             showOverlay();
         }
