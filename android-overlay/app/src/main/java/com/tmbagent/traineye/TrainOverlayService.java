@@ -807,25 +807,27 @@ public class TrainOverlayService extends Service {
     }
 
     private String arrivalCountdown(long now) {
-        String stop = theoreticalStop();
-        String via = "";
+        // The ETA belongs to a stationary activity only: never to CON or TRA.
+        // In particular, station duties can last hours, not just the last
+        // 30 minutes before the next driving row.
+        if (!"service".equals(mode) || serviceAlerts == null) return resetCountdown();
         int minute = servicePlan.minutesAt(now);
-        if (!stop.isEmpty()) {
-            for (ServicePlan.Row row : servicePlan.rows) {
-                // Never show arrival ETA after boarding / during driving.
-                if (row.driving() && row.train.equals(train) && row.from.equals(stop)
-                    && minute < row.start && row.start - minute <= 30) {
-                    via = row.via;
-                    break;
-                }
-            }
+        ServicePlan.Row current = null;
+        for (ServicePlan.Row row : servicePlan.rows) {
+            if (minute >= row.start && minute < row.end) { current = row; break; }
         }
-        if (via.isEmpty() || serviceAlerts == null) {
-            countdownKey = "";
-            countdownTrain = "";
-            countdownArrivalAt = 0;
-            countdownCheckedAt = 0;
-            return "--";
+        if (current == null || "CON".equals(current.type) || "TRA".equals(current.type)
+            || !current.from.matches("41[3-9]|42[0-9]|43[0-4]")) return resetCountdown();
+
+        String stop = current.from;
+        String via = "";
+        // Use the platform of the following driving activity when available.
+        // If not known, look for this train on either station platform.
+        for (ServicePlan.Row row : servicePlan.rows) {
+            if (row.start >= current.end && row.driving() && row.from.equals(stop)) {
+                if ("1".equals(row.via) || "2".equals(row.via)) via = row.via;
+                break;
+            }
         }
         String key = stop + ":" + via;
         if (!key.equals(countdownKey) || !train.equals(countdownTrain)) {
@@ -834,10 +836,10 @@ public class TrainOverlayService extends Service {
             countdownArrivalAt = 0;
             countdownCheckedAt = 0;
         }
-        // Once a valid prediction is obtained, run locally and do not re-evaluate
-        // the station board for one minute. The seconds tick every second.
         if (countdownArrivalAt == 0 || now - countdownCheckedAt >= 60000L) {
-            long candidate = serviceAlerts.predictedArrival(stop, via, train, now);
+            long candidate = via.isEmpty()
+                ? Math.min(nonzeroArrival(stop, "1", now), nonzeroArrival(stop, "2", now))
+                : serviceAlerts.predictedArrival(stop, via, train, now);
             if (candidate > now && candidate < now + 3600000L) {
                 countdownArrivalAt = candidate;
                 countdownCheckedAt = now;
@@ -849,6 +851,19 @@ public class TrainOverlayService extends Service {
         if (countdownArrivalAt <= now) return "--";
         long seconds = (countdownArrivalAt - now + 999) / 1000;
         return (seconds / 60) + "'" + String.format(java.util.Locale.ROOT, "%02d", seconds % 60) + "''";
+    }
+
+    private long nonzeroArrival(String stop, String via, long now) {
+        long at = serviceAlerts.predictedArrival(stop, via, train, now);
+        return at > now ? at : Long.MAX_VALUE;
+    }
+
+    private String resetCountdown() {
+        countdownKey = "";
+        countdownTrain = "";
+        countdownArrivalAt = 0;
+        countdownCheckedAt = 0;
+        return "--";
     }
 
     private void updateEye() {
