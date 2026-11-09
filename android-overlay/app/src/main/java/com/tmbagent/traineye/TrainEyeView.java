@@ -26,7 +26,7 @@ final class TrainEyeView extends View {
     private static final float CENTER_X = 55.5f;
     private static final float PUPIL_Y = 29f;
     private static final float PUPIL_RADIUS = 11.8f;
-    private static final float STATION_WIDTH = 43f;
+    private static final float STATION_WIDTH = 83f;
     private static final float STATION_SIZE = 10f;
     private static final Typeface LABEL_FACE = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     private static final Typeface STATION_FACE = Typeface.create("sans-serif-condensed", Typeface.NORMAL);
@@ -65,8 +65,10 @@ final class TrainEyeView extends View {
         addLashes(eyelids, 0.20f * upperLength, 0.58f * upperLength, 7, 2.55f);
         addLashes(eyelids, upperLength + 0.24f * lowerLength, 0.54f * lowerLength, 5, 1.75f);
 
-        stationArc.moveTo(38.8f, 26.2f);
-        stationArc.cubicTo(40f, 11f, 71f, 11f, 72.2f, 26.2f);
+        // Give the station name almost the full upper eyelid, below the top edge.
+        // The arc is intentionally wider than the iris without enlarging the overlay.
+        stationArc.moveTo(14f, 22.5f);
+        stationArc.cubicTo(29f, 9.5f, 83f, 9.5f, 104f, 22.5f);
         stationArcLength = new PathMeasure(stationArc, false).getLength();
 
         surface.setShader(new LinearGradient(0, 4.5f, 0, 43.5f, 0xff192b40, INK, Shader.TileMode.CLAMP));
@@ -145,7 +147,7 @@ final class TrainEyeView extends View {
         text.setTextSize(STATION_SIZE);
         float width = text.measureText(stationLabel);
         if (width > STATION_WIDTH) {
-            text.setTextSize(Math.max(8.1f, STATION_SIZE * STATION_WIDTH / width));
+            text.setTextSize(Math.max(8.4f, STATION_SIZE * STATION_WIDTH / width));
         }
         String label = TextUtils.ellipsize(stationLabel, text, STATION_WIDTH, TextUtils.TruncateAt.END).toString();
         float offset = (stationArcLength - text.measureText(label)) / 2f;
