@@ -26,8 +26,8 @@ final class TrainEyeView extends View {
     private static final float CENTER_X = 71f;
     private static final float PUPIL_Y = 29f;
     private static final float PUPIL_RADIUS = 22f;
-    private static final float STATION_WIDTH = 109f;
-    private static final float STATION_SIZE = 13f;
+    private static final float STATION_WIDTH = 133f;
+    private static final float STATION_SIZE = 15f;
     private static final Typeface LABEL_FACE = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     private static final Typeface STATION_FACE = Typeface.create("sans-serif-condensed", Typeface.NORMAL);
     private static final Typeface TRAIN_FACE = Typeface.create(STATION_FACE, Typeface.BOLD);
@@ -50,6 +50,7 @@ final class TrainEyeView extends View {
     private String track = "";
     private String age = "";
     private String stationLabel = "";
+    private String countdown = "--";
 
     TrainEyeView(Context context) {
         super(context);
@@ -65,8 +66,8 @@ final class TrainEyeView extends View {
         addLashes(eyelids, 0.20f * upperLength, 0.58f * upperLength, 7, 2.55f);
         addLashes(eyelids, upperLength + 0.24f * lowerLength, 0.54f * lowerLength, 5, 1.75f);
 
-        stationArc.moveTo(17f, 27f);
-        stationArc.cubicTo(44f, 3f, 98f, 3f, 125f, 27f);
+        stationArc.moveTo(4f, 26f);
+        stationArc.cubicTo(41f, -7f, 101f, -7f, 138f, 26f);
         stationArcLength = new PathMeasure(stationArc, false).getLength();
 
         surface.setShader(new LinearGradient(0, 4.5f, 0, 43.5f, 0xfffffdf7, 0xffe7edf2, Shader.TileMode.CLAMP));
@@ -100,6 +101,11 @@ final class TrainEyeView extends View {
         }
     }
 
+    void setCountdown(String value) {
+        if (value == null) value = "--";
+        if (!countdown.equals(value)) { countdown = value; invalidate(); }
+    }
+
     void setStatus(String train, String station, String track, String age) {
         if (station == null || station.isEmpty()) station = "—";
         if (track == null || track.isEmpty()) track = "—";
@@ -130,11 +136,12 @@ final class TrainEyeView extends View {
         text.setTextAlign(Paint.Align.CENTER);
         text.setTypeface(LABEL_FACE);
         text.setColor(0xff10243a);
-        drawMetric(canvas, "v." + track, 22f, 29f, 11.5f, 27f);
-        drawMetric(canvas, age, 120f, 29f, 11.5f, 27f);
+        drawMetric(canvas, "v." + track, 22f, 26f, 10.5f, 29f);
+        drawMetric(canvas, age, 22f, 37f, 8.5f, 29f);
+        drawMetric(canvas, countdown, 120f, 29f, 11f, 36f);
         text.setTypeface(TRAIN_FACE);
         text.setColor(0xffffdc4f);
-        drawMetric(canvas, train, CENTER_X, 35f, 21f, 43f);
+        drawMetric(canvas, train, CENTER_X, 32f, 21f, 43f);
         canvas.restoreToCount(save);
     }
 
