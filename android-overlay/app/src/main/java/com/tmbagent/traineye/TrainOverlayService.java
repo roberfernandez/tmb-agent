@@ -829,6 +829,15 @@ public class TrainOverlayService extends Service {
         for (ServicePlan.Row row : servicePlan.rows) {
             if (minute >= row.start && minute < row.end) { current = row; break; }
         }
+        // Before the first duty starts, show the assigned train approaching
+        // the first boarding station. Never infer an ETA while travelling.
+        if (current == null) {
+            ServicePlan.Row next = null;
+            for (ServicePlan.Row row : servicePlan.rows) {
+                if (row.start > minute && (next == null || row.start < next.start)) next = row;
+            }
+            if (next != null && next.driving()) current = next;
+        }
         if (current == null || "CON".equals(current.type) || "TRA".equals(current.type)
             || !current.from.matches("41[3-9]|42[0-9]|43[0-4]")) {
             android.util.Log.d("TrainEyeETA", "No station ETA: activity=" + (current == null ? "none" : current.type) + " stop=" + (current == null ? "" : current.from));
