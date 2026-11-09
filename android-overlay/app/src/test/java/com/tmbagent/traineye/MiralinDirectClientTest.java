@@ -169,4 +169,28 @@ public class MiralinDirectClientTest {
         assertEquals(now + 240000L, alerts.predictedArrival("413", "1", "407", now));
     }
 
+    @Test public void reconnectsWhenOldStationSubscriptionIsNoLongerNeeded() throws Exception {
+        String board = "42[\"stopDataUpdate\",{\"stopCode\":\"413\",\"via1\":[]}]";
+        FakeTransport transport = new FakeTransport(HELLO, board, board);
+        MiralinDirectClient[] client = new MiralinDirectClient[1];
+        int[] received = {0};
+        client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            public void onMap(JSONObject trains) { fail(); }
+            public void onState(String state) {}
+            public void onBoard(JSONObject data) {
+                received[0]++;
+                client[0].setStops(java.util.Collections.singleton("434"));
+            }
+        }, transport);
+        client[0].setStops(java.util.Collections.singleton("413"));
+        try {
+            client[0].receiveSession();
+            fail("Expected reconnect after dropping La Pau subscription");
+        } catch (IOException expected) {
+            assertEquals("Station subscriptions changed", expected.getMessage());
+        } finally { client[0].close(); }
+        assertEquals(1, received[0]);
+        assertEquals(1, transport.writes.stream().filter(x -> x.contains("subscribeStop") && x.contains("413")).count());
+    }
+
 }
