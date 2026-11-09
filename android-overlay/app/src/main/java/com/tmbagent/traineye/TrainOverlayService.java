@@ -814,12 +814,14 @@ public class TrainOverlayService extends Service {
         ServicePlan.Row next = null;
         for (ServicePlan.Row row : servicePlan.rows) {
             if (minute >= row.start && minute < row.end) {
-                if ("CON".equals(row.type)) return "";
+                // A driving or transfer row is not a station wait.
+                if ("CON".equals(row.type) || "TRA".equals(row.type)) return "";
                 return row.from.matches("41[3-9]|42[0-9]|43[0-4]") ? row.from : "";
             }
             if (row.start > minute && (next == null || row.start < next.start)) next = row;
         }
-        return next != null && next.from.matches("41[3-9]|42[0-9]|43[0-4]") ? next.from : "";
+        return next != null && next.driving()
+            && next.from.matches("41[3-9]|42[0-9]|43[0-4]") ? next.from : "";
     }
 
     private String arrivalCountdown(long now) {
