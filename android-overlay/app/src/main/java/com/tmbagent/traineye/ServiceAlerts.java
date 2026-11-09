@@ -509,7 +509,14 @@ final class ServiceAlerts {
     private static long arrivalTime(JSONObject entry, long received) {
         Object value = entry.opt("arrivalTime");
         if (value instanceof Number && ((Number) value).longValue() > 100000000000L) return ((Number) value).longValue();
-        if (value instanceof String) try { return Instant.parse((String) value).toEpochMilli(); } catch (Exception ignored) {}
+        if (value instanceof String) {
+            String text = ((String) value).trim();
+            try {
+                long epoch = Long.parseLong(text);
+                if (epoch > 100000000000L) return epoch;
+            } catch (NumberFormatException ignored) {}
+            try { return Instant.parse(text).toEpochMilli(); } catch (Exception ignored) {}
+        }
         double seconds = entry.optDouble("secsLeft", Double.NaN);
         return Double.isFinite(seconds) ? received + Math.round(seconds * 1000) : 0;
     }
