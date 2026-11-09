@@ -83,6 +83,12 @@ final class MiralinDirectClient implements AutoCloseable {
             long lastMap = System.nanoTime();
             Set<String> subscribed = new HashSet<>();
             while (!closed) {
+                // Socket subscriptions persist for the lifetime of a session.
+                // Reconnect when a station is no longer requested, otherwise
+                // stale subscriptions make unlabelled station boards ambiguous.
+                if (!stops.containsAll(subscribed)) {
+                    throw new IOException("Station subscriptions changed");
+                }
                 for (String stop : stops) {
                     if (!stop.matches("41[3-9]|42[0-9]|43[0-4]") || !subscribed.add(stop)) continue;
                     transport.request(session, "42" + new JSONArray().put("subscribeStop").put(new JSONObject().put("line", "L4").put("stop", stop)).toString());
