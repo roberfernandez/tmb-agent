@@ -109,7 +109,7 @@ public class TrainOverlayService extends Service {
         @Override public void run() {
             applyScheduledTrain(false);
             fetchTrain();
-            handler.postDelayed(this, 15000);
+            handler.postDelayed(this, 7000);
         }
     };
 
@@ -717,7 +717,7 @@ public class TrainOverlayService extends Service {
     private boolean applyDirectTrain() {
         if (directMap == null) return false;
         long age = (android.os.SystemClock.elapsedRealtime() - directMapAt) / 1000;
-        if (age >= 45) return false;
+        if (age >= 12) return false;
         JSONObject item = directMap.optJSONObject(train);
         synchronized (this) {
             if (item == null) return false; // Do not flash empty data between valid map frames.
@@ -882,7 +882,7 @@ public class TrainOverlayService extends Service {
             currentStation = station;
             currentTrack = track;
         }
-        String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
+        String ageText = age < 0 ? "—" : age >= 20 ? "⚠" + (age < 60 ? age + "s" : (age / 60) + "m") : age + "s";
         eye.setStatus(train, currentStation, currentTrack, ageText);
         eye.setCountdown(arrivalCountdown(System.currentTimeMillis()));
     }
