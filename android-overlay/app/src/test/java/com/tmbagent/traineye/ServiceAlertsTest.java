@@ -418,4 +418,21 @@ public class ServiceAlertsTest {
         assertEquals(now + 180000L, alerts.predictedArrivalEitherTrack("413", "1", "407", now));
     }
 
+
+    @Test public void liveLaPauBoardMatchesAssignedTrainAndDoesNotConfuseOtherTrains() throws Exception {
+        long now = ServicePlanTest.time("2026-11-09T20:28:58");
+        ServiceAlerts eta = new ServiceAlerts(new ServicePlan("1126,1317,EST,413,413,,,;1317,1485,CON,413,413,407,2,RET"), now);
+        JSONObject board = new JSONObject().put("line", "L4").put("stopCode", "413")
+            .put("via1", new JSONArray())
+            .put("via2", new JSONArray()
+                .put(new JSONObject().put("tren", "411").put("trainCode", "411")
+                    .put("secsLeft", 181).put("arrivalTime", now + 181000L).put("track", 2))
+                .put(new JSONObject().put("tren", "407").put("trainCode", "407")
+                    .put("secsLeft", 425).put("arrivalTime", now + 425000L).put("track", 2)));
+        eta.acceptBoard(board, now);
+        assertEquals(now + 425000L, eta.predictedArrivalEitherTrack("413", "2", "407", now));
+        assertEquals(now + 181000L, eta.predictedArrivalEitherTrack("413", "2", "411", now));
+        assertEquals(0, eta.predictedArrivalEitherTrack("413", "2", "409", now));
+        assertTrue(eta.boardStatus("413", "407", now).contains("MATCH train=407"));
+    }
 }
