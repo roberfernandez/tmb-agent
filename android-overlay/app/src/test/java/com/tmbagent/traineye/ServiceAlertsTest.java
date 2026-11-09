@@ -378,4 +378,17 @@ public class ServiceAlertsTest {
         assertEquals(now + 300000L, alerts.predictedArrival("413", "1", "407", now));
     }
 
+    @Test public void findsTrain407OnVia2EvenWhenServiceExpectsVia1() throws Exception {
+        long now = 1800000000000L;
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,;630,690,CON,413,434,407,1,1"), now);
+        JSONObject board = new JSONObject().put("stopCode", "413")
+            .put("via1", new org.json.JSONArray())
+            .put("via2", new org.json.JSONArray().put(
+                new JSONObject().put("trainCode", "407").put("secsLeft", 300)));
+        alerts.acceptBoard(board, now);
+        assertEquals(0L, alerts.predictedArrival("413", "1", "407", now));
+        assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack("413", "1", "407", now));
+        assertEquals(now + 300000L, alerts.predictedArrivalEitherTrack("413", "", "407", now));
+    }
+
 }
