@@ -174,15 +174,16 @@ final class MiralinDirectClient implements AutoCloseable {
 
         @Override public String request(String session, String body) throws Exception {
             if (cancelled) throw new IOException("Stopped");
-            String url = ENDPOINT + (session == null ? "" : "&sid=" + URLEncoder.encode(session, "UTF-8"));
+            String url = ENDPOINT + "&t=" + System.currentTimeMillis() + (session == null ? "" : "&sid=" + URLEncoder.encode(session, "UTF-8"));
             HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
             active = connection;
             try {
                 if (cancelled) throw new IOException("Stopped");
                 boolean closing = "1".equals(body);
                 connection.setConnectTimeout(closing ? 2000 : 10000);
-                connection.setReadTimeout(closing ? 2000 : 40000);
+                connection.setReadTimeout(closing ? 2000 : 30000);
                 connection.setUseCaches(false);
+                connection.setRequestProperty("User-Agent", "Miralin-ETA-Diagnostic/1.0");
                 connection.setInstanceFollowRedirects(false);
                 connection.setRequestMethod(body == null ? "GET" : "POST");
                 if (body != null) {
