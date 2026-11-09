@@ -94,7 +94,10 @@ public class TrainOverlayService extends Service {
     private boolean destroyed;
     private ServicePlan servicePlan = new ServicePlan("");
     private ServiceAlerts serviceAlerts;
-    private final java.util.Map<String, Long> arrivalCache = new java.util.HashMap<>();
+    private long countdownArrivalAt;
+    private long countdownCheckedAt;
+    private String countdownKey = "";
+    private String countdownTrain = "";
     private String alertPlanKey = "";
     private boolean alertsEnabled;
     private int alertMargin = 5;
@@ -713,9 +716,10 @@ public class TrainOverlayService extends Service {
         if (age >= 45) return false;
         JSONObject item = directMap.optJSONObject(train);
         synchronized (this) {
-            station = item == null ? "sense dades" : item.optString("estacion", "sense dades");
-            track = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
-            ageAtFetch = item == null ? -1 : (int) age;
+            if (item == null) return false; // Do not flash empty data between valid map frames.
+            station = item.optString("estacion", "sense dades");
+            track = item.optString("platformTrack", item.optString("track", "—"));
+            ageAtFetch = (int) age;
             fetchedAt = System.currentTimeMillis();
         }
         return true;
@@ -803,20 +807,47 @@ public class TrainOverlayService extends Service {
     }
 
     private String arrivalCountdown(long now) {
-        if (serviceAlerts == null) return "--";
         String stop = theoreticalStop();
-        if (stop.isEmpty()) return "--";
         String via = "";
         int minute = servicePlan.minutesAt(now);
-        for (ServicePlan.Row row : servicePlan.rows) {
-            if (row.driving() && row.train.equals(train) && row.from.equals(stop)
-                && row.start >= minute - 2) { via = row.via; break; }
+        if (!stop.isEmpty()) {
+            for (ServicePlan.Row row : servicePlan.rows) {
+                // Never show arrival ETA after boarding / during driving.
+                if (row.driving() && row.train.equals(train) && row.from.equals(stop)
+                    && minute < row.start && row.start - minute <= 30) {
+                    via = row.via;
+                    break;
+                }
+            }
         }
-        if (via.isEmpty()) return "--";
-        long arrival = serviceAlerts.predictedArrival(stop, via, train, now);
-        if (arrival <= now) return "--";
-        long seconds = (arrival - now + 999) / 1000;
-        if (seconds >= 3600) return "--";
+        if (via.isEmpty() || serviceAlerts == null) {
+            countdownKey = "";
+            countdownTrain = "";
+            countdownArrivalAt = 0;
+            countdownCheckedAt = 0;
+            return "--";
+        }
+        String key = stop + ":" + via;
+        if (!key.equals(countdownKey) || !train.equals(countdownTrain)) {
+            countdownKey = key;
+            countdownTrain = train;
+            countdownArrivalAt = 0;
+            countdownCheckedAt = 0;
+        }
+        // Once a valid prediction is obtained, run locally and do not re-evaluate
+        // the station board for one minute. The seconds tick every second.
+        if (countdownArrivalAt == 0 || now - countdownCheckedAt >= 60000L) {
+            long candidate = serviceAlerts.predictedArrival(stop, via, train, now);
+            if (candidate > now && candidate < now + 3600000L) {
+                countdownArrivalAt = candidate;
+                countdownCheckedAt = now;
+            } else if (countdownArrivalAt > 0 && now - countdownCheckedAt >= 90000L) {
+                countdownArrivalAt = 0;
+                countdownCheckedAt = 0;
+            }
+        }
+        if (countdownArrivalAt <= now) return "--";
+        long seconds = (countdownArrivalAt - now + 999) / 1000;
         return (seconds / 60) + "'" + String.format(java.util.Locale.ROOT, "%02d", seconds % 60) + "''";
     }
 
