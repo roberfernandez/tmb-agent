@@ -151,4 +151,22 @@ public class MiralinDirectClientTest {
         assertFalse(received.get(0).has("stopCode"));
     }
 
+    @Test public void attributesNestedUnlabelledBoardToLaPau() throws Exception {
+        String packet = "42[\"stopDataUpdate\",{\"data\":{\"via1\":[{\"trainCode\":\"407\",\"secsLeft\":240}]}}]";
+        FakeTransport transport = new FakeTransport(HELLO, packet);
+        List<JSONObject> received = new ArrayList<>();
+        MiralinDirectClient[] client = new MiralinDirectClient[1];
+        client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
+            public void onMap(JSONObject trains) { fail(); }
+            public void onState(String status) {}
+            public void onBoard(JSONObject board) { received.add(board); client[0].close(); }
+        }, transport);
+        client[0].setStops(java.util.Collections.singleton("413"));
+        client[0].receiveSession();
+        long now = 1800000000000L;
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,;630,690,CON,413,434,407,1,1"), now);
+        alerts.acceptBoard(received.get(0), now);
+        assertEquals(now + 240000L, alerts.predictedArrival("413", "1", "407", now));
+    }
+
 }
