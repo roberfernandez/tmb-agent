@@ -94,6 +94,7 @@ public class TrainOverlayService extends Service {
     private boolean destroyed;
     private ServicePlan servicePlan = new ServicePlan("");
     private ServiceAlerts serviceAlerts;
+    private ServiceAlerts etaBoards;
     private long countdownArrivalAt;
     private long countdownCheckedAt;
     private String countdownKey = "";
@@ -164,6 +165,7 @@ public class TrainOverlayService extends Service {
             serviceRowBounds = prefs.getString(EXTRA_SERVICE_ROW_BOUNDS, "");
         }
         servicePlan = new ServicePlan(schedule);
+        etaBoards = new ServiceAlerts(servicePlan, System.currentTimeMillis());
         configureAlerts();
         applyScheduledTrain(false);
         startAsForeground();
@@ -621,6 +623,7 @@ public class TrainOverlayService extends Service {
                 handler.post(() -> {
                     if (destroyed) return;
                     if (serviceAlerts != null) serviceAlerts.acceptBoard(board, received);
+                    if (etaBoards != null) etaBoards.acceptBoard(board, received);
                     updateEye();
                 });
             }
@@ -811,7 +814,7 @@ public class TrainOverlayService extends Service {
         // The ETA belongs to a stationary activity only: never to CON or TRA.
         // In particular, station duties can last hours, not just the last
         // 30 minutes before the next driving row.
-        if (!"service".equals(mode) || serviceAlerts == null) return resetCountdown();
+        if (!"service".equals(mode) || etaBoards == null) return resetCountdown();
         int minute = servicePlan.minutesAt(now);
         ServicePlan.Row current = null;
         for (ServicePlan.Row row : servicePlan.rows) {
@@ -843,7 +846,7 @@ public class TrainOverlayService extends Service {
         if (countdownArrivalAt == 0 || now - countdownCheckedAt >= 60000L) {
             long candidate = via.isEmpty()
                 ? Math.min(nonzeroArrival(stop, "1", now), nonzeroArrival(stop, "2", now))
-                : serviceAlerts.predictedArrival(stop, via, train, now);
+                : etaBoards.predictedArrival(stop, via, train, now);
             android.util.Log.d("TrainEyeETA", "ETA lookup train=" + train + " stop=" + stop + " via=" + via + " candidate=" + candidate + " now=" + now);
             if (candidate > now && candidate < now + 3600000L) {
                 countdownArrivalAt = candidate;
