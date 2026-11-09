@@ -116,7 +116,7 @@ public class MiralinDirectClientTest {
         assertTrue(transport.cancelled);
     }
     @Test public void attributesUnlabelledBoardOnlyWithOneSubscribedStation() throws Exception {
-        String packet = "42[\\"stopDataUpdate\\",{\\"via1\\":[{\\"trainCode\\":\\"407\\",\\"secsLeft\\":300}]}]";
+        String packet = "42[\"stopDataUpdate\",{\"via1\":[{\"trainCode\":\"407\",\"secsLeft\":300}]}]";
         FakeTransport transport = new FakeTransport(HELLO, packet);
         List<JSONObject> received = new ArrayList<>();
         MiralinDirectClient[] client = new MiralinDirectClient[1];
@@ -136,7 +136,7 @@ public class MiralinDirectClientTest {
     }
 
     @Test public void neverGuessesStationWhenSeveralAreSubscribed() throws Exception {
-        String packet = "42[\\"stopDataUpdate\\",{\\"via1\\":[{\\"trainCode\\":\\"407\\",\\"secsLeft\\":300}]}]";
+        String packet = "42[\"stopDataUpdate\",{\"via1\":[{\"trainCode\":\"407\",\"secsLeft\":300}]}]";
         FakeTransport transport = new FakeTransport(HELLO, packet);
         List<JSONObject> received = new ArrayList<>();
         MiralinDirectClient[] client = new MiralinDirectClient[1];
