@@ -128,6 +128,9 @@ final class ServiceAlerts {
     }
 
     long predictedArrivalEitherTrack(String stop, String preferredVia, String train, long now) {
+        // La Pau (413) and Trinitat Nova (434) have one operational platform.
+        // Miralin's via label is not a constraint at these terminal stations.
+        if (("413".equals(stop) || "434".equals(stop))) preferredVia = "";
         if ("1".equals(preferredVia) || "2".equals(preferredVia)) {
             long preferred = predictedArrival(stop, preferredVia, train, now);
             if (preferred > now) return preferred;
