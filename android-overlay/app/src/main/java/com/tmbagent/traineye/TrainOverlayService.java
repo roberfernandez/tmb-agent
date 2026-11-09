@@ -90,6 +90,10 @@ public class TrainOverlayService extends Service {
     private TrainPositionClient directClient;
     private MiralinDirectClient arrivalClient;
     private MiralinDirectClient etaClient;
+    private android.widget.TextView etaDiagnosticView;
+    private String etaSocketStatus = "sin conectar";
+    private long etaLastBoardAt;
+    private String etaLastBoardStop = "";
     private JSONObject directMap;
     private long directMapAt;
     private String connectionStatus = "Miralin directe · connectant…";
@@ -367,6 +371,21 @@ public class TrainOverlayService extends Service {
         closeParams.rightMargin = dp(6);
         card.addView(close, closeParams);
 
+        // Temporary, visible ETA diagnostics: independent of Android logcat.
+        etaDiagnosticView = new android.widget.TextView(this);
+        etaDiagnosticView.setTextSize(12);
+        etaDiagnosticView.setTextColor(0xffffffff);
+        etaDiagnosticView.setBackgroundColor(0xe6111e30);
+        etaDiagnosticView.setPadding(dp(12), dp(8), dp(12), dp(8));
+        FrameLayout.LayoutParams etaParams = new FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
+        etaParams.leftMargin = dp(12);
+        etaParams.rightMargin = dp(12);
+        etaParams.bottomMargin = dp(12);
+        root.addView(etaDiagnosticView, etaParams);
+        refreshEtaDiagnostic();
+
         popupRoot = root;
         int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
         WindowManager.LayoutParams popupParams = new WindowManager.LayoutParams(
@@ -383,6 +402,7 @@ public class TrainOverlayService extends Service {
         } catch (Exception ignored) {
             popupRoot = null;
             popupImageView = null;
+            etaDiagnosticView = null;
             showOverlay();
         }
     }
@@ -649,12 +669,16 @@ public class TrainOverlayService extends Service {
             @Override public void onMap(JSONObject trains) {}
             @Override public void onState(String status) {
                 android.util.Log.d("TrainEyeETA", "Dedicated ETA socket: " + status);
+                handler.post(() -> { etaSocketStatus = status; refreshEtaDiagnostic(); });
             }
             @Override public void onBoard(JSONObject board) {
                 long received = System.currentTimeMillis();
                 handler.post(() -> {
                     if (destroyed || etaBoards == null) return;
                     etaBoards.acceptBoard(board, received);
+                    etaLastBoardAt = received;
+                    etaLastBoardStop = board.optString("stopCode", board.optString("stop", "?"));
+                    refreshEtaDiagnostic();
                     android.util.Log.d("TrainEyeETA", "Dedicated board: " + etaBoards.boardStatus(theoreticalStop(), train, received));
                     updateEye();
                 });
@@ -922,7 +946,30 @@ public class TrainOverlayService extends Service {
         return "--";
     }
 
+    private void refreshEtaDiagnostic() {
+        if (etaDiagnosticView == null) return;
+        long now = System.currentTimeMillis();
+        String stop = theoreticalStop();
+        String boardState = etaBoards == null ? "lector no inicializado"
+            : stop.isEmpty() ? "sin estación de espera"
+            : etaBoards.boardStatus(stop, train, now);
+        String last = etaLastBoardAt == 0 ? "ninguna"
+            : ((now - etaLastBoardAt) / 1000) + " s (estación " + etaLastBoardStop + ")";
+        String match = "sin previsión";
+        if (!stop.isEmpty() && etaBoards != null) {
+            long at = etaBoards.predictedArrivalEitherTrack(stop, "", train, now);
+            if (at > now) match = ((at - now + 999) / 1000) + " segundos";
+        }
+        etaDiagnosticView.setText("ETA DIAGNÓSTICO · tren " + train
+            + " · estación " + (stop.isEmpty() ? "—" : stop)
+            + "\\nSocket: " + etaSocketStatus
+            + "\\nÚltima previsión: " + last
+            + "\\nCoincidencia: " + match
+            + "\\nDatos: " + boardState);
+    }
+
     private void updateEye() {
+        refreshEtaDiagnostic();
         if (eye == null) return;
         int age;
         String currentStation;
