@@ -2,9 +2,9 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Diagnóstico ETA Miralín</title>
 <style>body{font:16px system-ui;background:#101820;color:#eef3fa;max-width:750px;margin:auto;padding:18px}button,input{font:inherit;padding:10px;border-radius:8px}button{background:#f3d237;color:#111;border:0;font-weight:700}input{width:85px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#1d2b39;padding:12px;border-radius:8px;font-size:12px;max-height:65vh;overflow:auto}.muted{color:#b4c2d0}</style></head>
-<body><h2>Diagnóstico ETA Miralín</h2><p class="muted">Prueba independiente, solo lectura. No modifica TMB Agent. Comprueba la conexión WebSocket, la suscripción y los eventos de estación.</p>
+<body><h2>Diagnóstico ETA Miralín</h2><p class="muted">Prueba independiente, solo lectura. No modifica TMB Agent. Comprueba primero HTTP polling. WebSocket es una prueba alternativa.</p>
 <label>Estación <input id="stop" value="413" inputmode="numeric" maxlength="3"></label>
-<button id="start">Iniciar prueba</button> <button id="end">Detener</button>
+<button id="polling">Probar HTTP polling</button> <button id="start">Probar WebSocket</button> <button id="end">Detener</button>
 <p id="state">Sin conectar</p><pre id="log"></pre>
 <script>
 const logEl=document.getElementById('log'),state=document.getElementById('state');
@@ -41,6 +41,23 @@ function start(){
   }
  };
 }
+document.getElementById('polling').onclick=async()=>{
+ logEl.textContent='';state.textContent='Comprobando HTTP polling…';
+ const url='https://miralin.cat/socket.io/?EIO=4&transport=polling&t='+Date.now();
+ log('Probando GET cross-origin: '+url);
+ try{
+   const response=await fetch(url,{method:'GET',mode:'cors',cache:'no-store'});
+   log('HTTP '+response.status+' · tipo '+response.type);
+   const body=await response.text();
+   log('Respuesta: '+body.slice(0,700));
+   if(response.ok&&body.startsWith('0')){state.textContent='Polling accesible desde navegador';log('El navegador puede leer el saludo; la suscripción necesita una prueba posterior.');}
+   else state.textContent='Respuesta inesperada';
+ }catch(err){
+   state.textContent='Polling no accesible desde esta página';
+   log('Fetch falló: '+String(err));
+   log('Puede ser CORS, conectividad o política del navegador; no se puede distinguir solo con este error.');
+ }
+};
 document.getElementById('start').onclick=start;
 document.getElementById('end').onclick=()=>{if(ws)ws.close();};
 </script></body></html>
