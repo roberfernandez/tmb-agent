@@ -97,7 +97,32 @@ final class MiralinDirectClient implements AutoCloseable {
                         JSONArray event = new JSONArray(packet.substring(2));
                         if ("stopDataUpdate".equals(event.optString(0))) {
                             JSONObject board = event.optJSONObject(1);
-                            if (board != null) listener.onBoard(board);
+                            if (board != null) {
+                                // An unlabelled board can only be assigned when
+                                // exactly one station is subscribed.
+                                JSONObject data = board.optJSONObject("data");
+                                if (data == null) data = board;
+                                boolean identified = false;
+                                for (String field : new String[]{"stopCode", "stop", "stopId", "stationId", "stationCode", "id"}) {
+                                    Object value = data.opt(field);
+                                    if (value instanceof JSONObject) {
+                                        JSONObject nested = (JSONObject) value;
+                                        value = nested.opt("code");
+                                        if (value == null) value = nested.opt("id");
+                                    }
+                                    if (value != null && String.valueOf(value).matches("41[3-9]|42[0-9]|43[0-4]")) {
+                                        identified = true;
+                                        break;
+                                    }
+                                }
+                                if (!identified && subscribed.size() == 1) {
+                                    JSONObject tagged = new JSONObject(board.toString());
+                                    tagged.put("stopCode", subscribed.iterator().next());
+                                    listener.onBoard(tagged);
+                                } else {
+                                    listener.onBoard(board);
+                                }
+                            }
                             continue;
                         }
                         if (!"mapUpdate".equals(event.optString(0))) continue;
