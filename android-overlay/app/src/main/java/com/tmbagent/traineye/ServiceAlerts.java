@@ -506,8 +506,8 @@ final class ServiceAlerts {
     private List<Arrival> arrivals(String stop, String via, long now) {
         List<Arrival> result = new ArrayList<>(); Board board = fresh(stop, now); if (board == null) return result;
         JSONArray entries = board.data.optJSONArray("via" + via);
-        boolean needsVia = entries == null;
-        if (entries == null) entries = board.data.optJSONArray("lineTrains");
+        boolean needsVia = entries == null || entries.length() == 0;
+        if (needsVia) entries = board.data.optJSONArray("lineTrains");
         if (entries == null) {
             return result;
         }
