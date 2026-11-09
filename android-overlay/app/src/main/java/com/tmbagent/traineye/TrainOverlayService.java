@@ -90,10 +90,17 @@ public class TrainOverlayService extends Service {
     private MiralinDirectClient directClient;
     private JSONObject directMap;
     private long directMapAt;
+    private long lastValidTrainAt;
+    private String lastValidTrain = "";
     private String connectionStatus = "Miralin directe · connectant…";
     private boolean destroyed;
     private ServicePlan servicePlan = new ServicePlan("");
     private ServiceAlerts serviceAlerts;
+    private ServiceAlerts etaBoards;
+    private String etaTarget = "";
+    private String etaTrain = "";
+    private long etaArrival;
+    private long etaUpdated;
     private String alertPlanKey = "";
     private boolean alertsEnabled;
     private int alertMargin = 5;
@@ -103,6 +110,7 @@ public class TrainOverlayService extends Service {
     private final Runnable poll = new Runnable() {
         @Override public void run() {
             applyScheduledTrain(false);
+            updateAlertStops();
             fetchTrain();
             handler.postDelayed(this, 15000);
         }
@@ -160,6 +168,11 @@ public class TrainOverlayService extends Service {
             serviceRowBounds = prefs.getString(EXTRA_SERVICE_ROW_BOUNDS, "");
         }
         servicePlan = new ServicePlan(schedule);
+        etaBoards = new ServiceAlerts(servicePlan, System.currentTimeMillis());
+        etaTarget = "";
+        etaTrain = "";
+        etaArrival = 0;
+        etaUpdated = 0;
         configureAlerts();
         applyScheduledTrain(false);
         startAsForeground();
@@ -624,7 +637,12 @@ public class TrainOverlayService extends Service {
             }
             @Override public void onBoard(JSONObject board) {
                 final long received = System.currentTimeMillis();
-                handler.post(() -> { if (!destroyed && serviceAlerts != null) serviceAlerts.acceptBoard(board, received); });
+                handler.post(() -> {
+                    if (destroyed) return;
+                    if (etaBoards != null) etaBoards.acceptBoard(board, received);
+                    if (serviceAlerts != null) serviceAlerts.acceptBoard(board, received);
+                    updateEye();
+                });
             }
         });
         directClient.start();
@@ -653,7 +671,23 @@ public class TrainOverlayService extends Service {
     }
 
     private void updateAlertStops() {
-        if (directClient != null) directClient.setStops(alertsEnabled && serviceAlerts != null ? serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin) : java.util.Collections.emptySet());
+        if (directClient == null) return;
+        java.util.Set<String> stops = new java.util.HashSet<>();
+        if (alertsEnabled && serviceAlerts != null) stops.addAll(serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin));
+        ServicePlan.Row waiting = waitingForTrain(System.currentTimeMillis());
+        if (waiting != null && waiting.from.matches("41[3-9]|42[0-9]|43[0-4]")) stops.add(waiting.from);
+        directClient.setStops(stops);
+    }
+
+    // ETA is meaningful only before boarding the scheduled train, not while driving it.
+    private ServicePlan.Row waitingForTrain(long now) {
+        if (!"service".equals(mode)) return null;
+        int minute = servicePlan.minutesAt(now);
+        for (ServicePlan.Row row : servicePlan.rows) {
+            if (row.driving() && row.train.equals(train) && minute < row.start && row.start - minute <= 30
+                && row.from.matches("41[3-9]|42[0-9]|43[0-4]") && ("1".equals(row.via) || "2".equals(row.via))) return row;
+        }
+        return null;
     }
 
     private void updateAlertWakeLock() {
@@ -712,10 +746,17 @@ public class TrainOverlayService extends Service {
         if (age >= 45) return false;
         JSONObject item = directMap.optJSONObject(train);
         synchronized (this) {
-            station = item == null ? "sense dades" : item.optString("estacion", "sense dades");
-            track = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
-            ageAtFetch = item == null ? -1 : (int) age;
+            // A single missing train in a map update must not erase the last valid display.
+            if (item == null) {
+                if (!train.equals(lastValidTrain) || android.os.SystemClock.elapsedRealtime() - lastValidTrainAt > 45000) return false;
+                return true;
+            }
+            station = item.optString("estacion", "sense dades");
+            track = item.optString("platformTrack", item.optString("track", "—"));
+            ageAtFetch = (int) age;
             fetchedAt = System.currentTimeMillis();
+            lastValidTrain = train;
+            lastValidTrainAt = android.os.SystemClock.elapsedRealtime();
         }
         return true;
     }
@@ -770,6 +811,12 @@ public class TrainOverlayService extends Service {
         String selected = servicePlan.trainAt(System.currentTimeMillis(), null);
         if (selected != null && !selected.equals(train)) {
             train = selected;
+            lastValidTrain = "";
+            lastValidTrainAt = 0;
+            etaArrival = 0;
+            etaTarget = "";
+            etaTrain = "";
+            updateAlertStops();
             station = "connectant…";
             track = "—";
             ageAtFetch = -1;
@@ -795,7 +842,32 @@ public class TrainOverlayService extends Service {
             currentTrack = track;
         }
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
-        eye.setStatus(train, currentStation, currentTrack, ageText);
+        long now = System.currentTimeMillis();
+        ServicePlan.Row waiting = waitingForTrain(now);
+        String etaText = "—";
+        if (waiting != null && etaBoards != null) {
+            if (!waiting.from.equals(etaTarget) || !train.equals(etaTrain)) {
+                etaArrival = 0;
+                etaTarget = waiting.from;
+                etaTrain = train;
+            }
+            long fresh = etaBoards.predictedArrival(waiting.from, waiting.via, train, now);
+            if (fresh > now && fresh <= now + 30 * 60000L) {
+                etaArrival = fresh;
+                etaUpdated = now;
+            }
+            // Brief feed gaps retain the last verified forecast; never show a stale ETA.
+            if (etaArrival > now && now - etaUpdated <= 45000) {
+                long seconds = (etaArrival - now + 999) / 1000;
+                etaText = seconds >= 60 ? ((seconds + 59) / 60) + "min" : seconds + "s";
+            }
+        } else {
+            etaArrival = 0;
+            etaTarget = "";
+            etaTrain = "";
+        }
+        // Outside the boarding window, no arrival countdown is meaningful.
+        eye.setStatus(train, currentStation, currentTrack, "service".equals(mode) ? etaText : ageText);
     }
 
     @Override
