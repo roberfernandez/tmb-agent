@@ -657,6 +657,7 @@ public class TrainOverlayService extends Service {
             String theoretical = theoreticalStop();
             if (!theoretical.isEmpty()) stops.add(theoretical);
             directClient.setStops(stops);
+            android.util.Log.d("TrainEyeETA", "Subscribed stops=" + stops + " mode=" + mode + " train=" + train);
         }
     }
 
@@ -817,7 +818,10 @@ public class TrainOverlayService extends Service {
             if (minute >= row.start && minute < row.end) { current = row; break; }
         }
         if (current == null || "CON".equals(current.type) || "TRA".equals(current.type)
-            || !current.from.matches("41[3-9]|42[0-9]|43[0-4]")) return resetCountdown();
+            || !current.from.matches("41[3-9]|42[0-9]|43[0-4]")) {
+            android.util.Log.d("TrainEyeETA", "No station ETA: activity=" + (current == null ? "none" : current.type) + " stop=" + (current == null ? "" : current.from));
+            return resetCountdown();
+        }
 
         String stop = current.from;
         String via = "";
@@ -840,6 +844,7 @@ public class TrainOverlayService extends Service {
             long candidate = via.isEmpty()
                 ? Math.min(nonzeroArrival(stop, "1", now), nonzeroArrival(stop, "2", now))
                 : serviceAlerts.predictedArrival(stop, via, train, now);
+            android.util.Log.d("TrainEyeETA", "ETA lookup train=" + train + " stop=" + stop + " via=" + via + " candidate=" + candidate + " now=" + now);
             if (candidate > now && candidate < now + 3600000L) {
                 countdownArrivalAt = candidate;
                 countdownCheckedAt = now;
