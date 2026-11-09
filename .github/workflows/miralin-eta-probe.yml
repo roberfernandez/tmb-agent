@@ -1,0 +1,11 @@
+name: Diagnostico ETA Miralin
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe station 413 independently of Android
+        run: python3 android-overlay/diagnostics/miralin_eta_probe.py 413
