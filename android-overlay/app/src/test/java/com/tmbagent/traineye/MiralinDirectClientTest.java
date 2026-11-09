@@ -137,7 +137,7 @@ public class MiralinDirectClientTest {
 
     @Test public void neverGuessesStationWhenSeveralAreSubscribed() throws Exception {
         String packet = "42[\"stopDataUpdate\",{\"via1\":[{\"trainCode\":\"407\",\"secsLeft\":300}]}]";
-        FakeTransport transport = new FakeTransport(HELLO, packet);
+        FakeTransport transport = new FakeTransport(HELLO, "40{}", packet);
         List<JSONObject> received = new ArrayList<>();
         MiralinDirectClient[] client = new MiralinDirectClient[1];
         client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
@@ -153,7 +153,7 @@ public class MiralinDirectClientTest {
 
     @Test public void attributesNestedUnlabelledBoardToLaPau() throws Exception {
         String packet = "42[\"stopDataUpdate\",{\"data\":{\"via1\":[{\"trainCode\":\"407\",\"secsLeft\":240}]}}]";
-        FakeTransport transport = new FakeTransport(HELLO, packet);
+        FakeTransport transport = new FakeTransport(HELLO, "40{}", packet);
         List<JSONObject> received = new ArrayList<>();
         MiralinDirectClient[] client = new MiralinDirectClient[1];
         client[0] = new MiralinDirectClient(new MiralinDirectClient.Listener() {
