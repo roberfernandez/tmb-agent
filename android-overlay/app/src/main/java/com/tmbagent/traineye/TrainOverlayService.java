@@ -862,7 +862,7 @@ public class TrainOverlayService extends Service {
     }
 
     private long nonzeroArrival(String stop, String via, long now) {
-        long at = serviceAlerts.predictedArrival(stop, via, train, now);
+        long at = etaBoards.predictedArrival(stop, via, train, now);
         return at > now ? at : Long.MAX_VALUE;
     }
 
