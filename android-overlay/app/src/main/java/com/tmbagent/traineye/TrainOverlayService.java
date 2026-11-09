@@ -844,9 +844,14 @@ public class TrainOverlayService extends Service {
             countdownCheckedAt = 0;
         }
         if (countdownArrivalAt == 0 || now - countdownCheckedAt >= 60000L) {
-            long candidate = via.isEmpty()
+            // A train may appear on a different platform than the planned
+            // driving row. Prefer the planned platform if it has a live ETA,
+            // otherwise check the other platform before showing "--".
+            long preferred = via.isEmpty() ? Long.MAX_VALUE : nonzeroArrival(stop, via, now);
+            long other = via.isEmpty()
                 ? Math.min(nonzeroArrival(stop, "1", now), nonzeroArrival(stop, "2", now))
-                : etaBoards.predictedArrival(stop, via, train, now);
+                : nonzeroArrival(stop, "1".equals(via) ? "2" : "1", now);
+            long candidate = preferred != Long.MAX_VALUE ? preferred : (other == Long.MAX_VALUE ? 0 : other);
             android.util.Log.d("TrainEyeETA", "ETA lookup train=" + train + " stop=" + stop + " via=" + via + " candidate=" + candidate + " now=" + now);
             if (candidate > now && candidate < now + 3600000L) {
                 countdownArrivalAt = candidate;
