@@ -865,7 +865,8 @@ public class TrainOverlayService extends Service {
             etaTarget = "";
             etaTrain = "";
         }
-        eye.setStatus(train, currentStation, currentTrack, waiting == null ? ageText : etaText);
+        // Outside the boarding window, no arrival countdown is meaningful.
+        eye.setStatus(train, currentStation, currentTrack, "service".equals(mode) ? etaText : ageText);
     }
 
     @Override
