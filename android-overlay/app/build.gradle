@@ -10,8 +10,8 @@ android {
         applicationId 'com.tmbagent.traineye'
         minSdk 26
         targetSdk 35
-        versionCode 34
-        versionName '0.14.28'
+        versionCode 35
+        versionName '0.14.29'
     }
 
     compileOptions {

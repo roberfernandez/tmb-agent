@@ -72,7 +72,7 @@ final class PickupEta {
         String track = reportedTrack(train);
         if (station == origin && (terminal || inbound.equals(track))) return confirm(pickup);
         if (!"1".equals(inbound) && !"2".equals(inbound)) return false;
-        int distance = (origin - station) * ("1".equals(inbound) ? 1 : -1);
+        int distance = stopsUntil(origin, station, inbound);
         if (inbound.equals(track)) {
             if (distance < 0 && approaching == pickup.index) return confirm(pickup);
             if (distance > 0 && distance <= 3) approaching = pickup.index;
@@ -87,38 +87,57 @@ final class PickupEta {
     long predictedArrival(ServicePlan.Row pickup, ServiceAlerts boards, long now,
                           JSONObject liveTrain, long positionAgeMs) {
         if (pickup == null || !canShow(pickup, now) || completed.contains(key(pickup))) return 0;
-        long boardAge = now - boards.boardReceivedAt(pickup.from);
+        return liveArrival(boards, pickup.from, pickup.via, pickup.train, now, liveTrain, positionAgeMs);
+    }
+
+    static long liveArrival(ServiceAlerts boards, String stop, String via, String train, long now,
+                            JSONObject liveTrain, long positionAgeMs) {
+        long boardAge = now - boards.boardReceivedAt(stop);
         long maxBoardAge = ServiceAlerts.BOARD_FRESH_MS;
+        String approachVia = "";
         if (boardAge >= maxBoardAge && boardAge < MAX_BOARD_AGE_WHILE_APPROACHING_MS
             && positionAgeMs >= 0 && positionAgeMs < APPROACH_POSITION_MAX_AGE_MS
-            && isApproaching(pickup, liveTrain)) {
-            maxBoardAge = MAX_BOARD_AGE_WHILE_APPROACHING_MS;
+            && liveTrain != null) {
+            approachVia = inboundTrack(stop, via.isEmpty() ? reportedTrack(liveTrain) : via);
+            if (isApproaching(stop, approachVia, liveTrain)) maxBoardAge = MAX_BOARD_AGE_WHILE_APPROACHING_MS;
         }
 
-        boolean terminal = "413".equals(pickup.from) || "434".equals(pickup.from);
-        long arrival = terminal || pickup.via.isEmpty()
-            ? boards.predictedArrivalEitherTrack(pickup.from, pickup.via, pickup.train, now, maxBoardAge)
-            : boards.predictedArrival(pickup.from, pickup.via, pickup.train, now, maxBoardAge);
+        boolean terminal = isTerminal(stop);
+        long arrival = terminal || via.isEmpty()
+            ? boards.predictedArrivalEitherTrack(stop, via, train, now, maxBoardAge)
+            : boards.predictedArrival(stop, via, train, now, maxBoardAge);
+        if (maxBoardAge > ServiceAlerts.BOARD_FRESH_MS && via.isEmpty() && !terminal
+            && arrival != boards.predictedArrival(stop, approachVia, train, now, maxBoardAge)) return 0;
         return arrival > now && arrival < now + 3_600_000L ? arrival : 0;
     }
 
-    private static boolean isApproaching(ServicePlan.Row pickup, JSONObject train) {
-        if (train == null) return false;
-        String inbound = inboundTrack(pickup);
+    private static boolean isApproaching(String stop, String inbound, JSONObject train) {
         if (!inbound.equals(reportedTrack(train))) return false;
         int station = ServiceAlerts.stopPosition(train.optString("estacion", ""));
-        if (station == 0) return false;
-        int origin = Integer.parseInt(pickup.from);
-        return "1".equals(inbound) ? station < origin : "2".equals(inbound) && station > origin;
+        return station != 0 && stopsUntil(Integer.parseInt(stop), station, inbound) > 0;
     }
 
     private static String inboundTrack(ServicePlan.Row pickup) {
-        if ("413".equals(pickup.from)) return "2";
-        if ("434".equals(pickup.from)) return "1";
-        return pickup.via;
+        return inboundTrack(pickup.from, pickup.via);
     }
 
-    private static String reportedTrack(JSONObject train) {
+    private static String inboundTrack(String stop, String via) {
+        if ("413".equals(stop)) return "2";
+        if ("434".equals(stop)) return "1";
+        return via;
+    }
+
+    static boolean isTerminal(String stop) {
+        return "413".equals(stop) || "434".equals(stop);
+    }
+
+    static int stopsUntil(int destination, int current, String via) {
+        if ("1".equals(via)) return destination - current;
+        if ("2".equals(via)) return current - destination;
+        return 0;
+    }
+
+    static String reportedTrack(JSONObject train) {
         return train.optString("platformTrack", train.optString("track", ""));
     }
 

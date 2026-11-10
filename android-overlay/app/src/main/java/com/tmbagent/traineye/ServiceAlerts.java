@@ -62,10 +62,11 @@ final class ServiceAlerts {
     private JSONObject map;
     private long mapReceived;
     private boolean takeStateDirty;
+    static final int FIRST_STOP = 413;
     private static final String[] NAMES = {"La Pau","Besòs","Besòs Mar","El Maresme | Fòrum","Selva de Mar","Poblenou","Llacuna","Bogatell","Ciutadella | Vila Olímpica","Barceloneta","Jaume I","Urquinaona","Passeig de Gràcia","Girona","Verdaguer","Joanic","Alfons X","Guinardó | Hospital de Sant Pau","Maragall","Llucmajor","Via Júlia","Trinitat Nova"};
     private static final Map<String, Integer> STOP_POSITIONS = new HashMap<>();
     static {
-        for (int i = 0; i < NAMES.length; i++) STOP_POSITIONS.put(stationKey(NAMES[i]), 413 + i);
+        for (int i = 0; i < NAMES.length; i++) STOP_POSITIONS.put(stationKey(NAMES[i]), FIRST_STOP + i);
         STOP_POSITIONS.put("maresme", 416);
         STOP_POSITIONS.put("elmaresme", 416);
         STOP_POSITIONS.put("maresmeforum", 416);
@@ -599,8 +600,9 @@ final class ServiceAlerts {
     static String displacementVia(String source, String target) {
         try { return Integer.parseInt(target) > Integer.parseInt(source) ? "1" : "2"; } catch (NumberFormatException ignored) { return ""; }
     }
+    static String[] stations() { return NAMES.clone(); }
     static String station(String stop) {
-        try { int index = Integer.parseInt(stop) - 413; return index >= 0 && index < NAMES.length ? NAMES[index] : stop; } catch (NumberFormatException ignored) { return stop; }
+        try { int index = Integer.parseInt(stop) - FIRST_STOP; return index >= 0 && index < NAMES.length ? NAMES[index] : stop; } catch (NumberFormatException ignored) { return stop; }
     }
     static int stopPosition(String station) {
         if (station.matches("41[3-9]|42[0-9]|43[0-4]")) return Integer.parseInt(station);

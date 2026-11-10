@@ -23,6 +23,7 @@ public class MainActivity extends Activity {
     private String pendingSchedule;
     private String pendingImage = "";
     private String pendingRowBounds = "";
+    private String pendingManualStop = "";
 
     @Override
     protected void onCreate(Bundle state) {
@@ -83,10 +84,23 @@ public class MainActivity extends Activity {
             pendingSchedule = null;
             pendingImage = "";
             pendingRowBounds = "";
-            startPendingOverlay();
+            pendingManualStop = "";
+            chooseManualStation();
         } else {
             showMessageAndClose("No s’ha rebut un tren vàlid.");
         }
+    }
+
+    private void chooseManualStation() {
+        new AlertDialog.Builder(this)
+            .setTitle("On esperes el tren " + pendingTrain + "?")
+            .setItems(ServiceAlerts.stations(), (dialog, which) -> {
+                pendingManualStop = Integer.toString(ServiceAlerts.FIRST_STOP + which);
+                startPendingOverlay();
+            })
+            .setNegativeButton("Només posició", (dialog, which) -> startPendingOverlay())
+            .setOnCancelListener(dialog -> startPendingOverlay())
+            .show();
     }
 
     private void startServiceTracking(Uri data) {
@@ -150,6 +164,7 @@ public class MainActivity extends Activity {
         pendingSchedule = validSchedule.toString();
         pendingImage = image != null && image.length() <= 220000 ? image : "";
         pendingRowBounds = rowBounds != null && rowBounds.length() <= 12000 ? rowBounds : "";
+        pendingManualStop = "";
         pendingTrain = trainForCurrentTime(pendingSchedule, firstTrain);
         startPendingOverlay();
     }
@@ -194,7 +209,8 @@ public class MainActivity extends Activity {
             .putExtra(TrainOverlayService.EXTRA_SERVICE_DATE, pendingDate)
             .putExtra(TrainOverlayService.EXTRA_SCHEDULE, pendingSchedule)
             .putExtra(TrainOverlayService.EXTRA_SERVICE_IMAGE, pendingImage)
-            .putExtra(TrainOverlayService.EXTRA_SERVICE_ROW_BOUNDS, pendingRowBounds);
+            .putExtra(TrainOverlayService.EXTRA_SERVICE_ROW_BOUNDS, pendingRowBounds)
+            .putExtra(TrainOverlayService.EXTRA_MANUAL_STOP, pendingManualStop);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
         finishOrOfferBackground();
     }
