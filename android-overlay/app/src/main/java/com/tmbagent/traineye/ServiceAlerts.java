@@ -105,18 +105,34 @@ final class ServiceAlerts {
         return stops;
     }
 
-    void acceptBoard(JSONObject raw, long now) {
-        JSONObject data = raw.optJSONObject("data"); if (data == null) data = raw;
-        for (String field : new String[]{"stopCode","stop","stopId","stationId","stationCode","id"}) {
-            String stop = data.optString(field, "");
-            JSONObject object = data.optJSONObject(field);
-            if (object != null) stop = object.optString("code", object.optString("id", ""));
-            if (!stop.matches("41[3-9]|42[0-9]|43[0-4]")) stop = raw.optString(field, "");
-            if (stop.matches("41[3-9]|42[0-9]|43[0-4]")) {
-                boards.put(stop, new Board(data, now));
-                return;
-            }
+    static String boardStop(JSONObject raw) {
+        JSONObject data = raw.optJSONObject("data");
+        for (String field : new String[]{"stopCode", "stop", "stopId", "stationId", "stationCode", "id"}) {
+            String stop = data == null ? "" : stopField(data, field);
+            if (!stop.matches("41[3-9]|42[0-9]|43[0-4]")) stop = stopField(raw, field);
+            if (stop.matches("41[3-9]|42[0-9]|43[0-4]")) return stop;
         }
+        return "";
+    }
+
+    private static String stopField(JSONObject board, String field) {
+        JSONObject object = board.optJSONObject(field);
+        return object == null ? board.optString(field, "") : object.optString("code", object.optString("id", ""));
+    }
+
+    void acceptBoard(JSONObject raw, long now) {
+        String stop = boardStop(raw);
+        if (!stop.isEmpty()) acceptBoard(stop, raw, now);
+    }
+
+    void acceptBoard(String stop, JSONObject raw, long now) {
+        JSONObject data = raw.optJSONObject("data");
+        boards.put(stop, new Board(data == null ? raw : data, now));
+    }
+
+    long boardReceivedAt(String stop) {
+        Board board = boards.get(stop);
+        return board == null ? 0 : board.received;
     }
 
     String boardStatus(String stop, String train, long now) {
@@ -566,7 +582,7 @@ final class ServiceAlerts {
     static String station(String stop) {
         try { int index = Integer.parseInt(stop) - 413; return index >= 0 && index < NAMES.length ? NAMES[index] : stop; } catch (NumberFormatException ignored) { return stop; }
     }
-    private static int stopPosition(String station) {
+    static int stopPosition(String station) {
         if (station.matches("41[3-9]|42[0-9]|43[0-4]")) return Integer.parseInt(station);
         return STOP_POSITIONS.getOrDefault(stationKey(station), 0);
     }

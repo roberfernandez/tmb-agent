@@ -1,6 +1,7 @@
 package com.tmbagent.traineye;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -10,42 +11,73 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.Set;
-import java.util.HashSet;
 import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
-/** One Engine.IO polling session, owned by the active foreground service. */
+/** The live map and L4 station boards use the same Engine.IO session. */
 final class TrainPositionClient implements AutoCloseable {
     private static final String ENDPOINT = "https://miralin.cat/socket.io/?EIO=4&transport=polling";
-    private static final long STALE_NANOS = 90_000_000_000L;
+    private static final long STALE_MAP_MS = 90_000;
+    private static final long BOARD_REFRESH_MS = 40_000;
+    private static final long BOARD_FRESH_MS = 60_000;
+    private static final long BOARD_RETRY_MS = 20_000;
+    private static final long POST_RETRY_MS = 5_000;
 
     interface Listener {
         void onMap(JSONObject trains);
         void onState(String status);
-        default void onBoard(JSONObject board) {}
+        default void onBoard(String stop, JSONObject board) {}
+        default void onBoardState(String stop, String status, boolean error) {}
     }
 
     interface Transport {
-        String request(String session, String body) throws Exception;
+        String request(String session, String body) throws IOException;
         void cancel();
     }
 
     private final Listener listener;
-    private final Transport transport;
+    private final Transport reader;
+    private final Supplier<Transport> writerTransport;
+    private final LongSupplier elapsedMs;
     private volatile boolean closed;
+    private volatile SessionWriter activeWriter;
+    private volatile Set<String> stops = Collections.emptySet();
     private Thread worker;
     private boolean sessionHadMap;
-    private volatile Set<String> stops = Collections.emptySet();
 
-    void setStops(Set<String> requested) { stops = new HashSet<>(requested); }
+    TrainPositionClient(Listener listener) {
+        this(listener, ENDPOINT, () -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime()));
+    }
 
-    TrainPositionClient(Listener listener) { this(listener, new HttpsTransport()); }
+    TrainPositionClient(Listener listener, String endpoint, LongSupplier elapsedMs) {
+        this(listener, new PollingTransport(endpoint), () -> new PollingTransport(endpoint), elapsedMs);
+    }
 
-    // Injecting transport lets the actual protocol run in JVM tests without a live feed.
-    TrainPositionClient(Listener listener, Transport transport) {
+    TrainPositionClient(Listener listener, Transport reader, Supplier<Transport> writerTransport, LongSupplier elapsedMs) {
         this.listener = listener;
-        this.transport = transport;
+        this.reader = reader;
+        this.writerTransport = writerTransport;
+        this.elapsedMs = elapsedMs;
+    }
+
+    void setStops(Set<String> requested) {
+        if (stops.equals(requested)) return;
+        Set<String> valid = new LinkedHashSet<>();
+        for (String stop : requested) if (stop.matches("41[3-9]|42[0-9]|43[0-4]")) valid.add(stop);
+        stops = valid;
+        SessionWriter writer = activeWriter;
+        if (writer != null) writer.syncSubscriptions();
     }
 
     synchronized void start() {
@@ -61,8 +93,12 @@ final class TrainPositionClient implements AutoCloseable {
                 sessionHadMap = false;
                 listener.onState("Miralin directe · connectant…");
                 receiveSession();
-            } catch (Exception error) {
-                if (!closed) listener.onState("Miralin directe · " + error.getClass().getSimpleName());
+            } catch (IOException error) {
+                if (!closed) {
+                    listener.onBoardState("", error.getMessage(), true);
+                    Throwable cause = error.getCause() == null ? error : error.getCause();
+                    listener.onState("Miralin directe · " + cause.getClass().getSimpleName());
+                }
             }
             if (sessionHadMap) retry = 2000;
             if (!closed) {
@@ -73,75 +109,224 @@ final class TrainPositionClient implements AutoCloseable {
         }
     }
 
-    void receiveSession() throws Exception {
-        String hello = transport.request(null, null);
-        if (!hello.startsWith("0")) throw new IOException("Invalid handshake");
-        String session = new JSONObject(hello.substring(1)).optString("sid", "");
-        if (session.isEmpty()) throw new IOException("Missing session");
+    void receiveSession() throws IOException {
+        listener.onBoardState("", "Handshake (GET)", false);
+        String hello = request(reader, "Handshake (GET)", null, null);
+        String sid;
         try {
-            transport.request(session, "40");
-            long lastMap = System.nanoTime();
-            Set<String> subscribed = new HashSet<>();
+            sid = hello.startsWith("0") ? new JSONObject(hello.substring(1)).optString("sid", "") : "";
+        } catch (JSONException error) {
+            throw new IOException("Handshake (GET) · respuesta inválida", error);
+        }
+        if (sid.isEmpty()) throw new IOException("Handshake (GET) · sin sid");
+
+        SessionWriter writer = new SessionWriter(sid, writerTransport.get());
+        activeWriter = writer;
+        try {
+            if (closed) return;
+            listener.onBoardState("", "Apertura del canal (POST 40)", false);
+            request(reader, "Apertura del canal (POST 40)", sid, "40");
+            listener.onBoardState("", "Confirmación del canal (GET 40)", false);
+            long lastMap = elapsedMs.getAsLong();
+            long openedAt = lastMap;
             while (!closed) {
-                for (String stop : stops) {
-                    if (!stop.matches("41[3-9]|42[0-9]|43[0-4]") || !subscribed.add(stop)) continue;
-                    transport.request(session, "42" + new JSONArray().put("subscribeStop").put(new JSONObject().put("line", "L4").put("stop", stop)).toString());
-                }
-                String payload = transport.request(session, null);
+                if (writer.heartbeatError != null) throw writer.heartbeatError;
+                String phase = writer.namespaceReady ? "Espera de eventos (GET)" : "Confirmación del canal (GET 40)";
+                String payload = request(reader, phase, sid, null);
                 for (String packet : payload.split("\u001e")) {
                     if (closed) return;
-                    if (packet.equals("2")) transport.request(session, "3");
-                    else if (packet.equals("1") || packet.startsWith("41")) throw new IOException("Session closed");
-                    else if (packet.startsWith("44")) throw new IOException("Connection rejected");
-                    else if (packet.startsWith("42")) {
-                        JSONArray event = new JSONArray(packet.substring(2));
-                        if ("stopDataUpdate".equals(event.optString(0))) {
-                            JSONObject board = event.optJSONObject(1);
-                            if (board != null) listener.onBoard(board);
+                    if (packet.equals("2")) {
+                        writer.pong();
+                    } else if (packet.equals("1") || packet.startsWith("41")) {
+                        throw new IOException(phase + " · sesión cerrada");
+                    } else if (packet.startsWith("44")) {
+                        throw new IOException("Confirmación del canal (GET 40) · conexión rechazada");
+                    } else if (packet.startsWith("40")) {
+                        writer.namespaceReady = true;
+                        listener.onBoardState("", "Canal confirmado", false);
+                    } else if (packet.startsWith("42")) {
+                        JSONArray event;
+                        try { event = new JSONArray(packet.substring(2)); }
+                        catch (JSONException error) {
+                            listener.onBoardState("", "Espera de eventos (GET) · evento inválido", true);
                             continue;
                         }
-                        if (!"mapUpdate".equals(event.optString(0))) continue;
                         JSONObject data = event.optJSONObject(1);
+                        if ("stopDataUpdate".equals(event.optString(0)) && data != null) writer.acceptBoard(data);
+                        if (!"mapUpdate".equals(event.optString(0))) continue;
                         JSONObject line = data == null ? null : data.optJSONObject("L4");
                         JSONObject trains = line == null ? null : line.optJSONObject("trains");
                         if (trains != null) {
                             sessionHadMap = true;
-                            lastMap = System.nanoTime();
+                            lastMap = elapsedMs.getAsLong();
                             listener.onMap(trains);
                             listener.onState("Miralin directe · dades rebudes");
                         }
                     }
                 }
-                if (System.nanoTime() - lastMap > STALE_NANOS) throw new IOException("Stale feed");
+                writer.syncSubscriptions();
+                long now = elapsedMs.getAsLong();
+                if (!writer.namespaceReady && now - openedAt > STALE_MAP_MS) {
+                    throw new IOException("Confirmación del canal (GET 40) · sin respuesta");
+                }
+                if (now - lastMap > STALE_MAP_MS) throw new IOException("Espera de eventos (GET) · sin mapa reciente");
             }
         } finally {
-            // The reader has finished before sending close; never overlap polling GETs/POSTs.
-            if (!closed) {
-                try { transport.request(session, "1"); } catch (Exception ignored) {}
+            activeWriter = null;
+            writer.stop();
+            if (!closed && writer.awaitStop()) {
+                try { reader.request(sid, "1"); } catch (IOException ignored) {}
             }
         }
     }
 
+    private static String request(Transport transport, String phase, String sid, String body) throws IOException {
+        String response;
+        try {
+            response = transport.request(sid, body);
+        } catch (IOException error) {
+            String detail = error.getMessage();
+            if (detail == null || !detail.startsWith("HTTP ")) detail = error.getClass().getSimpleName();
+            throw new IOException(phase + " · " + detail, error);
+        }
+        if (body != null && !"ok".equals(response)) throw new IOException(phase + " · respuesta distinta de ok");
+        return response;
+    }
+
     @Override public synchronized void close() {
         closed = true;
-        transport.cancel();
+        reader.cancel();
+        SessionWriter writer = activeWriter;
+        if (writer != null) writer.stop();
         if (worker != null) worker.interrupt();
     }
 
-    private static final class HttpsTransport implements Transport {
+    /** Serializes every POST after the handshake while the reader keeps polling maps. */
+    private final class SessionWriter {
+        private final String sid;
+        private final Transport transport;
+        private final ExecutorService posts = Executors.newSingleThreadExecutor(r -> new Thread(r, "miralin-post"));
+        private final Set<String> attempted = ConcurrentHashMap.newKeySet();
+        private final Map<String, Long> retryAt = new ConcurrentHashMap<>();
+        private final Map<String, Long> lastBoard = new ConcurrentHashMap<>();
+        private final AtomicBoolean subscriptionQueued = new AtomicBoolean();
+        private volatile String onlyAttempted;
+        private volatile boolean namespaceReady;
+        private volatile boolean stopped;
+        private volatile IOException heartbeatError;
+
+        SessionWriter(String sid, Transport transport) {
+            this.sid = sid;
+            this.transport = transport;
+        }
+
+        void pong() {
+            enqueue(() -> {
+                try { request(transport, "Latido (POST pong)", sid, "3"); }
+                catch (IOException error) {
+                    heartbeatError = error;
+                    if (!stopped) listener.onBoardState("", error.getMessage(), true);
+                }
+            });
+        }
+
+        void syncSubscriptions() {
+            if (!namespaceReady || stopped || dueStop() == null || !subscriptionQueued.compareAndSet(false, true)) return;
+            enqueue(() -> {
+                try { subscribeNext(); }
+                finally { subscriptionQueued.set(false); }
+                // Queue the next stop behind any pending heartbeat.
+                syncSubscriptions();
+            });
+        }
+
+        private String dueStop() {
+            long now = elapsedMs.getAsLong();
+            for (String stop : stops) {
+                Long last = lastBoard.get(stop);
+                if ((last == null || now - last >= BOARD_REFRESH_MS)
+                    && now >= retryAt.getOrDefault(stop, Long.MIN_VALUE)) return stop;
+            }
+            return null;
+        }
+
+        private void subscribeNext() {
+            String stop = dueStop();
+            if (stopped || stop == null) return;
+            String phase = "Suscripción " + stop + " (POST)";
+            Long last = lastBoard.get(stop);
+            if (attempted.contains(stop) && (last == null || elapsedMs.getAsLong() - last >= BOARD_FRESH_MS)) {
+                listener.onBoardState(stop, "Sin cuadro reciente · reintentando " + stop, true);
+            }
+            onlyAttempted = onlyAttempted == null || onlyAttempted.equals(stop) ? stop : "";
+            attempted.add(stop);
+            listener.onBoardState(stop, phase, false);
+            String packet = "42[\"subscribeStop\",{\"line\":\"L4\",\"stop\":" + JSONObject.quote(stop) + "}]";
+            try {
+                request(transport, phase, sid, packet);
+                retryAt.put(stop, elapsedMs.getAsLong() + BOARD_RETRY_MS);
+                if (!stopped && lastBoard.get(stop) == last) {
+                    listener.onBoardState(stop, "Esperando stopDataUpdate " + stop + " (GET)", false);
+                }
+            } catch (IOException error) {
+                retryAt.put(stop, elapsedMs.getAsLong() + POST_RETRY_MS);
+                if (!stopped) listener.onBoardState(stop, error.getMessage(), true);
+            }
+        }
+
+        void acceptBoard(JSONObject board) {
+            JSONObject data = board.optJSONObject("data");
+            String line = data == null ? board.optString("line", "L4") : data.optString("line", board.optString("line", "L4"));
+            if (!"L4".equals(line)) return;
+            String stop = ServiceAlerts.boardStop(board);
+            // Stale subscriptions are filtered locally so a change of stop cannot reset the map.
+            // An unlabelled board is only safe before any other stop has been requested on this sid.
+            if (stop.isEmpty()) stop = onlyAttempted;
+            if (stop == null || !stops.contains(stop) || !attempted.contains(stop)) return;
+            long now = elapsedMs.getAsLong();
+            Long previous = lastBoard.put(stop, now);
+            if (previous == null || now - previous >= BOARD_REFRESH_MS) {
+                listener.onBoardState(stop, "stopDataUpdate " + stop + " recibido", false);
+            }
+            listener.onBoard(stop, board);
+        }
+
+        private void enqueue(Runnable action) {
+            if (stopped) return;
+            try { posts.execute(action); }
+            catch (RejectedExecutionException ignored) { /* Session closed while queuing. */ }
+        }
+
+        void stop() {
+            stopped = true;
+            posts.shutdownNow();
+            transport.cancel();
+        }
+
+        boolean awaitStop() {
+            try { return posts.awaitTermination(2, TimeUnit.SECONDS); }
+            catch (InterruptedException ignored) { Thread.currentThread().interrupt(); return false; }
+        }
+    }
+
+    private static final class PollingTransport implements Transport {
+        private final String endpoint;
         private volatile HttpURLConnection active;
         private volatile boolean cancelled;
 
-        @Override public String request(String session, String body) throws Exception {
+        PollingTransport(String endpoint) { this.endpoint = endpoint; }
+
+        @Override public String request(String session, String body) throws IOException {
             if (cancelled) throw new IOException("Stopped");
-            String url = ENDPOINT + (session == null ? "" : "&sid=" + URLEncoder.encode(session, "UTF-8"));
+            String url = endpoint + (session == null ? "" : "&sid=" + URLEncoder.encode(session, "UTF-8"));
             HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
             active = connection;
             try {
                 if (cancelled) throw new IOException("Stopped");
                 boolean closing = "1".equals(body);
-                connection.setConnectTimeout(closing ? 2000 : 10000);
-                connection.setReadTimeout(closing ? 2000 : 40000);
+                boolean subscribing = body != null && body.startsWith("42");
+                connection.setConnectTimeout(closing ? 2000 : subscribing ? 4000 : 10000);
+                connection.setReadTimeout(closing ? 2000 : subscribing ? 4000 : 40000);
                 connection.setUseCaches(false);
                 connection.setInstanceFollowRedirects(false);
                 connection.setRequestMethod(body == null ? "GET" : "POST");
@@ -149,7 +334,8 @@ final class TrainPositionClient implements AutoCloseable {
                     byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
                     connection.setDoOutput(true);
                     connection.setRequestProperty("Content-Type", "text/plain;charset=UTF-8");
-                    connection.setFixedLengthStreamingMode(bytes.length);
+                    // Use buffered POSTs for station subscriptions, as in the Android probe.
+                    if (!subscribing) connection.setFixedLengthStreamingMode(bytes.length);
                     try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes); }
                 }
                 int status = connection.getResponseCode();

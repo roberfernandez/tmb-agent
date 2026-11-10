@@ -26,6 +26,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -42,7 +43,11 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -88,12 +93,12 @@ public class TrainOverlayService extends Service {
     private long fetchedAt = 0;
     private volatile boolean requestInFlight = false;
     private TrainPositionClient directClient;
-    private MiralinDirectClient arrivalClient;
-    private MiralinDirectClient etaClient;
-    private android.widget.TextView etaDiagnosticView;
+    private TextView etaDiagnosticView;
+    private Button etaConfirmButton;
     private String etaSocketStatus = "sin conectar";
-    private long etaLastBoardAt;
-    private String etaLastBoardStop = "";
+    private String etaSocketError = "";
+    private final Map<String, String> etaStationPhases = new HashMap<>();
+    private final Map<String, String> etaStationErrors = new HashMap<>();
     private JSONObject directMap;
     private long directMapAt;
     private String connectionStatus = "Miralin directe · connectant…";
@@ -101,10 +106,8 @@ public class TrainOverlayService extends Service {
     private ServicePlan servicePlan = new ServicePlan("");
     private ServiceAlerts serviceAlerts;
     private ServiceAlerts etaBoards;
-    private long countdownArrivalAt;
-    private long countdownCheckedAt;
-    private String countdownKey = "";
-    private String countdownTrain = "";
+    private PickupEta pickupEta;
+    private String etaPlanKey = "";
     private String alertPlanKey = "";
     private boolean alertsEnabled;
     private int alertMargin = 5;
@@ -171,7 +174,7 @@ public class TrainOverlayService extends Service {
             serviceRowBounds = prefs.getString(EXTRA_SERVICE_ROW_BOUNDS, "");
         }
         servicePlan = new ServicePlan(schedule);
-        etaBoards = new ServiceAlerts(servicePlan, System.currentTimeMillis());
+        configureEta(prefs);
         configureAlerts();
         applyScheduledTrain(false);
         startAsForeground();
@@ -371,19 +374,29 @@ public class TrainOverlayService extends Service {
         closeParams.rightMargin = dp(6);
         card.addView(close, closeParams);
 
-        // Temporary, visible ETA diagnostics: independent of Android logcat.
-        etaDiagnosticView = new android.widget.TextView(this);
+        LinearLayout etaPanel = new LinearLayout(this);
+        etaPanel.setOrientation(LinearLayout.VERTICAL);
+        etaPanel.setBackgroundColor(0xe6111e30);
+        etaPanel.setPadding(dp(12), dp(8), dp(12), dp(8));
+        etaDiagnosticView = new TextView(this);
         etaDiagnosticView.setTextSize(12);
         etaDiagnosticView.setTextColor(0xffffffff);
-        etaDiagnosticView.setBackgroundColor(0xe6111e30);
-        etaDiagnosticView.setPadding(dp(12), dp(8), dp(12), dp(8));
+        etaPanel.addView(etaDiagnosticView);
+        etaConfirmButton = new Button(this);
+        etaConfirmButton.setText("Ja he pres el tren");
+        etaConfirmButton.setOnClickListener(view -> {
+            ServicePlan.Row pickup = etaTarget(System.currentTimeMillis());
+            if (pickup != null && pickupEta.confirm(pickup)) finishEtaPickup();
+            updateEye();
+        });
+        etaPanel.addView(etaConfirmButton);
         FrameLayout.LayoutParams etaParams = new FrameLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
         etaParams.leftMargin = dp(12);
         etaParams.rightMargin = dp(12);
         etaParams.bottomMargin = dp(12);
-        root.addView(etaDiagnosticView, etaParams);
+        root.addView(etaPanel, etaParams);
         refreshEtaDiagnostic();
 
         popupRoot = root;
@@ -403,6 +416,7 @@ public class TrainOverlayService extends Service {
             popupRoot = null;
             popupImageView = null;
             etaDiagnosticView = null;
+            etaConfirmButton = null;
             showOverlay();
         }
     }
@@ -508,6 +522,7 @@ public class TrainOverlayService extends Service {
             popupRowViews.clear();
             popupImageView = null;
             etaDiagnosticView = null;
+            etaConfirmButton = null;
             popupActiveIndex = -1;
             showOverlay();
         }
@@ -630,6 +645,10 @@ public class TrainOverlayService extends Service {
                     directMapAt = received;
                     if (serviceAlerts != null) serviceAlerts.acceptMap(trains, receivedAt);
                     applyDirectTrain();
+                    ServicePlan.Row pickup = etaTarget(receivedAt);
+                    if (pickup != null && pickupEta.observe(pickup, trains.optJSONObject(pickup.train), receivedAt)) {
+                        finishEtaPickup();
+                    }
                     updateEye();
                 });
             }
@@ -641,52 +660,37 @@ public class TrainOverlayService extends Service {
                     startAsForeground();
                 });
             }
-        });
-        directClient.start();
-        // Independent Socket.IO session: arrival subscriptions cannot disrupt positions.
-        arrivalClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
-            @Override public void onMap(JSONObject trains) {}
-            @Override public void onState(String status) {
-                android.util.Log.d("TrainEyeETA", "Arrival socket: " + status);
-            }
-            @Override public void onBoard(JSONObject board) {
+            @Override public void onBoard(String stop, JSONObject board) {
                 final long received = System.currentTimeMillis();
                 handler.post(() -> {
                     if (destroyed) return;
-                    if (serviceAlerts != null) serviceAlerts.acceptBoard(board, received);
-                    if (etaBoards != null) {
-                        etaBoards.acceptBoard(board, received);
-                        android.util.Log.d("TrainEyeETA", "Board received: " + etaBoards.boardStatus(theoreticalStop(), train, received));
-                    }
+                    if (serviceAlerts != null) serviceAlerts.acceptBoard(stop, board, received);
+                    if (etaBoards != null) etaBoards.acceptBoard(stop, board, received);
                     updateEye();
                 });
             }
-        });
-        arrivalClient.start();
-        // Isolate the one-stop ETA feed from multi-stop service-alert subscriptions.
-        // This matches the successful standalone diagnostic and preserves both
-        // the existing alerts client and the independent fast position client.
-        etaClient = new MiralinDirectClient(new MiralinDirectClient.Listener() {
-            @Override public void onMap(JSONObject trains) {}
-            @Override public void onState(String status) {
-                android.util.Log.d("TrainEyeETA", "Dedicated ETA socket: " + status);
-                handler.post(() -> { etaSocketStatus = status; refreshEtaDiagnostic(); });
-            }
-            @Override public void onBoard(JSONObject board) {
-                long received = System.currentTimeMillis();
+
+            @Override public void onBoardState(String stop, String status, boolean error) {
+                if (error) android.util.Log.w("TrainEyeETA", status);
+                else android.util.Log.d("TrainEyeETA", status);
                 handler.post(() -> {
-                    if (destroyed || etaBoards == null) return;
-                    etaBoards.acceptBoard(board, received);
-                    etaLastBoardAt = received;
-                    etaLastBoardStop = board.optString("stopCode", board.optString("stop", "?"));
+                    if (destroyed) return;
+                    if (stop.isEmpty()) {
+                        etaSocketStatus = status;
+                        if (error) {
+                            etaSocketError = status;
+                            etaStationPhases.clear();
+                        }
+                    } else {
+                        etaStationPhases.put(stop, status);
+                        if (error) etaStationErrors.put(stop, status);
+                    }
                     refreshEtaDiagnostic();
-                    android.util.Log.d("TrainEyeETA", "Dedicated board: " + etaBoards.boardStatus(theoreticalStop(), train, received));
-                    updateEye();
                 });
             }
         });
-        etaClient.start();
-        updateAlertStops();
+        updateBoardStops();
+        directClient.start();
     }
 
     private void configureAlerts() {
@@ -706,25 +710,18 @@ public class TrainOverlayService extends Service {
             }
         }
         if (!"service".equals(mode)) serviceAlerts = null;
-        updateAlertStops();
+        updateBoardStops();
         updateAlertWakeLock();
     }
 
-    private void updateAlertStops() {
-        if (arrivalClient != null) {
-            java.util.Set<String> stops = new java.util.HashSet<>();
-            if (alertsEnabled && serviceAlerts != null) stops.addAll(serviceAlerts.requiredStops(System.currentTimeMillis(), alertMargin));
-            String theoretical = theoreticalStop();
-            if (!theoretical.isEmpty()) stops.add(theoretical);
-            arrivalClient.setStops(stops);
-            if (etaClient != null) {
-                String stationStop = theoreticalStop();
-                etaClient.setStops(stationStop.isEmpty()
-                    ? java.util.Collections.emptySet()
-                    : java.util.Collections.singleton(stationStop));
-            }
-            android.util.Log.d("TrainEyeETA", "Subscribed stops=" + stops + " mode=" + mode + " train=" + train);
-        }
+    private void updateBoardStops() {
+        if (directClient == null) return;
+        long now = System.currentTimeMillis();
+        Set<String> stops = new LinkedHashSet<>();
+        ServicePlan.Row pickup = etaTarget(now);
+        if (pickup != null) stops.add(pickup.from);
+        if (alertsEnabled && serviceAlerts != null) stops.addAll(serviceAlerts.requiredStops(now, alertMargin));
+        directClient.setStops(stops);
     }
 
     private void updateAlertWakeLock() {
@@ -741,7 +738,7 @@ public class TrainOverlayService extends Service {
     }
 
     private void tickServiceAlerts() {
-        updateAlertStops(); updateAlertWakeLock();
+        updateBoardStops(); updateAlertWakeLock();
         if (!alertsEnabled || serviceAlerts == null) return;
         List<ServiceAlerts.Alert> due = serviceAlerts.due(System.currentTimeMillis(), alertMargin);
         NotificationManager manager = getSystemService(NotificationManager.class);
@@ -856,117 +853,61 @@ public class TrainOverlayService extends Service {
         return servicePlan.minutesAt(System.currentTimeMillis());
     }
 
-    // Only a stationary activity or a not-yet-started driving activity
-    // provides an unambiguous station from the compact service schedule.
-    // During driving, intermediate stations cannot be inferred safely.
-    private String theoreticalStop() {
-        if (!"service".equals(mode)) return "";
-        int minute = servicePlan.minutesAt(System.currentTimeMillis());
-        ServicePlan.Row next = null;
-        for (ServicePlan.Row row : servicePlan.rows) {
-            if (minute >= row.start && minute < row.end) {
-                // A driving or transfer row is not a station wait.
-                if ("CON".equals(row.type) || "TRA".equals(row.type)) return "";
-                return row.from.matches("41[3-9]|42[0-9]|43[0-4]") ? row.from : "";
-            }
-            if (row.start > minute && (next == null || row.start < next.start)) next = row;
+    private void configureEta(android.content.SharedPreferences prefs) {
+        if (!"service".equals(mode)) {
+            pickupEta = null;
+            etaBoards = null;
+            etaPlanKey = "";
+            return;
         }
-        return next != null && next.driving()
-            && next.from.matches("41[3-9]|42[0-9]|43[0-4]") ? next.from : "";
+        long now = System.currentTimeMillis();
+        String key = serviceDate + ":" + servicePlan.anchorAt(now) + ":" + schedule;
+        if (pickupEta != null && key.equals(etaPlanKey)) return;
+        etaPlanKey = key;
+        Set<String> completed = key.equals(prefs.getString("etaPlan", ""))
+            ? prefs.getStringSet("etaCompleted", java.util.Collections.emptySet())
+            : java.util.Collections.emptySet();
+        pickupEta = new PickupEta(servicePlan, now, completed);
+        etaBoards = new ServiceAlerts(servicePlan, now);
     }
 
-    private String arrivalCountdown(long now) {
-        // The ETA belongs to a stationary activity only: never to CON or TRA.
-        // In particular, station duties can last hours, not just the last
-        // 30 minutes before the next driving row.
-        if (!"service".equals(mode) || etaBoards == null) return resetCountdown();
-        int minute = servicePlan.minutesAt(now);
-        ServicePlan.Row current = null;
-        for (ServicePlan.Row row : servicePlan.rows) {
-            if (minute >= row.start && minute < row.end) { current = row; break; }
-        }
-        // Before the first duty starts, show the assigned train approaching
-        // the first boarding station. Never infer an ETA while travelling.
-        if (current == null) {
-            ServicePlan.Row next = null;
-            for (ServicePlan.Row row : servicePlan.rows) {
-                if (row.start > minute && (next == null || row.start < next.start)) next = row;
-            }
-            if (next != null && next.driving()) current = next;
-        }
-        if (current == null || "CON".equals(current.type) || "TRA".equals(current.type)
-            || !current.from.matches("41[3-9]|42[0-9]|43[0-4]")) {
-            android.util.Log.d("TrainEyeETA", "No station ETA: activity=" + (current == null ? "none" : current.type) + " stop=" + (current == null ? "" : current.from));
-            return resetCountdown();
-        }
-
-        String stop = current.from;
-        String via = "";
-        // Use the platform of the following driving activity when available.
-        // If not known, look for this train on either station platform.
-        for (ServicePlan.Row row : servicePlan.rows) {
-            if (row.start >= current.end && row.driving() && row.from.equals(stop)) {
-                if ("1".equals(row.via) || "2".equals(row.via)) via = row.via;
-                break;
-            }
-        }
-        String key = stop + ":" + via;
-        if (!key.equals(countdownKey) || !train.equals(countdownTrain)) {
-            countdownKey = key;
-            countdownTrain = train;
-            countdownArrivalAt = 0;
-            countdownCheckedAt = 0;
-        }
-        if (countdownArrivalAt == 0 || now - countdownCheckedAt >= 60000L) {
-            long candidate = etaBoards.predictedArrivalEitherTrack(stop, via, train, now);
-            android.util.Log.d("TrainEyeETA", "ETA lookup train=" + train + " stop=" + stop + " via=" + via + " candidate=" + candidate + " now=" + now
-                + " board=" + etaBoards.boardStatus(stop, train, now));
-            if (candidate > now && candidate < now + 3600000L) {
-                countdownArrivalAt = candidate;
-                countdownCheckedAt = now;
-            } else if (countdownArrivalAt > 0 && now - countdownCheckedAt >= 90000L) {
-                countdownArrivalAt = 0;
-                countdownCheckedAt = 0;
-            }
-        }
-        if (countdownArrivalAt <= now) return "--";
-        long seconds = (countdownArrivalAt - now + 999) / 1000;
-        return (seconds / 60) + "'" + String.format(java.util.Locale.ROOT, "%02d", seconds % 60) + "''";
+    private ServicePlan.Row etaTarget(long now) {
+        return pickupEta == null ? null : pickupEta.target(now, train);
     }
 
-    private long nonzeroArrival(String stop, String via, long now) {
-        long at = etaBoards.predictedArrival(stop, via, train, now);
-        return at > now ? at : Long.MAX_VALUE;
+    private void finishEtaPickup() {
+        getSharedPreferences("overlay", MODE_PRIVATE).edit().putString("etaPlan", etaPlanKey)
+            .putStringSet("etaCompleted", pickupEta.completedRows()).apply();
+        updateBoardStops();
     }
 
-    private String resetCountdown() {
-        countdownKey = "";
-        countdownTrain = "";
-        countdownArrivalAt = 0;
-        countdownCheckedAt = 0;
-        return "--";
+    private long predictedPickup(ServicePlan.Row pickup, long now) {
+        if (pickup == null || etaBoards == null || !pickupEta.canShow(pickup, now)) return 0;
+        boolean terminal = "413".equals(pickup.from) || "434".equals(pickup.from);
+        long arrival = terminal || pickup.via.isEmpty()
+            ? etaBoards.predictedArrivalEitherTrack(pickup.from, pickup.via, pickup.train, now)
+            : etaBoards.predictedArrival(pickup.from, pickup.via, pickup.train, now);
+        return arrival > now && arrival < now + 3_600_000L ? arrival : 0;
     }
 
     private void refreshEtaDiagnostic() {
         if (etaDiagnosticView == null) return;
         long now = System.currentTimeMillis();
-        String stop = theoreticalStop();
-        String boardState = etaBoards == null ? "lector no inicializado"
-            : stop.isEmpty() ? "sin estación de espera"
-            : etaBoards.boardStatus(stop, train, now);
-        String last = etaLastBoardAt == 0 ? "ninguna"
-            : ((now - etaLastBoardAt) / 1000) + " s (estación " + etaLastBoardStop + ")";
-        String match = "sin previsión";
-        if (!stop.isEmpty() && etaBoards != null) {
-            long at = etaBoards.predictedArrivalEitherTrack(stop, "", train, now);
-            if (at > now) match = ((at - now + 999) / 1000) + " segundos";
-        }
+        ServicePlan.Row pickup = etaTarget(now);
+        String stop = pickup == null ? "" : pickup.from;
+        long received = stop.isEmpty() ? 0 : etaBoards.boardReceivedAt(stop);
+        long arrival = predictedPickup(pickup, now);
+        String phase = etaStationPhases.getOrDefault(stop, etaSocketStatus);
+        String error = etaStationErrors.getOrDefault(stop, etaSocketError);
+        etaConfirmButton.setVisibility(pickup != null && pickupEta.nearPickup(pickup, now) ? View.VISIBLE : View.GONE);
         etaDiagnosticView.setText("ETA DIAGNÓSTICO · tren " + train
             + " · estación " + (stop.isEmpty() ? "—" : stop)
-            + "\\nSocket: " + etaSocketStatus
-            + "\\nÚltima previsión: " + last
-            + "\\nCoincidencia: " + match
-            + "\\nDatos: " + boardState);
+            + (pickup == null || pickup.via.isEmpty() ? "" : " · vía " + pickup.via)
+            + "\nSocket: " + phase
+            + (error.isEmpty() ? "" : "\nÚltimo fallo: " + error)
+            + "\nÚltima previsión: " + (received == 0 ? "ninguna" : Math.max(0, (now - received) / 1000) + " s")
+            + "\nCoincidencia: " + (arrival == 0 ? "sin previsión" : (arrival - now + 999) / 1000 + " s")
+            + "\nDatos: " + (stop.isEmpty() ? "sin recogida pendiente" : etaBoards.boardStatus(stop, train, now)));
     }
 
     private void updateEye() {
@@ -982,7 +923,11 @@ public class TrainOverlayService extends Service {
         }
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
         eye.setStatus(train, currentStation, currentTrack, ageText);
-        eye.setCountdown(arrivalCountdown(System.currentTimeMillis()));
+        long now = System.currentTimeMillis();
+        long arrival = predictedPickup(etaTarget(now), now);
+        long seconds = arrival == 0 ? 0 : (arrival - now + 999) / 1000;
+        eye.setCountdown(seconds == 0 ? "--"
+            : String.format(java.util.Locale.ROOT, "%d'%02d''", seconds / 60, seconds % 60));
     }
 
     @Override
@@ -991,8 +936,6 @@ public class TrainOverlayService extends Service {
         if (alertWakeLock != null && alertWakeLock.isHeld()) alertWakeLock.release();
         destroyed = true;
         if (directClient != null) directClient.close();
-        if (arrivalClient != null) arrivalClient.close();
-        if (etaClient != null) etaClient.close();
         handler.removeCallbacks(poll);
         handler.removeCallbacks(ageTicker);
         if (popupRoot != null) {
