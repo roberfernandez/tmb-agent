@@ -1,15 +1,23 @@
 package com.tmbagent.traineye;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
 import org.json.JSONObject;
 import org.junit.Test;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
-import java.net.InetSocketAddress;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.URI;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -20,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static org.junit.Assert.*;
 
@@ -32,9 +41,6 @@ public class TrainPositionClientTest {
         + "\"via2\":[{\"trainCode\":\"410\",\"tren\":\"410\",\"secsLeft\":181,\"stopCode\":425,\"track\":2}]}]";
 
     @Test public void pollsMapsDuringBlockedPostAndRecoversMissingBoardOnSameSession() throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        ExecutorService executor = Executors.newCachedThreadPool();
-        server.setExecutor(executor);
         AtomicLong clock = new AtomicLong(1000);
         AtomicInteger handshakes = new AtomicInteger();
         AtomicInteger subscriptions = new AtomicInteger();
@@ -59,35 +65,35 @@ public class TrainPositionClientTest {
         AtomicLong arrival = new AtomicLong();
         long wallTime = 1_794_252_537_000L;
 
-        server.createContext("/socket.io/", exchange -> {
+        TestServer server = new TestServer(exchange -> {
             try {
-                String query = exchange.getRequestURI().getRawQuery();
+                String query = exchange.query;
                 assertTrue(query.startsWith("EIO=4&transport=polling"));
-                boolean post = "POST".equals(exchange.getRequestMethod());
+                boolean post = "POST".equals(exchange.method);
                 if (!query.contains("sid=")) {
                     assertFalse(post);
                     handshakes.incrementAndGet();
-                    send(exchange, 200, HELLO);
+                    exchange.send(200, HELLO);
                     return;
                 }
                 assertTrue(query.endsWith("&sid=engine-session"));
                 if (post) {
                     maxPosts.accumulateAndGet(activePosts.incrementAndGet(), Math::max);
                     try {
-                        assertTrue(exchange.getRequestHeaders().getFirst("Content-Type").startsWith("text/plain"));
-                        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                        assertTrue(exchange.headers.get("content-type").startsWith("text/plain"));
+                        String body = exchange.body;
                         writes.add(body);
                         if (SUBSCRIBE.equals(body)) {
                             assertTrue("subscribeStop must follow the namespace ACK", ackSent.get());
                             if (subscriptions.incrementAndGet() == 1) {
                                 firstPost.countDown();
                                 assertTrue(releasePost.await(3, TimeUnit.SECONDS));
-                                send(exchange, 503, "test network interruption");
+                                exchange.send(503, "test network interruption");
                                 return;
                             }
                         }
                         if (SUBSCRIBE.replace("425", "427").equals(body)) nextStopSubscribed.set(true);
-                        send(exchange, 200, "ok");
+                        exchange.send(200, "ok");
                     } finally {
                         activePosts.decrementAndGet();
                     }
@@ -97,25 +103,21 @@ public class TrainPositionClientTest {
                 Thread.sleep(15);
                 if (ackSent.compareAndSet(false, true)) {
                     assertEquals(List.of("40"), writes);
-                    send(exchange, 200, ACK + "\u001e2\u001e" + MAP);
+                    exchange.send(200, ACK + "\u001e2\u001e" + MAP);
                 } else if (subscriptions.get() >= 3 && sentBoard.compareAndSet(false, true)) {
-                    send(exchange, 200, MAP + "\u001e" + BOARD.replace("\"425\"", "\"427\"") + "\u001e" + BOARD);
+                    exchange.send(200, MAP + "\u001e" + BOARD.replace("\"425\"", "\"427\"") + "\u001e" + BOARD);
                 } else if (nextStopSubscribed.get() && nextBoardSent.compareAndSet(false, true)) {
                     String ambiguous = "42[\"stopDataUpdate\",{\"via2\":[]}]";
-                    send(exchange, 200, BOARD + "\u001e" + ambiguous + "\u001e" + BOARD.replace("425", "427"));
+                    exchange.send(200, BOARD + "\u001e" + ambiguous + "\u001e" + BOARD.replace("425", "427"));
                 } else if (firstPost.getCount() == 0 && secondPing.compareAndSet(false, true)) {
-                    send(exchange, 200, "2\u001e" + MAP);
+                    exchange.send(200, "2\u001e" + MAP);
                 } else {
-                    send(exchange, 200, MAP);
+                    exchange.send(200, MAP);
                 }
             } catch (Throwable error) {
                 handlerError.compareAndSet(null, error);
-                exchange.close();
             }
-        });
-        server.start();
-
-        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/socket.io/?EIO=4&transport=polling";
+        }, handlerError);
         TrainPositionClient client = new TrainPositionClient(new TrainPositionClient.Listener() {
             @Override public void onMap(JSONObject trains) {
                 if ("Girona".equals(trains.optJSONObject("410").optString("estacion"))) {
@@ -136,7 +138,7 @@ public class TrainPositionClientTest {
                 if (error && status.equals("Suscripción 425 (POST) · HTTP 503")) postFailure.countDown();
                 if (status.equals("Esperando stopDataUpdate 425 (GET)")) waitingForBoard.countDown();
             }
-        }, endpoint, clock::get);
+        }, server.endpoint(), clock::get);
 
         client.setStops(Set.of("425"));
         client.start();
@@ -161,8 +163,7 @@ public class TrainPositionClientTest {
         } finally {
             releasePost.countDown();
             client.close();
-            server.stop(0);
-            executor.shutdownNow();
+            server.close();
         }
     }
 
@@ -263,9 +264,81 @@ public class TrainPositionClientTest {
         };
     }
 
-    private static void send(HttpExchange exchange, int status, String body) throws IOException {
-        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        exchange.sendResponseHeaders(status, bytes.length);
-        try (var output = exchange.getResponseBody()) { output.write(bytes); }
+    // A loopback server using the same Java networking APIs exposed to Android's unit tests.
+    private static final class TestServer implements AutoCloseable {
+        private final ServerSocket server = new ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"));
+        private final ExecutorService workers = Executors.newCachedThreadPool();
+
+        TestServer(Consumer<Exchange> handler, AtomicReference<Throwable> error) throws IOException {
+            workers.execute(() -> {
+                try {
+                    while (!server.isClosed()) {
+                        Socket socket = server.accept();
+                        workers.execute(() -> {
+                            try (Socket client = socket) {
+                                client.setSoTimeout(3000);
+                                handler.accept(new Exchange(client));
+                            } catch (IOException | RuntimeException failure) {
+                                if (!server.isClosed()) error.compareAndSet(null, failure);
+                            }
+                        });
+                    }
+                } catch (IOException failure) {
+                    if (!server.isClosed()) error.compareAndSet(null, failure);
+                }
+            });
+        }
+
+        String endpoint() {
+            return "http://127.0.0.1:" + server.getLocalPort() + "/socket.io/?EIO=4&transport=polling";
+        }
+
+        @Override public void close() throws IOException {
+            server.close();
+            workers.shutdownNow();
+        }
+    }
+
+    private static final class Exchange {
+        final String method;
+        final String query;
+        final Map<String, String> headers = new HashMap<>();
+        final String body;
+        private final Socket socket;
+
+        Exchange(Socket socket) throws IOException {
+            this.socket = socket;
+            DataInputStream input = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            String[] request = readLine(input).split(" ", 3);
+            method = request[0];
+            query = URI.create(request[1]).getRawQuery();
+            for (String line = readLine(input); !line.isEmpty(); line = readLine(input)) {
+                int separator = line.indexOf(':');
+                headers.put(line.substring(0, separator).toLowerCase(Locale.ROOT), line.substring(separator + 1).trim());
+            }
+            int length = Integer.parseInt(headers.getOrDefault("content-length", "0"));
+            byte[] bytes = new byte[length];
+            input.readFully(bytes);
+            body = new String(bytes, StandardCharsets.UTF_8);
+        }
+
+        void send(int status, String response) throws IOException {
+            byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+            String headers = "HTTP/1.1 " + status + (status == 200 ? " OK" : " Service Unavailable")
+                + "\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: " + bytes.length + "\r\n\r\n";
+            OutputStream output = socket.getOutputStream();
+            output.write(headers.getBytes(StandardCharsets.US_ASCII));
+            output.write(bytes);
+            output.flush();
+        }
+
+        private static String readLine(InputStream input) throws IOException {
+            StringBuilder line = new StringBuilder();
+            for (int value = input.read(); value != -1; value = input.read()) {
+                if (value == '\n') return line.toString();
+                if (value != '\r') line.append((char) value);
+            }
+            throw new IOException("End of test HTTP request");
+        }
     }
 }
