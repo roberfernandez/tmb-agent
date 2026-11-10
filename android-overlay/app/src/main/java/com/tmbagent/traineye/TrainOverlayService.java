@@ -882,12 +882,10 @@ public class TrainOverlayService extends Service {
     }
 
     private long predictedPickup(ServicePlan.Row pickup, long now) {
-        if (pickup == null || etaBoards == null || !pickupEta.canShow(pickup, now)) return 0;
-        boolean terminal = "413".equals(pickup.from) || "434".equals(pickup.from);
-        long arrival = terminal || pickup.via.isEmpty()
-            ? etaBoards.predictedArrivalEitherTrack(pickup.from, pickup.via, pickup.train, now)
-            : etaBoards.predictedArrival(pickup.from, pickup.via, pickup.train, now);
-        return arrival > now && arrival < now + 3_600_000L ? arrival : 0;
+        if (pickup == null || etaBoards == null) return 0;
+        JSONObject liveTrain = directMap == null ? null : directMap.optJSONObject(pickup.train);
+        long positionAge = android.os.SystemClock.elapsedRealtime() - directMapAt;
+        return pickupEta.predictedArrival(pickup, etaBoards, now, liveTrain, positionAge);
     }
 
     private void refreshEtaDiagnostic() {
@@ -897,6 +895,7 @@ public class TrainOverlayService extends Service {
         String stop = pickup == null ? "" : pickup.from;
         long received = stop.isEmpty() ? 0 : etaBoards.boardReceivedAt(stop);
         long arrival = predictedPickup(pickup, now);
+        boolean retained = arrival > 0 && now - received >= ServiceAlerts.BOARD_FRESH_MS;
         String phase = etaStationPhases.getOrDefault(stop, etaSocketStatus);
         String error = etaStationErrors.getOrDefault(stop, etaSocketError);
         etaConfirmButton.setVisibility(pickup != null && pickupEta.nearPickup(pickup, now) ? View.VISIBLE : View.GONE);
@@ -907,7 +906,10 @@ public class TrainOverlayService extends Service {
             + (error.isEmpty() ? "" : "\nÚltimo fallo: " + error)
             + "\nÚltima previsión: " + (received == 0 ? "ninguna" : Math.max(0, (now - received) / 1000) + " s")
             + "\nCoincidencia: " + (arrival == 0 ? "sin previsión" : (arrival - now + 999) / 1000 + " s")
-            + "\nDatos: " + (stop.isEmpty() ? "sin recogida pendiente" : etaBoards.boardStatus(stop, train, now)));
+            + (retained ? " · última previsión conservada" : "")
+            + "\nDatos: " + (stop.isEmpty() ? "sin recogida pendiente"
+                : retained ? "tren acercándose · esperando renovación del cuadro " + stop
+                : etaBoards.boardStatus(stop, train, now)));
     }
 
     private void updateEye() {
@@ -924,10 +926,12 @@ public class TrainOverlayService extends Service {
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
         eye.setStatus(train, currentStation, currentTrack, ageText);
         long now = System.currentTimeMillis();
-        long arrival = predictedPickup(etaTarget(now), now);
+        ServicePlan.Row pickup = etaTarget(now);
+        long arrival = predictedPickup(pickup, now);
+        boolean retained = arrival > 0 && now - etaBoards.boardReceivedAt(pickup.from) >= ServiceAlerts.BOARD_FRESH_MS;
         long seconds = arrival == 0 ? 0 : (arrival - now + 999) / 1000;
         eye.setCountdown(seconds == 0 ? "--"
-            : String.format(java.util.Locale.ROOT, "%d'%02d''", seconds / 60, seconds % 60));
+            : (retained ? "~" : "") + String.format(java.util.Locale.ROOT, "%d'%02d''", seconds / 60, seconds % 60));
     }
 
     @Override

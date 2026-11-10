@@ -7,6 +7,8 @@ import java.util.Set;
 /** Tracks a scheduled pickup using the assigned train's live passage through its origin. */
 final class PickupEta {
     private static final long MATCH_WINDOW_MS = 30 * 60_000L;
+    private static final long MAX_BOARD_AGE_WHILE_APPROACHING_MS = 120_000L;
+    private static final long APPROACH_POSITION_MAX_AGE_MS = 15_000L;
     private final ServicePlan plan;
     private final long anchor;
     private final Set<String> completed;
@@ -66,8 +68,8 @@ final class PickupEta {
         if (station == 0) return false;
         int origin = Integer.parseInt(pickup.from);
         boolean terminal = origin == 413 || origin == 434;
-        String inbound = origin == 413 ? "2" : origin == 434 ? "1" : pickup.via;
-        String track = train.optString("platformTrack", train.optString("track", ""));
+        String inbound = inboundTrack(pickup);
+        String track = reportedTrack(train);
         if (station == origin && (terminal || inbound.equals(track))) return confirm(pickup);
         if (!"1".equals(inbound) && !"2".equals(inbound)) return false;
         int distance = (origin - station) * ("1".equals(inbound) ? 1 : -1);
@@ -80,6 +82,44 @@ final class PickupEta {
             return confirm(pickup);
         }
         return false;
+    }
+
+    long predictedArrival(ServicePlan.Row pickup, ServiceAlerts boards, long now,
+                          JSONObject liveTrain, long positionAgeMs) {
+        if (pickup == null || !canShow(pickup, now) || completed.contains(key(pickup))) return 0;
+        long boardAge = now - boards.boardReceivedAt(pickup.from);
+        long maxBoardAge = ServiceAlerts.BOARD_FRESH_MS;
+        if (boardAge >= maxBoardAge && boardAge < MAX_BOARD_AGE_WHILE_APPROACHING_MS
+            && positionAgeMs >= 0 && positionAgeMs < APPROACH_POSITION_MAX_AGE_MS
+            && isApproaching(pickup, liveTrain)) {
+            maxBoardAge = MAX_BOARD_AGE_WHILE_APPROACHING_MS;
+        }
+
+        boolean terminal = "413".equals(pickup.from) || "434".equals(pickup.from);
+        long arrival = terminal || pickup.via.isEmpty()
+            ? boards.predictedArrivalEitherTrack(pickup.from, pickup.via, pickup.train, now, maxBoardAge)
+            : boards.predictedArrival(pickup.from, pickup.via, pickup.train, now, maxBoardAge);
+        return arrival > now && arrival < now + 3_600_000L ? arrival : 0;
+    }
+
+    private static boolean isApproaching(ServicePlan.Row pickup, JSONObject train) {
+        if (train == null) return false;
+        String inbound = inboundTrack(pickup);
+        if (!inbound.equals(reportedTrack(train))) return false;
+        int station = ServiceAlerts.stopPosition(train.optString("estacion", ""));
+        if (station == 0) return false;
+        int origin = Integer.parseInt(pickup.from);
+        return "1".equals(inbound) ? station < origin : "2".equals(inbound) && station > origin;
+    }
+
+    private static String inboundTrack(ServicePlan.Row pickup) {
+        if ("413".equals(pickup.from)) return "2";
+        if ("434".equals(pickup.from)) return "1";
+        return pickup.via;
+    }
+
+    private static String reportedTrack(JSONObject train) {
+        return train.optString("platformTrack", train.optString("track", ""));
     }
 
     boolean confirm(ServicePlan.Row pickup) { return completed.add(key(pickup)); }

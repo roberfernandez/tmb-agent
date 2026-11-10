@@ -76,6 +76,72 @@ public class PickupEtaTest {
         assertNull(eta.target(time(24, 12), "410"));
     }
 
+    private static final String JOANIC = "812,857,EST,428,428,,,;857,917,CON,428,434,410,1,1";
+    private static final long JOANIC_ARRIVAL = 1_794_315_801_000L;
+    private static final long JOANIC_RECEIVED = JOANIC_ARRIVAL - 418_000L;
+
+    @Test public void keepsTheRecordedJoanicArrivalThroughTheMissedRefresh() throws JSONException {
+        ServicePlan plan = new ServicePlan(JOANIC);
+        PickupEta eta = new PickupEta(plan, JOANIC_RECEIVED, Set.of());
+        ServicePlan.Row pickup = eta.target(JOANIC_RECEIVED, "410");
+        ServiceAlerts boards = new ServiceAlerts(plan, JOANIC_RECEIVED);
+        boards.acceptBoard(joanicBoard(JOANIC_ARRIVAL), JOANIC_RECEIVED);
+
+        long now = JOANIC_RECEIVED + 49_000L;
+        assertEquals(369_000L, eta.predictedArrival(pickup, boards, now, null, 0L) - now);
+        JSONObject approaching = position("Passeig de Gràcia", 1);
+        assertEquals(JOANIC_ARRIVAL, eta.predictedArrival(pickup, boards, JOANIC_RECEIVED + 60_000L, approaching, 2_000L));
+        assertEquals(JOANIC_ARRIVAL, eta.predictedArrival(pickup, boards, JOANIC_RECEIVED + 76_000L, approaching, 2_000L));
+        assertEquals(0, boards.predictedArrival("428", "1", "410", JOANIC_RECEIVED + 76_000L));
+        assertEquals(JOANIC_ARRIVAL, eta.predictedArrival(pickup, boards, JOANIC_RECEIVED + 119_999L, approaching, 2_000L));
+        assertEquals(0, eta.predictedArrival(pickup, boards, JOANIC_RECEIVED + 120_000L, approaching, 2_000L));
+    }
+
+    @Test public void discardsTheHeldEtaWithoutARecentApproachOrAtArrival() throws JSONException {
+        ServicePlan plan = new ServicePlan(JOANIC);
+        PickupEta eta = new PickupEta(plan, JOANIC_RECEIVED, Set.of());
+        ServicePlan.Row pickup = eta.target(JOANIC_RECEIVED, "410");
+        ServiceAlerts boards = new ServiceAlerts(plan, JOANIC_RECEIVED);
+        long arrival = JOANIC_RECEIVED + 85_000L;
+        boards.acceptBoard(joanicBoard(arrival), JOANIC_RECEIVED);
+        long now = JOANIC_RECEIVED + 76_000L;
+
+        assertEquals(0, eta.predictedArrival(pickup, boards, now, null, 0));
+        assertEquals(0, eta.predictedArrival(pickup, boards, now, position("Girona", 1), 15_000L));
+        assertEquals(0, eta.predictedArrival(pickup, boards, now, position("Girona", 2), 2_000L));
+        assertEquals(0, eta.predictedArrival(pickup, boards, now, position("Alfons X", 1), 2_000L));
+        assertEquals(0, eta.predictedArrival(pickup, boards, now, position("Joanic", 1), 2_000L));
+        assertEquals(0, eta.predictedArrival(pickup, boards, arrival, position("Girona", 1), 2_000L));
+        assertTrue(eta.observe(pickup, position("Joanic", 1), now));
+        assertEquals(0, eta.predictedArrival(pickup, boards, now, position("Girona", 1), 2_000L));
+        assertNull(eta.target(now, "410"));
+    }
+
+    @Test public void replacesTheHeldEtaAsSoonAsMiralinSendsAnotherBoard() throws JSONException {
+        ServicePlan plan = new ServicePlan(JOANIC);
+        PickupEta eta = new PickupEta(plan, JOANIC_RECEIVED, Set.of());
+        ServicePlan.Row pickup = eta.target(JOANIC_RECEIVED, "410");
+        ServiceAlerts boards = new ServiceAlerts(plan, JOANIC_RECEIVED);
+        boards.acceptBoard(joanicBoard(JOANIC_ARRIVAL), JOANIC_RECEIVED);
+        long now = JOANIC_RECEIVED + 90_000L;
+        JSONObject approach = position("Girona", 1);
+        assertEquals(JOANIC_ARRIVAL, eta.predictedArrival(pickup, boards, now, approach, 2_000L));
+
+        boards.acceptBoard(new JSONObject("{\"stopCode\":\"428\",\"via1\":[],"
+            + "\"via2\":[{\"trainCode\":\"410\",\"secsLeft\":1600}]}"), now);
+        assertEquals(0, eta.predictedArrival(pickup, boards, now, approach, 2_000L));
+
+        long updated = JOANIC_ARRIVAL + 32_000L;
+        boards.acceptBoard(joanicBoard(updated), now + 1000);
+        assertEquals(updated, eta.predictedArrival(pickup, boards, now + 1000, null, 0L));
+    }
+
+    private static JSONObject joanicBoard(long arrival) throws JSONException {
+        return new JSONObject("{\"line\":\"L4\",\"stopCode\":\"428\","
+            + "\"via1\":[{\"trainCode\":\"410\",\"arrivalTime\":" + arrival + ",\"secsLeft\":418}],"
+            + "\"via2\":[{\"trainCode\":\"410\",\"arrivalTime\":1794317302666,\"secsLeft\":1920}]}");
+    }
+
     private static long time(int hour, int minute) { return DAY + (hour * 60L + minute) * 60_000; }
 
     private static JSONObject position(String station, int track) throws JSONException {

@@ -18,6 +18,7 @@ import java.util.Set;
 
 /** Local, per-device advice. Never treats old station boards as live arrivals. */
 final class ServiceAlerts {
+    static final long BOARD_FRESH_MS = 60_000L;
     private static final long LIVE_MATCH_WINDOW = 15 * 60000L;
     private static final long TAKE_MATCH_WINDOW = 30 * 60000L;
     private static final long NOTICE_CHANGE = 2 * 60000L;
@@ -159,24 +160,32 @@ final class ServiceAlerts {
     }
 
     long predictedArrival(String stop, String via, String train, long now) {
+        return predictedArrival(stop, via, train, now, BOARD_FRESH_MS);
+    }
+
+    long predictedArrival(String stop, String via, String train, long now, long maxBoardAge) {
         if (stop == null || via == null || train == null || !("1".equals(via) || "2".equals(via))) return 0;
-        for (Arrival arrival : arrivals(stop, via, now)) {
+        for (Arrival arrival : arrivals(stop, via, now, maxBoardAge)) {
             if (train.equals(arrival.train) && arrival.at > now) return arrival.at;
         }
         return 0;
     }
 
     long predictedArrivalEitherTrack(String stop, String preferredVia, String train, long now) {
+        return predictedArrivalEitherTrack(stop, preferredVia, train, now, BOARD_FRESH_MS);
+    }
+
+    long predictedArrivalEitherTrack(String stop, String preferredVia, String train, long now, long maxBoardAge) {
         // La Pau (413) and Trinitat Nova (434) have one operational platform.
         // Miralin's via label is not a constraint at these terminal stations.
         if (("413".equals(stop) || "434".equals(stop))) preferredVia = "";
         if ("1".equals(preferredVia) || "2".equals(preferredVia)) {
-            long preferred = predictedArrival(stop, preferredVia, train, now);
+            long preferred = predictedArrival(stop, preferredVia, train, now, maxBoardAge);
             if (preferred > now) return preferred;
-            return predictedArrival(stop, "1".equals(preferredVia) ? "2" : "1", train, now);
+            return predictedArrival(stop, "1".equals(preferredVia) ? "2" : "1", train, now, maxBoardAge);
         }
-        long first = predictedArrival(stop, "1", train, now);
-        long second = predictedArrival(stop, "2", train, now);
+        long first = predictedArrival(stop, "1", train, now, maxBoardAge);
+        long second = predictedArrival(stop, "2", train, now, maxBoardAge);
         if (first <= now) return second;
         if (second <= now) return first;
         return Math.min(first, second);
@@ -539,11 +548,22 @@ final class ServiceAlerts {
     }
 
     private Board fresh(String stop, long now) {
-        Board board = boards.get(stop); return board != null && now - board.received < 60000 && now >= board.received ? board : null;
+        return fresh(stop, now, BOARD_FRESH_MS);
+    }
+
+    private Board fresh(String stop, long now, long maxBoardAge) {
+        Board board = boards.get(stop);
+        return board != null && now >= board.received && now - board.received < maxBoardAge ? board : null;
     }
 
     private List<Arrival> arrivals(String stop, String via, long now) {
-        List<Arrival> result = new ArrayList<>(); Board board = fresh(stop, now); if (board == null) return result;
+        return arrivals(stop, via, now, BOARD_FRESH_MS);
+    }
+
+    private List<Arrival> arrivals(String stop, String via, long now, long maxBoardAge) {
+        List<Arrival> result = new ArrayList<>();
+        Board board = fresh(stop, now, maxBoardAge);
+        if (board == null) return result;
         JSONArray entries = board.data.optJSONArray("via" + via);
         boolean needsVia = entries == null || entries.length() == 0;
         if (needsVia) entries = board.data.optJSONArray("lineTrains");
