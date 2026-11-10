@@ -1,5 +1,6 @@
 package com.tmbagent.traineye;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Test;
 import java.time.ZonedDateTime;
@@ -12,7 +13,7 @@ public class PickupEtaTest {
     private static final long DAY = ZonedDateTime.of(2026, 11, 9, 0, 0, 0, 0, ServicePlan.ZONE.toZoneId())
         .toInstant().toEpochMilli();
 
-    @Test public void retainsTheRealPickupStationAfterScheduledDepartureUntilTrainArrives() {
+    @Test public void retainsTheRealPickupStationAfterScheduledDepartureUntilTrainArrives() throws JSONException {
         ServicePlan plan = new ServicePlan(SERVICE);
         PickupEta eta = new PickupEta(plan, time(19, 40), Set.of());
         assertNull(eta.target(time(18, 55), "410"));
@@ -33,7 +34,7 @@ public class PickupEtaTest {
         assertNull(new PickupEta(plan, time(21, 28), eta.completedRows()).target(time(21, 28), "410"));
     }
 
-    @Test public void keepsAnEstablishedWaitPastThirtyMinutesAndDetectsAJumpAcrossTheStation() {
+    @Test public void keepsAnEstablishedWaitPastThirtyMinutesAndDetectsAJumpAcrossTheStation() throws JSONException {
         PickupEta eta = new PickupEta(new ServicePlan(SERVICE), time(21, 24), Set.of());
         ServicePlan.Row pickup = eta.target(time(21, 24), "410");
         assertSame(pickup, eta.target(time(22, 0), "410"));
@@ -42,7 +43,7 @@ public class PickupEtaTest {
         assertNull(eta.target(time(22, 4), "410"));
     }
 
-    @Test public void coldStartDuringDrivingNeedsLiveApproachAndCanBeConfirmedManually() {
+    @Test public void coldStartDuringDrivingNeedsLiveApproachAndCanBeConfirmedManually() throws JSONException {
         PickupEta eta = new PickupEta(new ServicePlan(SERVICE), time(21, 26), Set.of());
         ServicePlan.Row pickup = eta.target(time(21, 26), "410");
         assertNotNull(pickup);
@@ -55,7 +56,7 @@ public class PickupEtaTest {
         assertNull(eta.target(time(21, 27), "410"));
     }
 
-    @Test public void ignoresAnEarlyPassAndSameTrainContinuation() {
+    @Test public void ignoresAnEarlyPassAndSameTrainContinuation() throws JSONException {
         ServicePlan plan = new ServicePlan(SERVICE.replace("1385,1490,EST,413,413,,,",
             "1385,1430,CON,413,434,410,1,1;1430,1490,EST,434,434,,,"));
         PickupEta eta = new PickupEta(plan, time(19, 40), Set.of());
@@ -65,7 +66,7 @@ public class PickupEtaTest {
         assertNull(eta.target(time(23, 5), "410"));
     }
 
-    @Test public void recognisesArrivalAtTerminalWithTheOtherViaLabelAfterMidnight() {
+    @Test public void recognisesArrivalAtTerminalWithTheOtherViaLabelAfterMidnight() throws JSONException {
         ServicePlan plan = new ServicePlan("1430,1450,EST,413,413,,,;1450,1490,CON,413,434,410,1,1");
         PickupEta eta = new PickupEta(plan, time(23, 58), Set.of());
         ServicePlan.Row pickup = eta.target(time(23, 58), "410");
@@ -77,7 +78,7 @@ public class PickupEtaTest {
 
     private static long time(int hour, int minute) { return DAY + (hour * 60L + minute) * 60_000; }
 
-    private static JSONObject position(String station, int track) {
+    private static JSONObject position(String station, int track) throws JSONException {
         return new JSONObject().put("estacion", station).put("platformTrack", track);
     }
 }
