@@ -56,7 +56,7 @@ public class ServiceAlertsTest {
         String advice = alerts.advice(alerts.plan.rows.get(7), NOW);
         assertTrue(advice.contains("Sense arribades recents"));
         assertFalse(advice.contains("Darrera opció"));
-        assertFalse(alerts.due(NOW, 5).get(0).title.startsWith("Puja"));
+        assertTrue(alerts.due(NOW, 5).isEmpty());
     }
     @Test public void transferWarningsRespectMarginAndPersistDeduplication() {
         long now = ServicePlanTest.time("2026-11-04T23:04:00");
@@ -123,10 +123,7 @@ public class ServiceAlertsTest {
             JSONObject destination = board(terminus, transferVia, arrival("401", 300), arrival("402", 420));
             destination.put("via" + takeVia, new JSONArray().put(arrival("405", 600)));
             alerts.acceptBoard(destination, NOW);
-            List<ServiceAlerts.Alert> due = alerts.due(NOW, 5);
-            assertEquals(1, due.size());
-            assertEquals("Servei · presa del 405", due.get(0).title);
-            assertFalse(due.get(0).body.contains("Alternatives"));
+            assertTrue(alerts.due(NOW, 5).isEmpty());
 
             alerts.acceptBoard(board("423", transferVia, arrival("405", 120)), NOW);
             assertEquals("Puja al tren 405", alerts.due(NOW, 5).get(0).title);
@@ -367,6 +364,69 @@ public class ServiceAlertsTest {
         assertTrue(alerts.due(after, 5).isEmpty());
         assertFalse(alerts.hasPending(after));
     }
+    @Test public void waitingInLaPauUsesTheConfiguredMarginForTheAssignedLapOnly() throws Exception {
+        ServicePlan plan = new ServicePlan("1126,1317,EST,413,413,,,;1317,1485,CON,413,413,407,2,RET");
+        long first = ServicePlanTest.time("2026-11-10T20:35:00");
+        ServiceAlerts alerts = new ServiceAlerts(plan, first);
+        alerts.acceptMap(position("407", "Besòs", 2), first);
+        alerts.acceptBoard(board("413", 2, arrival("407", 300)), first);
+        assertTrue(alerts.due(first, 10).isEmpty());
+
+        long passed = first + 5 * 60_000L;
+        alerts.acceptMap(position("407", "La Pau", 2), passed);
+        assertTrue(alerts.due(passed, 10).isEmpty());
+
+        long before = ServicePlanTest.time("2026-11-10T21:46:59");
+        alerts.acceptMap(position("407", "Bogatell", 2), before);
+        alerts.acceptBoard(board("413", 2, arrival("407", 601)), before);
+        assertTrue(alerts.due(before, 10).isEmpty());
+        List<ServiceAlerts.Alert> due = alerts.due(before + 1000, 10);
+        assertEquals(1, due.size());
+        assertEquals("Servei · presa del 407", due.get(0).title);
+        assertTrue(due.get(0).body.contains("La Pau · via 2 · arribada estimada 21:57"));
+    }
+
+    @Test public void sameTrackNotificationIsTimedToTheAssignedTrainAtTheOrigin() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(
+            "1389,1409,TRA,417,428,,,;1409,1469,CON,428,434,405,1,1"), NOW);
+        alerts.acceptBoard(board("417", 1, arrival("401", 30), arrival("405", 301)), NOW);
+        alerts.acceptBoard(board("428", 1, arrival("401", 420), arrival("405", 900)), NOW);
+        assertTrue(alerts.due(NOW, 5).isEmpty());
+        List<ServiceAlerts.Alert> due = alerts.due(NOW + 1000, 5);
+        assertEquals(1, due.size());
+        assertEquals("Puja al tren 405", due.get(0).title);
+        assertTrue(due.get(0).body.contains("Selva de Mar · via 1 a les 23:29"));
+        assertFalse(due.get(0).body.contains("401"));
+    }
+
+    @Test public void oppositeTrackConnectionsWaitUntilTheAssignedLapIsInTheStationBoard() throws Exception {
+        long now = ServicePlanTest.time("2026-11-10T20:05:00");
+        ServicePlan plan = new ServicePlan("1204,1290,TRA,426,428,,,;1290,1380,CON,428,413,407,2,RET");
+        ServiceAlerts alerts = new ServiceAlerts(plan, now);
+        alerts.acceptMap(position("407", "Alfons X", 2), now);
+        alerts.acceptBoard(board("426", 1, arrival("401", 120), arrival("402", 180), arrival("403", 240)), now);
+        JSONObject joanic = board("428", 1, arrival("401", 300), arrival("402", 360), arrival("403", 420));
+        joanic.put("via2", new JSONArray().put(arrival("407", 480)));
+        alerts.acceptBoard(joanic, now);
+        assertTrue(alerts.due(now, 5).isEmpty());
+
+        long passed = now + 480000L;
+        alerts.acceptMap(position("407", "Joanic", 2), passed);
+        assertTrue(alerts.due(passed, 5).isEmpty());
+
+        long next = ServicePlanTest.time("2026-11-10T21:20:00");
+        alerts.acceptMap(position("407", "Alfons X", 2), next);
+        alerts.acceptBoard(board("426", 1, arrival("401", 120), arrival("402", 180), arrival("403", 240)), next);
+        joanic.put("via2", new JSONArray().put(arrival("407", 600)));
+        alerts.acceptBoard(joanic, next);
+        List<ServiceAlerts.Alert> due = alerts.due(next, 5);
+        assertEquals(1, due.size());
+        assertEquals("Enllaços per prendre el 407", due.get(0).title);
+        assertTrue(due.get(0).body.contains("403 (pas 21:24, arribada 21:27, marge 3 min)"));
+        assertTrue(due.get(0).body.contains("402 (pas 21:23, arribada 21:26, marge 4 min)"));
+        assertTrue(due.get(0).body.contains("401 (pas 21:22, arribada 21:25, marge 5 min)"));
+    }
+
     @Test public void acceptsNumericStringArrivalTimeLikeBackend() throws Exception {
         long now = 1800000000000L;
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,;630,690,CON,413,434,407,1,1"), now);

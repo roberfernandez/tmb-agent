@@ -1,19 +1,50 @@
 package com.tmbagent.traineye;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
-/** Tracks a scheduled pickup using the assigned train's live passage through its origin. */
+/** Tracks the assigned passage and the full circuits that precede it. */
 final class PickupEta {
+    static final long LAP_MS = 77 * 60_000L;
     private static final long MATCH_WINDOW_MS = 30 * 60_000L;
+    private static final long MAX_APPROACH_GAP_MS = 10 * 60_000L;
     private static final long MAX_BOARD_AGE_WHILE_APPROACHING_MS = 120_000L;
     private static final long APPROACH_POSITION_MAX_AGE_MS = 15_000L;
+
+    static final class Estimate {
+        static final Estimate NONE = new Estimate(0, false);
+        final long arrival;
+        final boolean approximate;
+
+        Estimate(long arrival, boolean approximate) {
+            this.arrival = arrival;
+            this.approximate = approximate;
+        }
+    }
+
+    private static final class LapWatch {
+        int remaining;
+        long nextPass;
+        long lastPass;
+        long mapAt;
+        long approachAt;
+        boolean atStation;
+        boolean projected;
+        boolean uncertain;
+    }
+
     private final ServicePlan plan;
     private final long anchor;
     private final Set<String> completed;
+    private final Map<Integer, LapWatch> watches = new HashMap<>();
     private int waiting = -1;
     private int approaching = -1;
+    private boolean dirty;
 
     PickupEta(ServicePlan plan, long now, Set<String> completed) {
         this.plan = plan;
@@ -42,52 +73,195 @@ final class PickupEta {
                 if (pickup == null || row.start < pickup.start) pickup = row;
             }
             if (pickup == null || !active.from.equals(pickup.from)) return null;
+        } else if ("TRA".equals(active.type) && next != null && active.to.equals(next.from)) {
+            pickup = next;
         } else {
             return null;
         }
 
-        if (pickup == null || !pickup.driving() || !pickup.train.equals(train)
-            || !pickup.from.matches("41[3-9]|42[0-9]|43[0-4]") || completed.contains(key(pickup))) return null;
-        if (pickup.index > 0) {
-            ServicePlan.Row previous = plan.rows.get(pickup.index - 1);
-            if (previous.driving() && previous.end == pickup.start
-                && previous.train.equals(pickup.train) && previous.to.equals(pickup.from)) return null;
-        }
+        if (!isPickup(pickup) || !pickup.train.equals(train) || isComplete(pickup)) return null;
         if (minute < pickup.start) waiting = pickup.index;
-        if (canShow(pickup, now) || now <= scheduled(pickup) + MATCH_WINDOW_MS) return pickup;
-        return null;
+        return canShow(pickup, now) || now <= scheduled(pickup) + MATCH_WINDOW_MS ? pickup : null;
+    }
+
+    boolean isPickup(ServicePlan.Row row) {
+        if (row == null || !row.driving() || !row.from.matches("41[3-9]|42[0-9]|43[0-4]")
+            || !("1".equals(row.via) || "2".equals(row.via))) return false;
+        if (row.index == 0) return true;
+        ServicePlan.Row previous = plan.rows.get(row.index - 1);
+        return !(previous.driving() && previous.end == row.start
+            && previous.train.equals(row.train) && previous.to.equals(row.from));
     }
 
     boolean canShow(ServicePlan.Row pickup, long now) {
-        return now < scheduled(pickup) || waiting == pickup.index || approaching == pickup.index;
+        return now < scheduled(pickup) || waiting == pickup.index || approaching == pickup.index
+            || isTracking(pickup);
     }
 
     boolean observe(ServicePlan.Row pickup, JSONObject train, long now) {
-        if (pickup == null || train == null || now < scheduled(pickup) - MATCH_WINDOW_MS) return false;
+        if (!isPickup(pickup) || train == null || isComplete(pickup)) return false;
         int station = ServiceAlerts.stopPosition(train.optString("estacion", ""));
         if (station == 0) return false;
-        int origin = Integer.parseInt(pickup.from);
-        boolean terminal = origin == 413 || origin == 434;
-        String inbound = inboundTrack(pickup);
         String track = reportedTrack(train);
-        if (station == origin && (terminal || inbound.equals(track))) return confirm(pickup);
-        if (!"1".equals(inbound) && !"2".equals(inbound)) return false;
+        String inbound = inboundTrack(pickup);
+        int origin = Integer.parseInt(pickup.from);
         int distance = stopsUntil(origin, station, inbound);
-        if (inbound.equals(track)) {
-            if (distance < 0 && approaching == pickup.index) return confirm(pickup);
-            if (distance > 0 && distance <= 3) approaching = pickup.index;
-        } else if (terminal && approaching == pickup.index && distance <= 3
-            && ("1".equals(track) || "2".equals(track))) {
-            // At a terminus the train can turn around between two map frames.
-            return confirm(pickup);
+        boolean onApproach = inbound.equals(track) && distance > 0 && distance <= 3;
+        LapWatch watch = watches.get(pickup.index);
+        if (watch == null) {
+            if (onApproach && nearPickup(pickup, now)) approaching = pickup.index;
+            return false;
         }
+        if (now < watch.mapAt) return false;
+        watch.mapAt = now;
+
+        boolean atStation = station == origin && (isTerminal(pickup.from) || inbound.equals(track));
+        boolean hadApproach = watch.approachAt > 0 && now - watch.approachAt <= MAX_APPROACH_GAP_MS;
+        boolean passedBetweenFrames = hadApproach && (inbound.equals(track) && distance < 0
+            || isTerminal(pickup.from) && !inbound.equals(track) && validTrack(track) && distance <= 3);
+        boolean passage = atStation && !watch.atStation || passedBetweenFrames;
+        if (watch.atStation != atStation) dirty = true;
+        watch.atStation = atStation;
+        if (onApproach) {
+            if (watch.approachAt / 60_000L != now / 60_000L) dirty = true;
+            watch.approachAt = now;
+        } else if (validTrack(track) || atStation) {
+            watch.approachAt = 0;
+        }
+        if (!passage || Math.abs(now - watch.nextPass) > LAP_MS / 2
+            || (watch.lastPass > 0 && now - watch.lastPass < LAP_MS / 2)) return false;
+
+        if (watch.remaining == 0) return confirm(pickup);
+        watch.remaining--;
+        watch.lastPass = now;
+        watch.nextPass = now + LAP_MS;
+        watch.projected = true;
+        watch.uncertain = false;
+        dirty = true;
         return false;
     }
 
     long predictedArrival(ServicePlan.Row pickup, ServiceAlerts boards, long now,
                           JSONObject liveTrain, long positionAgeMs) {
-        if (pickup == null || !canShow(pickup, now) || completed.contains(key(pickup))) return 0;
-        return liveArrival(boards, pickup.from, pickup.via, pickup.train, now, liveTrain, positionAgeMs);
+        return displayed(pickup, boards, now, liveTrain, positionAgeMs).arrival;
+    }
+
+    Estimate displayed(ServicePlan.Row pickup, ServiceAlerts boards, long now,
+                       JSONObject liveTrain, long positionAgeMs) {
+        if (pickup == null || !canShow(pickup, now)) return Estimate.NONE;
+        return estimate(pickup, boards, now, liveTrain, positionAgeMs, true);
+    }
+
+    Estimate estimate(ServicePlan.Row pickup, ServiceAlerts boards, long now,
+                      JSONObject liveTrain, long positionAgeMs, boolean retain) {
+        if (!isPickup(pickup) || isComplete(pickup)) return Estimate.NONE;
+        long boardAt = boards.boardReceivedAt(pickup.from);
+        long age = now - boardAt;
+        boolean fresh = age >= 0 && age < ServiceAlerts.BOARD_FRESH_MS;
+        LapWatch watch = watches.get(pickup.index);
+        boolean retained = retain && watch != null && !fresh && age < MAX_BOARD_AGE_WHILE_APPROACHING_MS
+            && liveTrain != null && positionAgeMs >= 0 && positionAgeMs < APPROACH_POSITION_MAX_AGE_MS
+            && isApproaching(pickup.from, inboundTrack(pickup), liveTrain);
+        long next = 0;
+        int remaining = watch == null ? 0 : watch.remaining;
+        long reference = watch == null ? scheduled(pickup) : watch.nextPass;
+        long bestDifference = watch == null ? MATCH_WINDOW_MS : LAP_MS / 2;
+        boolean hasCandidate = false;
+        if (fresh || retained) {
+            long maxAge = retained ? MAX_BOARD_AGE_WHILE_APPROACHING_MS : ServiceAlerts.BOARD_FRESH_MS;
+            for (long arrival : boards.pickupArrivals(pickup, now, maxAge)) {
+                if (arrival <= now || arrival > now + LAP_MS + MATCH_WINDOW_MS) continue;
+                if (watch != null && watch.lastPass > 0
+                    && (boardAt < watch.lastPass || arrival - watch.lastPass < LAP_MS / 2)) continue;
+                hasCandidate = true;
+                int circuits = watch == null
+                    ? (int) Math.max(0, Math.round((reference - arrival) / (double) LAP_MS)) : 0;
+                long difference = Math.abs(arrival + circuits * LAP_MS - reference);
+                if (difference > bestDifference || (next != 0 && difference == bestDifference && arrival >= next)) continue;
+                next = arrival;
+                bestDifference = difference;
+                if (watch == null) remaining = circuits;
+            }
+        }
+        if (next == 0) {
+            if (watch != null && fresh && hasCandidate && !watch.uncertain) {
+                watch.uncertain = true;
+                dirty = true;
+            }
+            if (retain && watch != null && watch.projected && !watch.uncertain
+                && watch.nextPass > now) return new Estimate(watch.nextPass + watch.remaining * LAP_MS, true);
+            return Estimate.NONE;
+        }
+
+        if (watch == null) {
+            watch = new LapWatch();
+            watch.remaining = remaining;
+            if (liveTrain != null && positionAgeMs >= 0 && positionAgeMs < APPROACH_POSITION_MAX_AGE_MS) {
+                int station = ServiceAlerts.stopPosition(liveTrain.optString("estacion", ""));
+                int destination = Integer.parseInt(pickup.from);
+                String inbound = inboundTrack(pickup);
+                boolean rightDirection = inbound.equals(reportedTrack(liveTrain));
+                int distance = stopsUntil(destination, station, inbound);
+                if (station == destination && next - now > 3 * 60_000L) {
+                    watch.atStation = isTerminal(pickup.from) || rightDirection;
+                } else if (station != 0 && rightDirection && distance > 0 && distance <= 3) {
+                    watch.approachAt = now - positionAgeMs;
+                }
+            }
+            watches.put(pickup.index, watch);
+            dirty = true;
+        }
+        if (fresh) {
+            if (watch.projected || watch.uncertain || watch.nextPass / 60_000L != next / 60_000L) dirty = true;
+            watch.nextPass = next;
+            watch.projected = false;
+            watch.uncertain = false;
+        }
+        return new Estimate(next + watch.remaining * LAP_MS, retained || watch.remaining > 0);
+    }
+
+    boolean isTracking(ServicePlan.Row pickup) {
+        return watches.containsKey(pickup.index) && !isComplete(pickup);
+    }
+
+    int remainingLaps(ServicePlan.Row pickup) {
+        LapWatch watch = watches.get(pickup.index);
+        return watch == null || watch.uncertain ? -1 : watch.remaining;
+    }
+
+    void restoreState(String value) {
+        try {
+            JSONArray saved = new JSONArray(value);
+            for (int i = 0; i < saved.length(); i++) {
+                JSONObject state = saved.getJSONObject(i);
+                int index = state.getInt("row");
+                if (index < 0 || index >= plan.rows.size() || isComplete(plan.rows.get(index))) continue;
+                LapWatch watch = new LapWatch();
+                watch.remaining = state.getInt("remaining");
+                watch.nextPass = state.getLong("next");
+                watch.lastPass = state.optLong("last");
+                watch.approachAt = state.optLong("approach");
+                watch.atStation = state.optBoolean("atStation");
+                watch.projected = state.optBoolean("projected");
+                watch.uncertain = state.optBoolean("uncertain");
+                if (watch.remaining >= 0 && watch.nextPass > 0) watches.put(index, watch);
+            }
+        } catch (JSONException ignored) {}
+    }
+
+    String changedState() {
+        if (!dirty) return null;
+        JSONArray saved = new JSONArray();
+        for (Map.Entry<Integer, LapWatch> entry : watches.entrySet()) {
+            LapWatch watch = entry.getValue();
+            try {
+                saved.put(new JSONObject().put("row", entry.getKey()).put("remaining", watch.remaining)
+                    .put("next", watch.nextPass).put("last", watch.lastPass).put("approach", watch.approachAt)
+                    .put("atStation", watch.atStation).put("projected", watch.projected).put("uncertain", watch.uncertain));
+            } catch (JSONException ignored) {}
+        }
+        dirty = false;
+        return saved.toString();
     }
 
     static long liveArrival(ServiceAlerts boards, String stop, String via, String train, long now,
@@ -141,11 +315,22 @@ final class PickupEta {
         return train.optString("platformTrack", train.optString("track", ""));
     }
 
-    boolean confirm(ServicePlan.Row pickup) { return completed.add(key(pickup)); }
+    boolean confirm(ServicePlan.Row pickup) {
+        if (!completed.add(key(pickup))) return false;
+        watches.remove(pickup.index);
+        dirty = true;
+        return true;
+    }
 
-    boolean nearPickup(ServicePlan.Row pickup, long now) { return now >= scheduled(pickup) - MATCH_WINDOW_MS; }
+    boolean isComplete(ServicePlan.Row pickup) { return completed.contains(key(pickup)); }
+
+    boolean nearPickup(ServicePlan.Row pickup, long now) {
+        return now >= scheduled(pickup) - MATCH_WINDOW_MS;
+    }
 
     Set<String> completedRows() { return new HashSet<>(completed); }
+
+    private static boolean validTrack(String track) { return "1".equals(track) || "2".equals(track); }
 
     private long scheduled(ServicePlan.Row pickup) { return plan.at(anchor, pickup.start); }
 

@@ -38,8 +38,7 @@ final class ServiceAlerts {
         }
     }
     private static final class TakeWatch {
-        int distance;
-        long forecast, seenAt, announcedArrival;
+        long seenAt, announcedArrival;
         boolean rearmed, finished;
     }
     private static final class Board {
@@ -59,6 +58,7 @@ final class ServiceAlerts {
     final Set<String> sent = new HashSet<>();
     private final Map<String, Board> boards = new HashMap<>();
     private final Map<Integer, TakeWatch> takes = new HashMap<>();
+    final PickupEta pickupEta;
     private JSONObject map;
     private long mapReceived;
     private boolean takeStateDirty;
@@ -78,19 +78,28 @@ final class ServiceAlerts {
         STOP_POSITIONS.put("hospitaldesantpau", 430);
     }
 
-    ServiceAlerts(ServicePlan plan, long now) { this.plan = plan; anchor = plan.anchorAt(now); startedAt = now; }
+    ServiceAlerts(ServicePlan plan, long now) {
+        this(plan, now, new PickupEta(plan, now, java.util.Collections.emptySet()));
+    }
+
+    ServiceAlerts(ServicePlan plan, long now, PickupEta pickupEta) {
+        this.plan = plan;
+        this.pickupEta = pickupEta;
+        anchor = plan.anchorAt(now);
+        startedAt = now;
+    }
 
     Set<String> requiredStops(long now, int margin) {
         Set<String> stops = new LinkedHashSet<>();
         for (ServicePlan.Row row : plan.rows) {
-            if (!row.driving()) continue;
+            if (!pickupEta.isPickup(row) || pickupEta.isComplete(row)) continue;
             long at = plan.at(anchor, row.start);
             String source = plan.sourceFor(row);
             if (isDirectTake(row, source)) {
                 if (!pendingTake(row, at, now)) continue;
                 stops.add(row.from);
             } else {
-                if (at + LIVE_MATCH_WINDOW <= now) continue;
+                if (!pendingConnection(row, at, now)) continue;
                 stops.add(source);
                 stops.add(row.from);
             }
@@ -205,12 +214,14 @@ final class ServiceAlerts {
     boolean hasPending(long now) {
         for (ServicePlan.Row row : plan.rows) {
             long at = plan.at(anchor, row.start);
-            if (row.driving() && isDirectTake(row, plan.sourceFor(row))) {
-                if (pendingTake(row, at, now)) return true;
+            if (row.driving()) {
+                if (pickupEta.isPickup(row) && !pickupEta.isComplete(row)
+                    && (isDirectTake(row, plan.sourceFor(row)) ? pendingTake(row, at, now)
+                        : pendingConnection(row, at, now))) return true;
                 continue;
             }
             if (at + LIVE_MATCH_WINDOW <= now) continue;
-            if ((row.driving() || "TRA".equals(row.type)) && at >= startedAt - 30000) return true;
+            if ("TRA".equals(row.type) && at >= startedAt - 30000) return true;
             if (releasedTrainFor(row) != null && !sent.contains(RETURN_ALERT_PREFIX + row.index)) return true;
         }
         return false;
@@ -222,12 +233,15 @@ final class ServiceAlerts {
             long at = plan.at(anchor, row.start);
             String key = row.type + "-" + row.index;
             String source = plan.sourceFor(row);
-            if (row.driving() && isDirectTake(row, source)) {
-                Alert take = liveTakeAlert(row, key, at, now, margin);
-                if (take != null) alerts.add(take);
-                continue;
-            }
-            if (now > at + LIVE_MATCH_WINDOW) continue;
+            if (row.driving()) {
+                if (!pickupEta.isPickup(row) || pickupEta.isComplete(row)) continue;
+                if (isDirectTake(row, source)) {
+                    Alert take = liveTakeAlert(row, key, at, now, margin);
+                    if (take != null) alerts.add(take);
+                    continue;
+                }
+                if (!pendingConnection(row, at, now)) continue;
+            } else if (now > at + LIVE_MATCH_WINDOW) continue;
             boolean scheduledAlert = at >= startedAt - 30000;
             if ("TRA".equals(row.type)) {
                 Alert returning = returnAlert(row, at, now, margin);
@@ -236,7 +250,7 @@ final class ServiceAlerts {
                 } else if (scheduledAlert && now >= at - margin * 60000L && now < at + 60000 && !sent.contains(key)) {
                     alerts.add(new Alert(key, "Servei · trasllat", "Trasllat " + station(row.from) + " → " + station(row.to) + " a les " + clock(at) + "."));
                 }
-            } else if (row.driving() && scheduledAlert) {
+            } else if (row.driving()) {
                 Alert connection = connectionAlert(row, now, margin);
                 if (connection != null) {
                     alerts.add(connection);
@@ -247,9 +261,6 @@ final class ServiceAlerts {
                 if (approaching(own, now, margin) && !sent.contains("pas-" + row.index)) {
                     alerts.add(new Alert("pas-" + row.index, "Puja al tren " + row.train,
                         "El " + row.train + " passa per " + station(source) + " · via " + via + " a les " + clock(own.departure) + ". Puja-hi per arribar a la presa a " + station(row.from) + ". " + advice(row, now), own.departure));
-                } else if (!sent.contains(key)) {
-                    Alert take = scheduledTakeAlert(row, key, at, now, margin);
-                    if (take != null) alerts.add(take);
                 }
             }
         }
@@ -273,53 +284,56 @@ final class ServiceAlerts {
         return source.isEmpty() || source.equals(row.from);
     }
 
+    private boolean pendingConnection(ServicePlan.Row row, long scheduled, long now) {
+        return now <= scheduled + LIVE_MATCH_WINDOW
+            || (pickupEta.isTracking(row) && now < plan.at(anchor, row.end));
+    }
+
     private boolean pendingTake(ServicePlan.Row row, long scheduled, long now) {
-        if (!row.from.matches("41[3-9]|42[0-9]|43[0-4]") || !("1".equals(row.via) || "2".equals(row.via))) return false;
+        if (pickupEta.isComplete(row)) return false;
         TakeWatch watch = takes.get(row.index);
-        return watch == null ? now <= scheduled + TAKE_MATCH_WINDOW : !watch.finished && now - watch.seenAt < TAKE_MATCH_WINDOW;
+        if (watch != null && watch.finished) return false;
+        return now <= scheduled + TAKE_MATCH_WINDOW
+            || (pickupEta.isTracking(row) && now < plan.at(anchor, row.end))
+            || (watch != null && now - watch.seenAt < TAKE_MATCH_WINDOW);
+    }
+
+    private JSONObject livePosition(ServicePlan.Row row, long now) {
+        if (map == null || now < mapReceived || now - mapReceived >= 45_000L) return null;
+        return map.optJSONObject(row.train);
     }
 
     private Alert liveTakeAlert(ServicePlan.Row row, String key, long scheduled, long now, int margin) {
-        if (!pendingTake(row, scheduled, now) || map == null || now < mapReceived || now - mapReceived >= 45000) return null;
-        JSONObject train = map.optJSONObject(row.train);
+        if (!pendingTake(row, scheduled, now)) return null;
+        ServicePlan.Row active = pickupEta.target(now, row.train);
+        if (active == null || active.index != row.index) return null;
+        JSONObject train = livePosition(row, now);
         if (train == null) return null;
-        int position = stopPosition(train.optString("estacion", ""));
-        if (position == 0) return null;
-        int target = Integer.parseInt(row.from);
-        boolean terminus = target == 413 || target == 434;
-        String inbound = target == 413 ? "2" : target == 434 ? "1" : row.via;
-        String track = train.optString("platformTrack", train.optString("track", ""));
-        boolean onApproach = inbound.equals(track) || (terminus && position == target);
-        int distance = (target - position) * ("1".equals(inbound) ? 1 : -1);
         TakeWatch watch = takes.get(row.index);
-        // Once the train has gone by, the next prediction for its number is another circuit.
-        if (watch != null && (distance < 0 || (onApproach && distance > watch.distance + 1)
-            || (!onApproach && (terminus || watch.distance == 0) && ("1".equals(track) || "2".equals(track))))) {
+        if (pickupEta.observe(row, train, mapReceived)) {
+            if (watch == null) {
+                watch = new TakeWatch();
+                takes.put(row.index, watch);
+            }
             watch.finished = true;
             takeStateDirty = true;
             return null;
         }
-        if (!onApproach || distance < 0) return null;
 
-        // The timetable identifies the initial passage. Later changes use that passage's last prediction.
-        long reference = watch == null ? scheduled : watch.forecast;
-        long arrival = 0;
-        for (Arrival candidate : arrivals(row.from, row.via, now)) {
-            if (!row.train.equals(candidate.train) || candidate.at <= now) continue;
-            if (watch == null && Math.abs(candidate.at - scheduled) > TAKE_MATCH_WINDOW) continue;
-            if (arrival == 0 || Math.abs(candidate.at - reference) < Math.abs(arrival - reference)) arrival = candidate.at;
-        }
+        int position = stopPosition(train.optString("estacion", ""));
+        if (position == 0) return null;
+        String inbound = "413".equals(row.from) ? "2" : "434".equals(row.from) ? "1" : row.via;
+        if (!inbound.equals(PickupEta.reportedTrack(train))
+            || PickupEta.stopsUntil(Integer.parseInt(row.from), position, inbound) <= 0) return null;
+        long arrival = assignedArrival(row, now);
         if (arrival == 0) return null;
 
         if (watch == null) {
             watch = new TakeWatch();
-            watch.distance = distance;
             takes.put(row.index, watch);
             takeStateDirty = true;
         }
-        if (distance < watch.distance || watch.seenAt / 60000 != now / 60000) takeStateDirty = true;
-        watch.distance = Math.min(watch.distance, distance);
-        watch.forecast = arrival;
+        if (watch.seenAt / 60000 != now / 60000) takeStateDirty = true;
         watch.seenAt = now;
 
         long change = arrival - watch.announcedArrival;
@@ -349,8 +363,6 @@ final class ServiceAlerts {
             for (int i = 0; i < state.length(); i++) {
                 JSONObject saved = state.getJSONObject(i);
                 TakeWatch watch = new TakeWatch();
-                watch.distance = saved.getInt("distance");
-                watch.forecast = saved.getLong("forecast");
                 watch.seenAt = saved.getLong("seenAt");
                 watch.announcedArrival = saved.optLong("announcedArrival");
                 watch.rearmed = saved.optBoolean("rearmed");
@@ -366,20 +378,13 @@ final class ServiceAlerts {
         for (Map.Entry<Integer, TakeWatch> entry : takes.entrySet()) {
             TakeWatch watch = entry.getValue();
             try {
-                state.put(new JSONObject().put("row", entry.getKey()).put("distance", watch.distance)
-                    .put("forecast", watch.forecast).put("seenAt", watch.seenAt).put("announcedArrival", watch.announcedArrival)
+                state.put(new JSONObject().put("row", entry.getKey())
+                    .put("seenAt", watch.seenAt).put("announcedArrival", watch.announcedArrival)
                     .put("rearmed", watch.rearmed).put("finished", watch.finished));
             } catch (JSONException ignored) {}
         }
         takeStateDirty = false;
         return state.toString();
-    }
-
-    private Alert scheduledTakeAlert(ServicePlan.Row row, String key, long scheduled, long now, int margin) {
-        long lead = margin * 60000L;
-        if (now < scheduled - lead || now >= scheduled + 60000) return null;
-        return new Alert(key, "Servei · presa del " + row.train,
-            "Presa prevista a " + station(row.from) + " · via " + row.via + " · " + clock(scheduled) + ". " + advice(row, now));
     }
 
     private ServicePlan.Row releasedTrainFor(ServicePlan.Row transfer) {
@@ -519,14 +524,41 @@ final class ServiceAlerts {
     private Option ownTrain(ServicePlan.Row row, String source, long now) {
         if (source.isEmpty()) return null;
         long deadline = assignedArrival(row, now); if (deadline == 0) return null;
-        for (Arrival departure : arrivals(source, displacementVia(source, row.from), now))
-            if (departure.train.equals(row.train) && departure.at > now + 5000 && deadline > departure.at)
-                return new Option(row.train, departure.at, deadline);
-        return null;
+        ServicePlan.Row transfer = plan.transferFor(row);
+        long available = transfer == null ? now : plan.at(anchor, transfer.start);
+        if (transfer != null && transfer.index > 0) {
+            ServicePlan.Row previous = plan.rows.get(transfer.index - 1);
+            if ("EST".equals(previous.type) && source.equals(previous.from))
+                available = plan.at(anchor, previous.start);
+        }
+        Option own = null;
+        for (Arrival departure : arrivals(source, displacementVia(source, row.from), now)) {
+            long travelTime = deadline - departure.at;
+            if (departure.train.equals(row.train) && departure.at > now + 5000 && departure.at >= available
+                && travelTime > 0 && travelTime < PickupEta.LAP_MS) own = new Option(row.train, departure.at, deadline);
+        }
+        return own;
     }
 
     private long assignedArrival(ServicePlan.Row row, long now) {
-        return arrivalAtOrAfter(arrivals(row.from, row.via, now), row.train, 0);
+        JSONObject train = livePosition(row, now);
+        if (train != null) pickupEta.observe(row, train, mapReceived);
+        PickupEta.Estimate estimate = pickupEta.estimate(row, this, now, train, now - mapReceived, false);
+        return estimate.approximate ? 0 : estimate.arrival;
+    }
+
+    List<Long> pickupArrivals(ServicePlan.Row row, long now, long maxAge) {
+        List<Long> times = new ArrayList<>();
+        for (Arrival arrival : arrivals(row.from, row.via, now, maxAge)) {
+            if (row.train.equals(arrival.train) && arrival.at > now) times.add(arrival.at);
+        }
+        if (times.isEmpty() && PickupEta.isTerminal(row.from)) {
+            String other = "1".equals(row.via) ? "2" : "1";
+            for (Arrival arrival : arrivals(row.from, other, now, maxAge)) {
+                if (row.train.equals(arrival.train) && arrival.at > now) times.add(arrival.at);
+            }
+        }
+        return times;
     }
 
     private static long arrivalAtOrAfter(List<Arrival> arrivals, String train, long earliest) {
@@ -543,7 +575,8 @@ final class ServiceAlerts {
         for (Arrival departure : arrivals(source, via, now)) {
             if (departure.at <= now + 5000 || !seen.add(departure.train)) continue;
             long arrival = arrivalAtOrAfter(destination, departure.train, departure.at);
-            if (arrival > 0 && arrival < deadline) options.add(new Option(departure.train, departure.at, arrival));
+            if (arrival > departure.at && arrival < deadline && arrival - departure.at < PickupEta.LAP_MS)
+                options.add(new Option(departure.train, departure.at, arrival));
         }
         return options;
     }

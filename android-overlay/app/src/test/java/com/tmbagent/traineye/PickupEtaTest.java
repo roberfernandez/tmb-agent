@@ -23,6 +23,7 @@ public class PickupEtaTest {
         assertNotNull(pickup);
         assertEquals("425", pickup.from);
         assertEquals("2", pickup.via);
+        seed(eta, plan, pickup, time(21, 24), time(21, 27));
         assertFalse(eta.observe(pickup, position("Girona", 2), time(21, 26)));
         assertSame(pickup, eta.target(time(21, 27), "410"));
         assertTrue(eta.canShow(pickup, time(21, 27)));
@@ -35,8 +36,10 @@ public class PickupEtaTest {
     }
 
     @Test public void keepsAnEstablishedWaitPastThirtyMinutesAndDetectsAJumpAcrossTheStation() throws JSONException {
-        PickupEta eta = new PickupEta(new ServicePlan(SERVICE), time(21, 24), Set.of());
+        ServicePlan plan = new ServicePlan(SERVICE);
+        PickupEta eta = new PickupEta(plan, time(21, 24), Set.of());
         ServicePlan.Row pickup = eta.target(time(21, 24), "410");
+        seed(eta, plan, pickup, time(21, 24), time(21, 34));
         assertSame(pickup, eta.target(time(22, 0), "410"));
         assertFalse(eta.observe(pickup, position("Verdaguer", 2), time(22, 0)));
         assertTrue(eta.observe(pickup, position("Urquinaona", 2), time(22, 3)));
@@ -72,6 +75,7 @@ public class PickupEtaTest {
         ServicePlan.Row pickup = eta.target(time(23, 58), "410");
         assertNotNull(pickup);
         assertSame(pickup, eta.target(time(24, 11), "410"));
+        seed(eta, plan, pickup, time(23, 58), time(24, 12));
         assertTrue(eta.observe(pickup, position("La Pau", 2), time(24, 12)));
         assertNull(eta.target(time(24, 12), "410"));
     }
@@ -104,6 +108,7 @@ public class PickupEtaTest {
         ServiceAlerts boards = new ServiceAlerts(plan, JOANIC_RECEIVED);
         long arrival = JOANIC_RECEIVED + 85_000L;
         boards.acceptBoard(joanicBoard(arrival), JOANIC_RECEIVED);
+        assertEquals(arrival, eta.predictedArrival(pickup, boards, JOANIC_RECEIVED, null, 0));
         long now = JOANIC_RECEIVED + 76_000L;
 
         assertEquals(0, eta.predictedArrival(pickup, boards, now, null, 0));
@@ -123,6 +128,7 @@ public class PickupEtaTest {
         ServicePlan.Row pickup = eta.target(JOANIC_RECEIVED, "410");
         ServiceAlerts boards = new ServiceAlerts(plan, JOANIC_RECEIVED);
         boards.acceptBoard(joanicBoard(JOANIC_ARRIVAL), JOANIC_RECEIVED);
+        assertEquals(JOANIC_ARRIVAL, eta.predictedArrival(pickup, boards, JOANIC_RECEIVED, null, 0));
         long now = JOANIC_RECEIVED + 90_000L;
         JSONObject approach = position("Girona", 1);
         assertEquals(JOANIC_ARRIVAL, eta.predictedArrival(pickup, boards, now, approach, 2_000L));
@@ -140,6 +146,97 @@ public class PickupEtaTest {
         return new JSONObject("{\"line\":\"L4\",\"stopCode\":\"428\","
             + "\"via1\":[{\"trainCode\":\"410\",\"arrivalTime\":" + arrival + ",\"secsLeft\":418}],"
             + "\"via2\":[{\"trainCode\":\"410\",\"arrivalTime\":1794317302666,\"secsLeft\":1920}]}");
+    }
+
+    private static final String LA_PAU = "1126,1317,EST,413,413,,,;1317,1485,CON,413,413,407,2,RET;1485,1490,EST,413,413,,,";
+
+    @Test public void followsTheThirdPassAndBridgesTheGapUntilMiralinShowsTheNextLap() throws JSONException {
+        ServicePlan plan = new ServicePlan(LA_PAU);
+        long start = time(19, 13);
+        PickupEta eta = new PickupEta(plan, start, Set.of());
+        ServicePlan.Row pickup = eta.target(start, "407");
+        ServiceAlerts boards = new ServiceAlerts(plan, start);
+
+        boards.acceptBoard(board(pickup, time(19, 23)), start);
+        PickupEta.Estimate first = eta.displayed(pickup, boards, start, null, 0);
+        assertEquals(time(21, 57), first.arrival);
+        assertTrue(first.approximate);
+        assertEquals(2, eta.remainingLaps(pickup));
+
+        assertFalse(eta.observe(pickup, position("La Pau", 2), time(19, 23)));
+        assertFalse(eta.observe(pickup, position("La Pau", 1), time(19, 24)));
+        assertEquals(1, eta.remainingLaps(pickup));
+        assertEquals(time(21, 57), eta.predictedArrival(pickup, boards, time(19, 25), null, 0));
+
+        PickupEta restored = new PickupEta(plan, time(19, 25), Set.of());
+        restored.restoreState(eta.changedState());
+        assertEquals(1, restored.remainingLaps(pickup));
+        assertFalse(restored.observe(pickup, position("Besòs", 2), time(20, 39)));
+        assertFalse(restored.observe(pickup, position("La Pau", 2), time(20, 42)));
+        assertEquals(0, restored.remainingLaps(pickup));
+        PickupEta.Estimate projected = restored.displayed(pickup, boards, time(20, 43), null, 0);
+        assertEquals(time(21, 59), projected.arrival);
+        assertTrue(projected.approximate);
+
+        long finalApproach = time(21, 51);
+        boards.acceptBoard(board(pickup, time(21, 58)), finalApproach);
+        PickupEta.Estimate live = restored.displayed(pickup, boards, finalApproach, position("Besòs", 2), 0);
+        assertEquals(time(21, 58), live.arrival);
+        assertFalse(live.approximate);
+        assertFalse(restored.observe(pickup, position("Besòs", 2), finalApproach));
+        assertTrue(restored.observe(pickup, position("La Pau", 2), time(21, 58)));
+        assertNull(restored.target(time(21, 59), "407"));
+    }
+
+    @Test public void aLatePreviousPassInsideThePickupWindowStillCountsAsThePreviousLap() throws JSONException {
+        ServicePlan plan = new ServicePlan(LA_PAU);
+        PickupEta eta = new PickupEta(plan, time(20, 35), Set.of());
+        ServicePlan.Row pickup = eta.target(time(20, 35), "407");
+        ServiceAlerts boards = new ServiceAlerts(plan, time(20, 35));
+        boards.acceptBoard(board(pickup, time(20, 45)), time(20, 35));
+        assertEquals(time(22, 2), eta.predictedArrival(pickup, boards, time(20, 35), null, 0));
+
+        boards.acceptBoard(board(pickup, time(21, 10)), time(20, 42));
+        assertEquals(time(22, 27), eta.predictedArrival(pickup, boards, time(20, 42), null, 0));
+        boards.acceptBoard(board(pickup, time(21, 30)), time(21, 7));
+        assertEquals(time(22, 47), eta.predictedArrival(pickup, boards, time(21, 7), null, 0));
+
+        // The board can roll to the next passage before the map reaches the terminus.
+        boards.acceptBoard(board(pickup, time(22, 47)), time(21, 30));
+        assertEquals(0, eta.predictedArrival(pickup, boards, time(21, 30), null, 0));
+        assertFalse(eta.observe(pickup, position("La Pau", 2), time(21, 30)));
+        assertEquals(0, eta.remainingLaps(pickup));
+        assertSame(pickup, eta.target(time(21, 58), "407"));
+        assertEquals(time(22, 47), eta.predictedArrival(pickup, boards, time(21, 58), null, 0));
+    }
+
+    @Test public void doesNotSkipAnUnobservedLapWhenTheBoardJumpsToTheNextPass() throws JSONException {
+        ServicePlan plan = new ServicePlan(LA_PAU);
+        long now = time(20, 35);
+        PickupEta eta = new PickupEta(plan, now, Set.of());
+        ServicePlan.Row pickup = eta.target(now, "407");
+        ServiceAlerts boards = new ServiceAlerts(plan, now);
+        boards.acceptBoard(board(pickup, time(20, 45)), now);
+        assertEquals(time(22, 2), eta.predictedArrival(pickup, boards, now, null, 0));
+
+        long reconnect = time(21, 48);
+        boards.acceptBoard(board(pickup, time(22, 2)), reconnect);
+        assertEquals(0, eta.predictedArrival(pickup, boards, reconnect, position("Besòs", 2), 0));
+        assertEquals(-1, eta.remainingLaps(pickup));
+        assertFalse(eta.observe(pickup, position("La Pau", 2), time(22, 2)));
+        assertSame(pickup, eta.target(time(22, 3), "407"));
+    }
+
+    private static void seed(PickupEta eta, ServicePlan plan, ServicePlan.Row row, long now, long arrival)
+        throws JSONException {
+        ServiceAlerts boards = new ServiceAlerts(plan, now);
+        boards.acceptBoard(board(row, arrival), now);
+        assertEquals(arrival, eta.predictedArrival(row, boards, now, null, 0));
+    }
+
+    private static JSONObject board(ServicePlan.Row row, long arrival) throws JSONException {
+        return new JSONObject().put("stopCode", row.from).put("via" + row.via, new org.json.JSONArray().put(
+            new JSONObject().put("trainCode", row.train).put("arrivalTime", arrival)));
     }
 
     private static long time(int hour, int minute) { return DAY + (hour * 60L + minute) * 60_000; }
