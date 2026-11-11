@@ -93,7 +93,9 @@ public class TrainOverlayService extends Service {
     }
 
     private long displayedHeadwaySeconds(long now) {
-        return officialReader == null ? trainHeadway.seconds(train, now)
+        // The public mirror can return a synthetic 600 s even when TMB
+        // reports a different interval. Keep it only in diagnostics.
+        return officialReader == null ? -1
             : officialReader.seconds(train, officialVia(), officialStop(), now);
     }
 
@@ -102,7 +104,7 @@ public class TrainOverlayService extends Service {
     }
 
     private String displayedHeadwaySource(long now) {
-        return officialReader == null ? trainHeadway.source(train, now) : "official TMB";
+        return officialReader == null ? "official TMB not connected" : "official TMB";
     }
 
     private void openOfficialLogin() {
