@@ -1,6 +1,5 @@
 package com.tmbagent.traineye;
 
-import android.app.ActivityOptions;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -26,7 +25,6 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -38,10 +36,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class TrainOverlayService extends Service {
@@ -68,7 +64,6 @@ public class TrainOverlayService extends Service {
     private View popupRoot;
     private ScrollView popupScroll;
     private ServiceImageView popupImageView;
-    private TextView popupStatus;
     private final ArrayList<View> popupRowViews = new ArrayList<>();
     private int popupActiveIndex = -1;
     private float downRawX, downRawY;
@@ -86,15 +81,8 @@ public class TrainOverlayService extends Service {
     private int ageAtFetch = -1;
     private long fetchedAt = 0;
     private TrainPositionClient directClient;
-    private TextView etaDiagnosticView;
-    private Button etaConfirmButton;
-    private String etaSocketStatus = "sin conectar";
-    private String etaSocketError = "";
-    private final Map<String, String> etaStationPhases = new HashMap<>();
-    private final Map<String, String> etaStationErrors = new HashMap<>();
     private JSONObject directMap;
     private long directMapAt;
-    private final TrainHeadway trainHeadway = new TrainHeadway();
     private final StationHeadway stationHeadway = new StationHeadway();
     private String connectionStatus = "Miralin directe · connectant…";
     private boolean destroyed;
@@ -383,39 +371,6 @@ public class TrainOverlayService extends Service {
         closeParams.rightMargin = dp(6);
         card.addView(close, closeParams);
 
-        LinearLayout etaPanel = new LinearLayout(this);
-        etaPanel.setOrientation(LinearLayout.VERTICAL);
-        etaPanel.setBackgroundColor(0xe6111e30);
-        etaPanel.setPadding(dp(12), dp(8), dp(12), dp(8));
-        etaDiagnosticView = new TextView(this);
-        etaDiagnosticView.setTextSize(12);
-        etaDiagnosticView.setTextColor(0xffffffff);
-        etaPanel.addView(etaDiagnosticView);
-        etaConfirmButton = new Button(this);
-        etaConfirmButton.setText("Ja he pres el tren");
-        etaConfirmButton.setOnClickListener(view -> {
-            ServicePlan.Row pickup = etaTarget(System.currentTimeMillis());
-            boolean confirmed = manualEta != null ? manualEta.confirm() : pickup != null && pickupEta.confirm(pickup);
-            if (confirmed) finishEtaPickup();
-            updateEye();
-        });
-        LinearLayout etaActions = new LinearLayout(this);
-        etaActions.setOrientation(LinearLayout.HORIZONTAL);
-        etaActions.addView(etaConfirmButton, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1));
-        Button copyDiagnostic = new Button(this);
-        copyDiagnostic.setText("Copia el diagnòstic");
-        copyDiagnostic.setOnClickListener(view -> copyEtaDiagnostic());
-        etaActions.addView(copyDiagnostic, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1));
-        etaPanel.addView(etaActions);
-        FrameLayout.LayoutParams etaParams = new FrameLayout.LayoutParams(
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-            android.view.ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
-        etaParams.leftMargin = dp(12);
-        etaParams.rightMargin = dp(12);
-        etaParams.bottomMargin = dp(12);
-        root.addView(etaPanel, etaParams);
-        refreshEtaDiagnostic();
-
         popupRoot = root;
         int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
         WindowManager.LayoutParams popupParams = new WindowManager.LayoutParams(
@@ -432,8 +387,6 @@ public class TrainOverlayService extends Service {
         } catch (Exception ignored) {
             popupRoot = null;
             popupImageView = null;
-            etaDiagnosticView = null;
-            etaConfirmButton = null;
             showOverlay();
         }
     }
@@ -543,11 +496,8 @@ public class TrainOverlayService extends Service {
             try { windowManager.removeView(popupRoot); } catch (Exception ignored) {}
             popupRoot = null;
             popupScroll = null;
-            popupStatus = null;
             popupRowViews.clear();
             popupImageView = null;
-            etaDiagnosticView = null;
-            etaConfirmButton = null;
             popupActiveIndex = -1;
             showOverlay();
         }
@@ -668,7 +618,6 @@ public class TrainOverlayService extends Service {
                     if (destroyed) return;
                     directMap = trains;
                     directMapAt = received;
-                    trainHeadway.acceptMap(trains, receivedAt);
                     if (serviceAlerts != null) serviceAlerts.acceptMap(trains, receivedAt);
                     applyDirectTrain();
                     ServicePlan.Row pickup = etaTarget(receivedAt);
@@ -683,7 +632,6 @@ public class TrainOverlayService extends Service {
                     if (destroyed || status.equals(connectionStatus)) return;
                     connectionStatus = status;
                     if (!status.contains("dades rebudes")) {
-                        trainHeadway.clear();
                         stationHeadway.clear();
                         if (serviceAlerts != null) serviceAlerts.clearLiveData();
                     }
@@ -694,7 +642,6 @@ public class TrainOverlayService extends Service {
                 final long received = System.currentTimeMillis();
                 handler.post(() -> {
                     if (destroyed) return;
-                    trainHeadway.acceptBoard(board, received);
                     stationHeadway.accept(stop, board, received);
                     if (serviceAlerts != null) serviceAlerts.acceptBoard(stop, board, received);
                     if (etaBoards != null) etaBoards.acceptBoard(stop, board, received);
@@ -705,20 +652,6 @@ public class TrainOverlayService extends Service {
             @Override public void onBoardState(String stop, String status, boolean error) {
                 if (error) android.util.Log.w("TrainEyeETA", status);
                 else android.util.Log.d("TrainEyeETA", status);
-                handler.post(() -> {
-                    if (destroyed) return;
-                    if (stop.isEmpty()) {
-                        etaSocketStatus = status;
-                        if (error) {
-                            etaSocketError = status;
-                            etaStationPhases.clear();
-                        }
-                    } else {
-                        etaStationPhases.put(stop, status);
-                        if (error) etaStationErrors.put(stop, status);
-                    }
-                    refreshEtaDiagnostic();
-                });
             }
         });
         updateBoardStops();
@@ -928,74 +861,11 @@ public class TrainOverlayService extends Service {
         return new PickupEta.Estimate(arrival, retained);
     }
 
-    private void copyEtaDiagnostic() {
-        long now = System.currentTimeMillis();
-        ServicePlan.Row pickup = etaTarget(now);
-        String stop = etaStop(pickup);
-        if (stop.isEmpty() && manualEta != null) stop = manualEta.stop;
-        try {
-            PickupEta.Estimate estimate = predictedEta(pickup, now);
-            JSONObject report = new JSONObject()
-                .put("version", getPackageManager().getPackageInfo(getPackageName(), 0).versionName)
-                .put("capturedAt", now)
-                .put("mode", mode)
-                .put("train", train)
-                .put("requestedStop", stop)
-                .put("requestedStation", stop.isEmpty() ? "" : stationName(stop))
-                .put("requestedVia", pickup == null ? "" : pickup.via)
-                .put("positionAgeMs", directMapAt == 0 ? -1 : android.os.SystemClock.elapsedRealtime() - directMapAt)
-                .put("position", directMap == null ? JSONObject.NULL : directMap.opt(train))
-                .put("headwaySeconds", stationHeadway.seconds(headwayStop(), headwayVia(), train, now))
-                .put("headwaySource", stationHeadway.source(headwayStop(), headwayVia(), train, now))
-                .put("headwayStop", headwayStop())
-                .put("mapHeadwaySeconds", trainHeadway.seconds(train, now))
-                .put("dataSource", "miralin.cat")
-                .put("arrivalAt", estimate.arrival)
-                .put("approximate", estimate.approximate)
-                .put("socketStatus", etaStationPhases.getOrDefault(stop, etaSocketStatus))
-                .put("socketError", etaStationErrors.getOrDefault(stop, etaSocketError))
-                .put("board", etaBoards == null ? JSONObject.NULL : etaBoards.diagnosticBoard(stop))
-                .put("summary", etaDiagnosticView == null ? "" : etaDiagnosticView.getText().toString());
-            android.content.ClipboardManager clipboard = getSystemService(android.content.ClipboardManager.class);
-            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Diagnòstic ETA", report.toString(2)));
-            android.widget.Toast.makeText(this, "Diagnòstic copiat. Enganxa'l al xat.", android.widget.Toast.LENGTH_SHORT).show();
-        } catch (Exception error) {
-            android.widget.Toast.makeText(this, "No s'ha pogut copiar el diagnòstic.", android.widget.Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void refreshEtaDiagnostic() {
-        if (etaDiagnosticView == null) return;
-        long now = System.currentTimeMillis();
-        ServicePlan.Row pickup = etaTarget(now);
-        String stop = etaStop(pickup);
-        long received = stop.isEmpty() || etaBoards == null ? 0 : etaBoards.boardReceivedAt(stop);
-        PickupEta.Estimate estimate = predictedEta(pickup, now);
-        long arrival = estimate.arrival;
-        boolean retained = arrival > 0 && estimate.approximate && received > 0
-            && now - received >= ServiceAlerts.BOARD_FRESH_MS;
-        int laps = pickup == null ? -1 : pickupEta.remainingLaps(pickup);
-        String phase = etaStationPhases.getOrDefault(stop, etaSocketStatus);
-        String error = etaStationErrors.getOrDefault(stop, etaSocketError);
-        boolean canConfirm = !stop.isEmpty() && (manualEta != null || pickupEta.nearPickup(pickup, now));
-        etaConfirmButton.setVisibility(canConfirm ? View.VISIBLE : View.GONE);
-        etaDiagnosticView.setText("ETA DIAGNÓSTICO · tren " + train
-            + " · estación " + (stop.isEmpty() ? "—" : stationName(stop) + " (" + stop + ")")
-            + (pickup == null || pickup.via.isEmpty() ? "" : " · vía " + pickup.via)
-            + "\nSocket: " + phase
-            + (error.isEmpty() ? "" : "\nÚltimo fallo: " + error)
-            + "\nÚltima previsión: " + (received == 0 ? "ninguna" : Math.max(0, (now - received) / 1000) + " s")
-            + (pickup == null ? "" : "\nVoltes pendents: " + (laps < 0 ? "per confirmar" : laps))
-            + "\nT.ANT: " + stationHeadway.label(headwayStop(), headwayVia(), train, now)
-            + "\nCoincidencia: " + (arrival == 0 ? "sin previsión" : countdown(estimate, now))
-            + (retained ? " · previsión aproximada" : "")
-            + "\nDatos: " + (stop.isEmpty() ? (manualEta != null ? "arribada detectada" : "sin recogida pendiente")
-                : retained ? "previsió aproximada · esperant el quadre " + stop
-                : etaBoards.boardStatus(stop, train, now)));
-    }
-
     private void updateEye() {
-        refreshEtaDiagnostic();
+        long now = System.currentTimeMillis();
+        ServicePlan.Row pickup = etaTarget(now);
+        // Continue processing arrival frames while the service viewer covers the front.
+        PickupEta.Estimate estimate = predictedEta(pickup, now);
         if (eye == null) return;
         int age;
         String currentStation;
@@ -1007,10 +877,8 @@ public class TrainOverlayService extends Service {
         }
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
         eye.setStatus(train, currentStation, currentTrack, ageText);
-        long now = System.currentTimeMillis();
-        ServicePlan.Row pickup = etaTarget(now);
         eye.setHeadway(stationHeadway.label(headwayStop(), headwayVia(), train, now));
-        eye.setCountdown(countdown(predictedEta(pickup, now), now));
+        eye.setCountdown(countdown(estimate, now));
     }
 
     private static String countdown(PickupEta.Estimate estimate, long now) {

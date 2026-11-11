@@ -16,7 +16,7 @@ import java.util.Locale;
 
 /** Compact series-9000 front with live train, headway, refresh age and pickup ETA. */
 final class TrainEyeView extends View {
-    static final int WIDTH_DP = 204;
+    static final int WIDTH_DP = 176;
     static final int HEIGHT_DP = 68;
     static final int CLOSE_WIDTH_DP = 24;
 
@@ -88,28 +88,29 @@ final class TrainEyeView extends View {
         text.setTypeface(LABEL_FACE);
         text.setColor(GOLD);
         text.setTextAlign(Paint.Align.LEFT);
-        text.setTextSize(14.5f);
-        String label = TextUtils.ellipsize(stationLabel, text, 119f, TextUtils.TruncateAt.END).toString();
+        text.setTextSize(13.5f);
+        float stationWidth = text.measureText(stationLabel);
+        if (stationWidth > 69f) text.setTextSize(Math.max(11f, 13.5f * 69f / stationWidth));
+        String label = TextUtils.ellipsize(stationLabel, text, 69f, TextUtils.TruncateAt.END).toString();
         drawText(canvas, label, 14f, 17f);
-        ink.setStyle(Paint.Style.FILL);
-        ink.setColor(GOLD);
-        canvas.drawCircle(138f, 17f, 1.35f, ink);
 
         text.setColor(WHITE);
         text.setTextAlign(Paint.Align.CENTER);
-        drawMetric(canvas, "Via " + track, 158f, 17f, 12.5f, 34f);
+        drawRefresh(canvas, 90f, 17f);
+        drawMetric(canvas, age, 108f, 17f, 10f, 18f);
+        drawMetric(canvas, "Via " + track, 135f, 17f, 12.5f, 30f);
         ink.setColor(GOLD);
         ink.setStyle(Paint.Style.STROKE);
         ink.setStrokeWidth(2.1f);
         ink.setStrokeCap(Paint.Cap.ROUND);
-        canvas.drawLine(185f, 13.5f, 191f, 20f, ink);
-        canvas.drawLine(191f, 13.5f, 185f, 20f, ink);
+        canvas.drawLine(157f, 13.5f, 163f, 20f, ink);
+        canvas.drawLine(163f, 13.5f, 157f, 20f, ink);
 
         ink.setColor(0xffa0a0a0);
         ink.setStrokeWidth(0.6f);
         ink.setStrokeCap(Paint.Cap.BUTT);
-        canvas.drawLine(11.5f, 26f, 193f, 26f, ink);
-        for (float x : new float[]{61f, 108f, 143f}) canvas.drawLine(x, 29f, x, 50.5f, ink);
+        canvas.drawLine(11.5f, 26f, 165f, 26f, ink);
+        for (float x : new float[]{61f, 113f}) canvas.drawLine(x, 29f, x, 50.5f, ink);
 
         text.setColor(GOLD);
         drawMetric(canvas, train, 36.5f, 40.5f, 27f, 45f);
@@ -120,16 +121,13 @@ final class TrainEyeView extends View {
         ink.setStrokeCap(Paint.Cap.ROUND);
         ink.setStrokeJoin(Paint.Join.ROUND);
         Path hat = new Path();
-        hat.moveTo(80f, 33.3f);
-        hat.lineTo(84.5f, 29.5f);
-        hat.lineTo(89f, 33.3f);
+        hat.moveTo(82.5f, 33.3f);
+        hat.lineTo(87f, 29.5f);
+        hat.lineTo(91.5f, 33.3f);
         canvas.drawPath(hat, ink);
         text.setColor(WHITE);
-        drawMetric(canvas, headway, 84.5f, 43.7f, 15f, 41f);
-
-        drawRefresh(canvas, 117f, 40.5f);
-        drawMetric(canvas, age, 132f, 40.5f, 10f, 17f);
-        drawMetric(canvas, countdown, 169f, 40.5f, 18.5f, 45f);
+        drawMetric(canvas, headway, 87f, 43.7f, 17f, 46f);
+        drawMetric(canvas, countdown, 139f, 40.5f, 19.5f, 46f);
         canvas.restoreToCount(save);
     }
 
