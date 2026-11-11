@@ -441,7 +441,7 @@ public class ServiceAlertsTest {
         ServiceAlerts lineBoard = new ServiceAlerts(new ServicePlan(""), now);
         JSONObject fallback = new JSONObject().put("stopCode", "413").put("via2", new JSONArray())
             .put("lineTrains", new JSONArray().put(
-                new JSONObject().put("tren", "M13").put("platformTrack", 2).put("secsLeft", 120)));
+                new JSONObject().put("tren", "M13").put("stopCode", "413").put("platformTrack", 2).put("secsLeft", 120)));
         lineBoard.acceptBoard(fallback, now);
         assertEquals(now + 120_000L, lineBoard.predictedArrival("413", "2", "P13", now));
     }
@@ -485,18 +485,78 @@ public class ServiceAlertsTest {
         }
     }
 
-    @Test public void usesLineTrainsWhenPlatformArrayIsEmpty() throws Exception {
+    @Test public void usesExplicitlyScopedLineTrainsWhenPlatformArrayIsEmpty() throws Exception {
         long now = 1800000000000L;
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,"), now);
         JSONObject board = new JSONObject().put("stopCode", "413")
             .put("via2", new org.json.JSONArray())
             .put("lineTrains", new org.json.JSONArray().put(
-                new JSONObject().put("trainCode", "407").put("platformTrack", 2).put("secsLeft", 180)));
+                new JSONObject().put("trainCode", "407").put("stopCode", "413").put("platformTrack", 2).put("secsLeft", 180)));
         alerts.acceptBoard(board, now);
         assertEquals(now + 180000L, alerts.predictedArrival("413", "2", "407", now));
         assertEquals(now + 180000L, alerts.predictedArrivalEitherTrack("413", "1", "407", now));
     }
 
+    @Test public void doesNotUseAnUnscopedLineTrainTimerForLaPau() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(""), NOW);
+        JSONObject raw = board("413", 2).put("lineTrains", new JSONArray().put(
+            arrival("M06", 182).put("platformTrack", 2)));
+        alerts.acceptBoard(raw, NOW);
+        assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
+        assertEquals(0, alerts.predictedArrivalEitherTrack("413", "", "P06", NOW));
+        assertTrue(alerts.boardStatus("413", "406", NOW).contains("rejected: lineTrains has no destination stop"));
+    }
+
+    @Test public void doesNotUseATrinitatForecastAsALaPauForecast() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(""), NOW);
+        JSONObject raw = board("413", 2).put("lineTrains", new JSONArray().put(
+            arrival("M06", 182).put("platformTrack", 2).put("stopCode", "434")));
+        alerts.acceptBoard(raw, NOW);
+        assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
+        alerts.acceptBoard(board("413", 2, arrival("P06", 182).put("stationId", "434")), NOW);
+        assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
+    }
+
+    @Test public void doesNotTreatATrainIdAsAStationLabel() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(""), NOW);
+        JSONObject raw = board("413", 2).put("lineTrains", new JSONArray().put(
+            new JSONObject().put("id", "413").put("secsLeft", 182).put("platformTrack", 2)));
+        alerts.acceptBoard(raw, NOW);
+        assertEquals(0, alerts.predictedArrival("413", "2", "413", NOW));
+    }
+
+    @Test public void guessedUnlabelledBoardsNeedAnExplicitEntryDestination() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(""), NOW);
+        JSONObject raw = new JSONObject().put("via2", new JSONArray().put(arrival("406", 182)));
+        alerts.acceptBoard("413", raw, NOW);
+        assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
+        JSONObject diagnostic = alerts.diagnosticBoard("413");
+        assertEquals("413", diagnostic.getString("requestedStop"));
+        assertEquals("", diagnostic.getString("declaredStop"));
+        assertFalse(diagnostic.getJSONObject("raw").has("stopCode"));
+        assertEquals(182, diagnostic.getJSONObject("raw").getJSONArray("via2").getJSONObject(0).getInt("secsLeft"));
+
+        raw.put("via2", new JSONArray().put(arrival("P06", 1800)
+            .put("stationCode", new JSONObject().put("code", "413"))));
+        alerts.acceptBoard("413", raw, NOW);
+        assertEquals(NOW + 1_800_000L, alerts.predictedArrival("413", "2", "406", NOW));
+    }
+
+    @Test public void aMismatchedBoardCannotBeRelabelledAsLaPau() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(""), NOW);
+        alerts.acceptBoard("413", board("434", 2, arrival("406", 182).put("stopCode", "413")), NOW);
+        assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
+        assertEquals("434", alerts.diagnosticBoard("413").getString("declaredStop"));
+    }
+
+    @Test public void labelledNestedStationBoardsKeepValidForecasts() throws Exception {
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(""), NOW);
+        JSONObject raw = new JSONObject().put("stopCode", "413")
+            .put("data", new JSONObject().put("via2", new JSONArray().put(arrival("M06", 1800))));
+        alerts.acceptBoard("413", raw, NOW);
+        assertEquals(NOW + 1_800_000L, alerts.predictedArrival("413", "2", "406", NOW));
+        assertTrue(alerts.diagnosticBoard("413").getJSONObject("raw").has("data"));
+    }
 
     @Test public void liveLaPauBoardMatchesAssignedTrainAndDoesNotConfuseOtherTrains() throws Exception {
         long now = ServicePlanTest.time("2026-11-09T20:28:58");

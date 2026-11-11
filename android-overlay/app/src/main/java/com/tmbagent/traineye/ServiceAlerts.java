@@ -42,8 +42,16 @@ final class ServiceAlerts {
         boolean rearmed, finished;
     }
     private static final class Board {
-        final JSONObject data; final long received;
-        Board(JSONObject data, long received) { this.data = data; this.received = received; }
+        final JSONObject raw, data;
+        final String declaredStop;
+        final long received;
+        Board(JSONObject raw, long received) {
+            this.raw = raw;
+            JSONObject nested = raw.optJSONObject("data");
+            data = nested == null ? raw : nested;
+            declaredStop = boardStop(raw);
+            this.received = received;
+        }
     }
     private static final class Arrival {
         final String train; final long at;
@@ -137,8 +145,36 @@ final class ServiceAlerts {
     }
 
     void acceptBoard(String stop, JSONObject raw, long now) {
-        JSONObject data = raw.optJSONObject("data");
-        boards.put(stop, new Board(data == null ? raw : data, now));
+        boards.put(stop, new Board(raw, now));
+    }
+
+    JSONObject diagnosticBoard(String stop) throws JSONException {
+        Board board = boards.get(stop);
+        return new JSONObject().put("requestedStop", stop)
+            .put("declaredStop", board == null ? "" : board.declaredStop)
+            .put("receivedAt", board == null ? 0 : board.received)
+            .put("raw", board == null ? JSONObject.NULL : board.raw);
+    }
+
+    private static String arrivalStop(JSONObject entry) {
+        // A train's id can also be 413..434. It is never a destination label.
+        for (String field : new String[]{"stopCode", "stop", "stopId", "stationId", "stationCode"}) {
+            String stop = stopField(entry, field);
+            if (stop.matches("41[3-9]|42[0-9]|43[0-4]")) return stop;
+        }
+        return "";
+    }
+
+    private static String arrivalScopeError(Board board, String stop, JSONObject entry, boolean lineTrains) {
+        if (!board.declaredStop.isEmpty() && !stop.equals(board.declaredStop))
+            return "board belongs to " + board.declaredStop;
+        String entryStop = arrivalStop(entry);
+        if (!entryStop.isEmpty())
+            return stop.equals(entryStop) ? "" : "entry belongs to " + entryStop;
+        // A lineTrains timer without an entry destination does not establish a
+        // forecast for the subscribed stop, even inside a labelled station board.
+        if (lineTrains) return "lineTrains has no destination stop";
+        return stop.equals(board.declaredStop) ? "" : "board has no destination stop";
     }
 
     long boardReceivedAt(String stop) {
@@ -150,10 +186,11 @@ final class ServiceAlerts {
         train = TrainId.normalize(train);
         Board board = fresh(stop, now);
         if (board == null) return "no fresh board for stop " + stop;
-        StringBuilder summary = new StringBuilder("stop=").append(stop);
-        for (String via : new String[]{"1", "2"}) {
-            JSONArray entries = board.data.optJSONArray("via" + via);
-            summary.append(" via").append(via).append("=");
+        StringBuilder summary = new StringBuilder("stop=").append(stop)
+            .append(" declared=").append(board.declaredStop.isEmpty() ? "missing" : board.declaredStop);
+        for (String source : new String[]{"via1", "via2", "lineTrains"}) {
+            JSONArray entries = board.data.optJSONArray(source);
+            summary.append(" ").append(source).append("=");
             if (entries == null) { summary.append("missing"); continue; }
             summary.append(entries.length());
             for (int i = 0; i < entries.length(); i++) {
@@ -161,9 +198,12 @@ final class ServiceAlerts {
                 if (entry == null) continue;
                 String code = TrainId.fromBoard(entry);
                 if (train.equals(code)) {
+                    String scopeError = arrivalScopeError(board, stop, entry, "lineTrains".equals(source));
                     summary.append(" MATCH train=").append(code)
+                        .append(" entryStop=").append(arrivalStop(entry))
                         .append(" arrival=").append(arrivalTime(entry, board.received))
-                        .append(" secsLeft=").append(entry.opt("secsLeft"));
+                        .append(" secsLeft=").append(entry.opt("secsLeft"))
+                        .append(" scope=").append(scopeError.isEmpty() ? "accepted" : "rejected: " + scopeError);
                 }
             }
         }
@@ -608,6 +648,7 @@ final class ServiceAlerts {
         }
         for (int i = 0; i < entries.length(); i++) {
             JSONObject entry = entries.optJSONObject(i); if (entry == null) continue;
+            if (!arrivalScopeError(board, stop, entry, needsVia).isEmpty()) continue;
             String track = entry.optString("platformTrack", entry.optString("track", entry.optString("via", "")));
             if (needsVia && !via.equals(track)) continue;
             String train = TrainId.fromBoard(entry);

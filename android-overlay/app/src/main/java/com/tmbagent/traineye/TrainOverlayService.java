@@ -404,7 +404,14 @@ public class TrainOverlayService extends Service {
             if (confirmed) finishEtaPickup();
             updateEye();
         });
-        etaPanel.addView(etaConfirmButton);
+        LinearLayout etaActions = new LinearLayout(this);
+        etaActions.setOrientation(LinearLayout.HORIZONTAL);
+        etaActions.addView(etaConfirmButton, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1));
+        Button copyDiagnostic = new Button(this);
+        copyDiagnostic.setText("Copia el diagnòstic");
+        copyDiagnostic.setOnClickListener(view -> copyEtaDiagnostic());
+        etaActions.addView(copyDiagnostic, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1));
+        etaPanel.addView(etaActions);
         FrameLayout.LayoutParams etaParams = new FrameLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
@@ -941,12 +948,43 @@ public class TrainOverlayService extends Service {
         return new PickupEta.Estimate(arrival, retained);
     }
 
+    private void copyEtaDiagnostic() {
+        long now = System.currentTimeMillis();
+        ServicePlan.Row pickup = etaTarget(now);
+        String stop = etaStop(pickup);
+        if (stop.isEmpty() && manualEta != null) stop = manualEta.stop;
+        try {
+            PickupEta.Estimate estimate = predictedEta(pickup, now);
+            JSONObject report = new JSONObject()
+                .put("version", getPackageManager().getPackageInfo(getPackageName(), 0).versionName)
+                .put("capturedAt", now)
+                .put("mode", mode)
+                .put("train", train)
+                .put("requestedStop", stop)
+                .put("requestedStation", stop.isEmpty() ? "" : stationName(stop))
+                .put("requestedVia", pickup == null ? "" : pickup.via)
+                .put("positionAgeMs", directMapAt == 0 ? -1 : android.os.SystemClock.elapsedRealtime() - directMapAt)
+                .put("position", directMap == null ? JSONObject.NULL : directMap.opt(train))
+                .put("arrivalAt", estimate.arrival)
+                .put("approximate", estimate.approximate)
+                .put("socketStatus", etaStationPhases.getOrDefault(stop, etaSocketStatus))
+                .put("socketError", etaStationErrors.getOrDefault(stop, etaSocketError))
+                .put("board", etaBoards == null ? JSONObject.NULL : etaBoards.diagnosticBoard(stop))
+                .put("summary", etaDiagnosticView == null ? "" : etaDiagnosticView.getText().toString());
+            android.content.ClipboardManager clipboard = getSystemService(android.content.ClipboardManager.class);
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Diagnòstic ETA", report.toString(2)));
+            android.widget.Toast.makeText(this, "Diagnòstic copiat. Enganxa'l al xat.", android.widget.Toast.LENGTH_SHORT).show();
+        } catch (Exception error) {
+            android.widget.Toast.makeText(this, "No s'ha pogut copiar el diagnòstic.", android.widget.Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void refreshEtaDiagnostic() {
         if (etaDiagnosticView == null) return;
         long now = System.currentTimeMillis();
         ServicePlan.Row pickup = etaTarget(now);
         String stop = etaStop(pickup);
-        long received = stop.isEmpty() ? 0 : etaBoards.boardReceivedAt(stop);
+        long received = stop.isEmpty() || etaBoards == null ? 0 : etaBoards.boardReceivedAt(stop);
         PickupEta.Estimate estimate = predictedEta(pickup, now);
         long arrival = estimate.arrival;
         boolean retained = arrival > 0 && estimate.approximate && received > 0
@@ -957,7 +995,7 @@ public class TrainOverlayService extends Service {
         boolean canConfirm = !stop.isEmpty() && (manualEta != null || pickupEta.nearPickup(pickup, now));
         etaConfirmButton.setVisibility(canConfirm ? View.VISIBLE : View.GONE);
         etaDiagnosticView.setText("ETA DIAGNÓSTICO · tren " + train
-            + " · estación " + (stop.isEmpty() ? "—" : stop)
+            + " · estación " + (stop.isEmpty() ? "—" : stationName(stop) + " (" + stop + ")")
             + (pickup == null || pickup.via.isEmpty() ? "" : " · vía " + pickup.via)
             + "\nSocket: " + phase
             + (error.isEmpty() ? "" : "\nÚltimo fallo: " + error)
