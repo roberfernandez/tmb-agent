@@ -2,6 +2,7 @@ package com.tmbagent.traineye;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import java.util.Iterator;
 import java.util.Locale;
 
 /** The numeric L4 service number shared by the timetable and Miralin aliases. */
@@ -20,7 +21,9 @@ final class TrainId {
     static JSONObject positions(JSONObject raw) {
         JSONObject result = new JSONObject();
         if (raw == null) return result;
-        for (String key : raw.keySet()) {
+        Iterator<String> keys = raw.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
             JSONObject position = raw.optJSONObject(key);
             if (position == null) continue;
             String code = normalize(key);

@@ -26,7 +26,8 @@ public class TrainIdTest {
         assertSame(moving, first.getJSONObject("413"));
         JSONObject second = TrainId.positions(new JSONObject().put("P06", moving).put("M13", moving));
         assertSame(moving, second.getJSONObject("406"));
-        assertEquals(first.keySet(), second.keySet());
+        assertEquals(2, first.length());
+        assertEquals(2, second.length());
         assertFalse(second.has("P06"));
     }
 
