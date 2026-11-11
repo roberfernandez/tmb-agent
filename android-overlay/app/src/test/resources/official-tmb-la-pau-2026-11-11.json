@@ -1,0 +1,17 @@
+{
+  "ready": true,
+  "line": "4",
+  "stop": "413",
+  "date": "11/11/2026",
+  "clock": "21:52",
+  "tables": [
+    {
+      "via": "1",
+      "html": "<tr class=\"ui-widget-content ui-datatable-empty-message\" style=\"height: 22px !important;\"><td colspan=\"5\" tabindex=\"0\" style=\"font-size: 14px !important;\"></td></tr>"
+    },
+    {
+      "via": "2",
+      "html": "<tr data-ri=\"0\" class=\"ui-widget-content ui-datatable-even\" style=\"height: 22px !important;\"><td role=\"gridcell\" tabindex=\"0\" style=\"font-size: 14px !important;\">411</td><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">22:08</td><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">32:26</td><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">Jaume I</td><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">Via 2</td></tr><tr data-ri=\"1\" class=\"ui-widget-content ui-datatable-odd\" style=\"height: 22px !important;\"><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">401</td><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">22:43</td><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">35:17</td><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">Passeig de Gràcia</td><td role=\"gridcell\" tabindex=\"-1\" style=\"font-size: 14px !important;\">Via 1</td></tr>"
+    }
+  ]
+}

@@ -53,6 +53,72 @@ import java.util.concurrent.Executors;
 
 public class TrainOverlayService extends Service {
     static volatile boolean isActive;
+    private static TrainOverlayService activeInstance;
+    private OfficialMiralinReader officialReader;
+    private boolean officialScreenOpen;
+
+    static TrainOverlayService activeService() {
+        return activeInstance == null || activeInstance.destroyed ? null : activeInstance;
+    }
+
+    OfficialMiralinReader officialReader() {
+        if (officialReader == null)
+            officialReader = new OfficialMiralinReader(this, () -> { if (!destroyed) updateEye(); });
+        return officialReader;
+    }
+
+    void setOfficialScreenOpen(boolean open) {
+        officialScreenOpen = open;
+        if (open) hideOverlay(); else if (!destroyed) showOverlay();
+    }
+
+    void disconnectOfficial() {
+        if (officialReader != null) officialReader.dispose();
+        officialReader = null;
+        updateEye();
+    }
+
+    String officialStop() {
+        String selected = etaStop(etaTarget(System.currentTimeMillis()));
+        if (!selected.isEmpty()) return selected;
+        if (manualStop.matches("41[3-9]|42[0-9]|43[0-4]")) return manualStop;
+        JSONObject current = directMap == null ? null : directMap.optJSONObject(train);
+        int position = current == null ? 0 : ServiceAlerts.stopPosition(current.optString("estacion", ""));
+        return position >= 413 && position <= 434 ? Integer.toString(position) : "413";
+    }
+
+    private String officialVia() {
+        ServicePlan.Row pickup = etaTarget(System.currentTimeMillis());
+        return pickup == null ? "" : pickup.via;
+    }
+
+    private long displayedHeadwaySeconds(long now) {
+        return officialReader == null ? trainHeadway.seconds(train, now)
+            : officialReader.seconds(train, officialVia(), officialStop(), now);
+    }
+
+    private String displayedHeadway(long now) {
+        return OfficialHeadwayBoard.format(displayedHeadwaySeconds(now));
+    }
+
+    private String displayedHeadwaySource(long now) {
+        return officialReader == null ? trainHeadway.source(train, now) : "official TMB";
+    }
+
+    private void openOfficialLogin() {
+        try {
+            // Android 15 requires the user-visible overlay at the moment a
+            // foreground-service activity is opened from the user's tap.
+            startActivity(new Intent(this, TmbLoginActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            officialScreenOpen = true;
+            closeServicePopup();
+            hideOverlay();
+        } catch (Exception error) {
+            officialScreenOpen = false;
+            showOverlay();
+            android.widget.Toast.makeText(this, "No s'ha pogut obrir l'accés a TMB.", android.widget.Toast.LENGTH_SHORT).show();
+        }
+    }
     public static final String EXTRA_ALERTS = "alerts";
     public static final String EXTRA_MARGIN = "margin";
     public static final String EXTRA_TRAIN = "train";
@@ -141,6 +207,7 @@ public class TrainOverlayService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        activeInstance = this;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         createChannel();
     }
@@ -239,8 +306,9 @@ public class TrainOverlayService extends Service {
     }
 
     private void showOverlay() {
-        if (overlay != null) return;
+        if (overlay != null || officialScreenOpen) return;
         FrameLayout bubble = new FrameLayout(this);
+        attachOfficialBackground(bubble);
         eye = new TrainEyeView(this);
         bubble.addView(eye, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
@@ -321,6 +389,16 @@ public class TrainOverlayService extends Service {
         }
     }
 
+    private void attachOfficialBackground(FrameLayout host) {
+        if (officialReader == null) return;
+        android.webkit.WebView page = officialReader.backgroundView();
+        if (page != null) {
+            // Keep the signed-in page attached so its existing TMB poll keeps
+            // running; the opaque front or viewer card covers this 1px view.
+            host.addView(page, new FrameLayout.LayoutParams(1, 1, Gravity.CENTER));
+        }
+    }
+
     private void openServiceViewer() {
         showServicePopup();
     }
@@ -330,6 +408,7 @@ public class TrainOverlayService extends Service {
         hideOverlay();
 
         FrameLayout root = new FrameLayout(this);
+        attachOfficialBackground(root);
         root.setBackgroundColor(0xb8000000);
         root.setFocusableInTouchMode(true);
         root.setOnClickListener(v -> closeServicePopup());
@@ -416,6 +495,10 @@ public class TrainOverlayService extends Service {
         copyDiagnostic.setOnClickListener(view -> copyEtaDiagnostic());
         etaActions.addView(copyDiagnostic, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1));
         etaPanel.addView(etaActions);
+        Button connectTmb = new Button(this);
+        connectTmb.setText(officialReader == null ? "Connecta T.ANT de TMB" : "Obre la sessió de TMB");
+        connectTmb.setOnClickListener(view -> openOfficialLogin());
+        etaPanel.addView(connectTmb);
         FrameLayout.LayoutParams etaParams = new FrameLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
@@ -771,6 +854,7 @@ public class TrainOverlayService extends Service {
             }
         }
         directClient.setStops(stops);
+        if (officialReader != null) officialReader.selectStop(officialStop(), false);
     }
 
     private void updateAlertWakeLock() {
@@ -983,8 +1067,11 @@ public class TrainOverlayService extends Service {
                 .put("requestedVia", pickup == null ? "" : pickup.via)
                 .put("positionAgeMs", directMapAt == 0 ? -1 : android.os.SystemClock.elapsedRealtime() - directMapAt)
                 .put("position", directMap == null ? JSONObject.NULL : directMap.opt(train))
-                .put("headwaySeconds", trainHeadway.seconds(train, now))
-                .put("headwaySource", trainHeadway.source(train, now))
+                .put("headwaySeconds", displayedHeadwaySeconds(now))
+                .put("headwaySource", displayedHeadwaySource(now))
+                .put("miralinCatHeadwaySeconds", trainHeadway.seconds(train, now))
+                .put("officialTmb", officialReader == null ? JSONObject.NULL
+                    : officialReader.diagnostic(train, officialVia(), officialStop(), now))
                 .put("arrivalAt", estimate.arrival)
                 .put("approximate", estimate.approximate)
                 .put("socketStatus", etaStationPhases.getOrDefault(stop, etaSocketStatus))
@@ -1021,7 +1108,8 @@ public class TrainOverlayService extends Service {
             + (error.isEmpty() ? "" : "\nÚltimo fallo: " + error)
             + "\nÚltima previsión: " + (received == 0 ? "ninguna" : Math.max(0, (now - received) / 1000) + " s")
             + (pickup == null ? "" : "\nVoltes pendents: " + (laps < 0 ? "per confirmar" : laps))
-            + "\nT.ANT: " + trainHeadway.label(train, now)
+            + "\nT.ANT: " + displayedHeadway(now)
+            + (officialReader == null ? "" : " · TMB")
             + "\nCoincidencia: " + (arrival == 0 ? "sin previsión" : countdown(estimate, now))
             + (retained ? " · previsión aproximada" : "")
             + "\nDatos: " + (stop.isEmpty() ? (manualEta != null ? "arribada detectada" : "sin recogida pendiente")
@@ -1044,7 +1132,7 @@ public class TrainOverlayService extends Service {
         eye.setStatus(train, currentStation, currentTrack, ageText);
         long now = System.currentTimeMillis();
         ServicePlan.Row pickup = etaTarget(now);
-        eye.setHeadway(trainHeadway.label(train, now));
+        eye.setHeadway(displayedHeadway(now));
         eye.setCountdown(countdown(predictedEta(pickup, now), now));
     }
 
@@ -1062,6 +1150,8 @@ public class TrainOverlayService extends Service {
         isActive = false;
         if (alertWakeLock != null && alertWakeLock.isHeld()) alertWakeLock.release();
         destroyed = true;
+        activeInstance = null;
+        if (officialReader != null) { officialReader.dispose(); officialReader = null; }
         if (directClient != null) directClient.close();
         handler.removeCallbacks(poll);
         handler.removeCallbacks(ageTicker);
