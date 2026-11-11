@@ -1,76 +1,11 @@
 name: Diagnostico ETA Miralin
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - fix/realistic-eye-eta-minute
-    paths:
-      - .github/workflows/miralin-eta-probe.yml
 jobs:
   probe:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Compare train 406 with the selected La Pau board
-        run: |
-          python3 - <<'PY'
-          import json, time, urllib.request, urllib.parse, sys
-          BASE="https://miralin.cat/socket.io/?EIO=4&transport=polling"
-          capture={"maps":[],"boards":[]}
-          def request(sid=None,body=None):
-              url=BASE+("&sid="+urllib.parse.quote(sid) if sid else "")
-              data=body.encode() if body is not None else None
-              req=urllib.request.Request(url,data=data,headers={"Content-Type":"text/plain;charset=UTF-8","User-Agent":"TMB-Agent-ETA-Diagnostic/1.0"})
-              with urllib.request.urlopen(req,timeout=20) as response:
-                  return response.read().decode()
-          def code(value):
-              return str(value or "").upper() in ("406","M06","P06")
-          def selected(data):
-              if not isinstance(data,dict):
-                  return {}
-              result={}
-              for key,value in data.items():
-                  if isinstance(value,list):
-                      result[key]={"count":len(value),"first":value[:1],"406":[x for x in value if isinstance(x,dict) and any(code(x.get(k)) for k in ("trainCode","tren","id","code","name"))]}
-                  elif isinstance(value,dict):
-                      result[key]=selected(value)
-                  else:
-                      result[key]=value
-              return result
-          hello=request()
-          sid=json.loads(hello[1:])["sid"]
-          print("CONNECTED",flush=True)
-          request(sid,"40")
-          subscribed=False
-          until=time.monotonic()+50
-          try:
-              while time.monotonic()<until:
-                  for packet in request(sid).split("\x1e"):
-                      if packet=="2":
-                          request(sid,"3")
-                      elif packet.startswith("40") and not subscribed:
-                          request(sid,'42["subscribeStop",{"line":"L4","stop":"413"}]')
-                          subscribed=True
-                          print("SUBSCRIBED 413",flush=True)
-                      elif packet.startswith("42"):
-                          event=json.loads(packet[2:])
-                          data=event[1]
-                          if event[0]=="mapUpdate":
-                              trains=data.get("L4",{}).get("trains",{})
-                              matches={key:value for key,value in trains.items() if code(key)}
-                              if matches and not capture["maps"]:
-                                  capture["maps"].append(matches)
-                                  print("MAP406",json.dumps(matches,ensure_ascii=False),flush=True)
-                          elif event[0]=="stopDataUpdate":
-                              capture["boards"].append(data)
-                              print("BOARD413",json.dumps(selected(data),ensure_ascii=False),flush=True)
-                  if capture["boards"] and capture["maps"]:
-                      break
-          finally:
-              try:
-                  request(sid,"1")
-              except Exception:
-                  pass
-          print("CAPTURE_COUNTS",len(capture["maps"]),len(capture["boards"]),flush=True)
-          
-          PY
+      - uses: actions/checkout@v4
+      - name: Probe station 413 independently of Android
+        run: python3 android-overlay/diagnostics/miralin_eta_probe.py 413
