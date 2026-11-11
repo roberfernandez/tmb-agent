@@ -104,6 +104,7 @@ public class TrainOverlayService extends Service {
     private final Map<String, String> etaStationErrors = new HashMap<>();
     private JSONObject directMap;
     private long directMapAt;
+    private final TrainHeadway trainHeadway = new TrainHeadway();
     private String connectionStatus = "Miralin directe · connectant…";
     private boolean destroyed;
     private ServicePlan servicePlan = new ServicePlan("");
@@ -273,7 +274,10 @@ public class TrainOverlayService extends Service {
                     }
                     boolean wasDragging = dragging;
                     dragging = false;
-                    if (!wasDragging) view.performClick();
+                    if (!wasDragging) {
+                        if (eye != null && eye.isCloseHit(event.getX(), event.getY())) stopSelf();
+                        else view.performClick();
+                    }
                     return true;
                 case MotionEvent.ACTION_CANCEL:
                     dragging = false;
@@ -673,6 +677,7 @@ public class TrainOverlayService extends Service {
                     if (destroyed) return;
                     directMap = trains;
                     directMapAt = received;
+                    trainHeadway.acceptMap(trains, receivedAt);
                     if (serviceAlerts != null) serviceAlerts.acceptMap(trains, receivedAt);
                     applyDirectTrain();
                     ServicePlan.Row pickup = etaTarget(receivedAt);
@@ -686,7 +691,10 @@ public class TrainOverlayService extends Service {
                 handler.post(() -> {
                     if (destroyed || status.equals(connectionStatus)) return;
                     connectionStatus = status;
-                    if (serviceAlerts != null && !status.contains("dades rebudes")) serviceAlerts.clearLiveData();
+                    if (!status.contains("dades rebudes")) {
+                        trainHeadway.clear();
+                        if (serviceAlerts != null) serviceAlerts.clearLiveData();
+                    }
                     startAsForeground();
                 });
             }
@@ -694,6 +702,7 @@ public class TrainOverlayService extends Service {
                 final long received = System.currentTimeMillis();
                 handler.post(() -> {
                     if (destroyed) return;
+                    trainHeadway.acceptBoard(board, received);
                     if (serviceAlerts != null) serviceAlerts.acceptBoard(stop, board, received);
                     if (etaBoards != null) etaBoards.acceptBoard(stop, board, received);
                     updateEye();
@@ -752,6 +761,15 @@ public class TrainOverlayService extends Service {
         String etaStop = etaStop(etaTarget(now));
         if (!etaStop.isEmpty()) stops.add(etaStop);
         if (alertsEnabled && serviceAlerts != null) stops.addAll(serviceAlerts.requiredStops(now, alertMargin));
+        if (stops.isEmpty()) {
+            // Position-only tracking still needs a station board for T.ANT.
+            // Any L4 board includes lineTrains; no arrival target is inferred.
+            JSONObject current = directMap == null ? null : directMap.optJSONObject(train);
+            if (current != null) {
+                int position = ServiceAlerts.stopPosition(current.optString("estacion", ""));
+                if (position >= 413 && position <= 434) stops.add(Integer.toString(position));
+            }
+        }
         directClient.setStops(stops);
     }
 
@@ -965,6 +983,7 @@ public class TrainOverlayService extends Service {
                 .put("requestedVia", pickup == null ? "" : pickup.via)
                 .put("positionAgeMs", directMapAt == 0 ? -1 : android.os.SystemClock.elapsedRealtime() - directMapAt)
                 .put("position", directMap == null ? JSONObject.NULL : directMap.opt(train))
+                .put("headwaySeconds", trainHeadway.seconds(train, now))
                 .put("arrivalAt", estimate.arrival)
                 .put("approximate", estimate.approximate)
                 .put("socketStatus", etaStationPhases.getOrDefault(stop, etaSocketStatus))
@@ -1001,6 +1020,7 @@ public class TrainOverlayService extends Service {
             + (error.isEmpty() ? "" : "\nÚltimo fallo: " + error)
             + "\nÚltima previsión: " + (received == 0 ? "ninguna" : Math.max(0, (now - received) / 1000) + " s")
             + (pickup == null ? "" : "\nVoltes pendents: " + (laps < 0 ? "per confirmar" : laps))
+            + "\nT.ANT: " + trainHeadway.label(train, now)
             + "\nCoincidencia: " + (arrival == 0 ? "sin previsión" : countdown(estimate, now))
             + (retained ? " · previsión aproximada" : "")
             + "\nDatos: " + (stop.isEmpty() ? (manualEta != null ? "arribada detectada" : "sin recogida pendiente")
@@ -1023,6 +1043,7 @@ public class TrainOverlayService extends Service {
         eye.setStatus(train, currentStation, currentTrack, ageText);
         long now = System.currentTimeMillis();
         ServicePlan.Row pickup = etaTarget(now);
+        eye.setHeadway(trainHeadway.label(train, now));
         eye.setCountdown(countdown(predictedEta(pickup, now), now));
     }
 
