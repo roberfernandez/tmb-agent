@@ -1,50 +1,11 @@
 name: Diagnostico ETA Miralin
 on:
-  push:
-    branches:
-      - 'fix/realistic-eye-eta-minute'
-    paths:
-      - '.github/workflows/miralin-eta-probe.yml'
   workflow_dispatch:
-permissions:
-  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
-      - name: Inspect public Miralin headway source
-        shell: python
-        run: |
-          import concurrent.futures, html, json, re, urllib.parse, urllib.request
-          urls = ["https://miralin.cat/", "http://miralin.cat/", "https://aplicacions.tmb.cat/miralin/routes/4/stops/413"]
-          def fetch(url):
-              try:
-                  request = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"})
-                  with urllib.request.urlopen(request, timeout=8) as response:
-                      source = response.read(2500000).decode("utf-8", "replace")
-                      return (url, response.geturl(), source, response.status, "")
-              except Exception as error:
-                  return (url, url, "", 0, str(error))
-          def describe(item):
-              url, final, source, status, error = item
-              title = re.search(r"<title[^>]*>(.*?)</title>", source, re.I|re.S)
-              print(json.dumps({"url":url,"final":final,"status":status,"chars":len(source),"title":html.unescape(title.group(1)) if title else "", "error":error},ensure_ascii=False),flush=True)
-              pattern=r"secPreviousTrain|T\\.ANT|previousTrain|tren.{0,8}anterior|headway|lineDist"
-              for match in list(re.finditer(pattern,source,re.I))[:25]:
-                  print("MATCH "+source[max(0,match.start()-240):match.end()+450].replace("\n"," "),flush=True)
-              return source
-          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-              pages=list(pool.map(fetch,urls))
-          scripts=[]
-          for page in pages:
-              source=describe(page)
-              for match in re.finditer(r'<script[^>]+src=["\']([^"\']+)',source,re.I):
-                  asset=urllib.parse.urljoin(page[1],html.unescape(match.group(1)))
-                  if urllib.parse.urlparse(asset).hostname in {"miralin.cat","www.miralin.cat","aplicacions.tmb.cat"} and asset not in scripts:
-                      scripts.append(asset)
-          print("SCRIPTS "+json.dumps(scripts,ensure_ascii=False),flush=True)
-          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-              for item in pool.map(fetch,scripts[:12]):
-                  describe(item)
-          
+      - uses: actions/checkout@v4
+      - name: Probe station 413 independently of Android
+        run: python3 android-overlay/diagnostics/miralin_eta_probe.py 413

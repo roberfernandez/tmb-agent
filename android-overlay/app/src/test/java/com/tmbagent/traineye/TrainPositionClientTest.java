@@ -35,7 +35,7 @@ import static org.junit.Assert.*;
 public class TrainPositionClientTest {
     private static final String HELLO = "0{\"sid\":\"engine-session\",\"pingInterval\":25000,\"pingTimeout\":20000}";
     private static final String ACK = "40{\"sid\":\"namespace-session\"}";
-    private static final String MAP = "42[\"mapUpdate\",{\"L4\":{\"trains\":{\"M10\":{\"estacion\":\"Girona\",\"platformTrack\":2}}}}]";
+    private static final String MAP = "42[\"mapUpdate\",{\"L4\":{\"trains\":{\"M10\":{\"estacion\":\"Girona\",\"platformTrack\":2}},\"trenesV2\":[{\"trainCode\":\"P10\",\"secPreviousTrain\":977}]}}]";
     private static final String SUBSCRIBE = "42[\"subscribeStop\",{\"line\":\"L4\",\"stop\":\"425\"}]";
     private static final String BOARD = "42[\"stopDataUpdate\",{\"line\":\"L4\",\"stopCode\":\"425\",\"via1\":[],"
         + "\"via2\":[{\"trainCode\":\"P10\",\"tren\":\"P10\",\"secsLeft\":181,\"stopCode\":425,\"track\":2}]}]";
@@ -47,6 +47,7 @@ public class TrainPositionClientTest {
         AtomicInteger activePosts = new AtomicInteger();
         AtomicInteger maxPosts = new AtomicInteger();
         AtomicInteger mapCount = new AtomicInteger();
+        AtomicInteger receivedHeadway = new AtomicInteger(-1);
         AtomicBoolean ackSent = new AtomicBoolean();
         AtomicBoolean secondPing = new AtomicBoolean();
         AtomicBoolean sentBoard = new AtomicBoolean();
@@ -121,6 +122,7 @@ public class TrainPositionClientTest {
         TrainPositionClient client = new TrainPositionClient(new TrainPositionClient.Listener() {
             @Override public void onMap(JSONObject trains) {
                 if ("Girona".equals(trains.optJSONObject("410").optString("estacion"))) {
+                    receivedHeadway.set(trains.optJSONObject("410").optInt("secPreviousTrain", -1));
                     mapCount.incrementAndGet();
                     if (firstPost.getCount() == 0 && releasePost.getCount() == 1) mapsWhileBlocked.countDown();
                 }
@@ -151,6 +153,7 @@ public class TrainPositionClientTest {
             assertTrue("Did not retry the failed POST", waitingForBoard.await(5, TimeUnit.SECONDS));
             clock.addAndGet(21_000);
             assertTrue("Did not re-subscribe after ok without a board", found.await(5, TimeUnit.SECONDS));
+            assertEquals("Map headway lists were lost before reaching the listener", 977, receivedHeadway.get());
             client.setStops(Set.of("427"));
             assertTrue("Changing stops must preserve the Engine.IO session", switched.await(5, TimeUnit.SECONDS));
             assertNull(handlerError.get());

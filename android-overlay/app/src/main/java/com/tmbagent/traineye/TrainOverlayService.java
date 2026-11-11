@@ -984,6 +984,7 @@ public class TrainOverlayService extends Service {
                 .put("positionAgeMs", directMapAt == 0 ? -1 : android.os.SystemClock.elapsedRealtime() - directMapAt)
                 .put("position", directMap == null ? JSONObject.NULL : directMap.opt(train))
                 .put("headwaySeconds", trainHeadway.seconds(train, now))
+                .put("headwaySource", trainHeadway.source(train, now))
                 .put("arrivalAt", estimate.arrival)
                 .put("approximate", estimate.approximate)
                 .put("socketStatus", etaStationPhases.getOrDefault(stop, etaSocketStatus))

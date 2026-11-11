@@ -159,7 +159,7 @@ final class TrainPositionClient implements AutoCloseable {
                         if (trains != null) {
                             sessionHadMap = true;
                             lastMap = elapsedMs.getAsLong();
-                            listener.onMap(TrainId.positions(trains));
+                            listener.onMap(TrainHeadway.positionsFromLine(line));
                             listener.onState("Miralin directe · dades rebudes");
                         }
                     }
