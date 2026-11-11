@@ -48,18 +48,23 @@ public class ManualTrainEtaTest {
         assertFalse(new ManualTrainEta("423", "410", true).isWaiting());
     }
 
-    @Test public void laPauUsesTheInboundForecastWhenThe406IsLeavingOnVia1() throws JSONException {
+    @Test public void laPauUsesTheStationForecastEvenWhenPublishedOnVia1() throws JSONException {
         ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
-        boards.acceptBoard(new JSONObject("{\"stopCode\":\"413\","
-            + "\"via1\":[{\"trainCode\":\"M06\",\"secsLeft\":47}],"
-            + "\"via2\":[{\"trainCode\":\"P06\",\"secsLeft\":4200}]}"), NOW);
+        JSONObject raw = new JSONObject().put("stopCode", "413")
+            .put("via1", new org.json.JSONArray().put(new JSONObject()
+                .put("trainCode", "M06").put("stopCode", "415").put("secsLeft", 4200)))
+            .put("via2", new org.json.JSONArray())
+            .put("lineTrains", new org.json.JSONArray().put(new JSONObject()
+                .put("trainCode", "M06").put("stopCode", "415")
+                .put("platformTrack", 1).put("secsLeft", 47)));
+        boards.acceptBoard(raw, NOW);
         ManualTrainEta eta = new ManualTrainEta("413", "406", false);
         assertEquals(NOW + 4_200_000L,
             eta.predictedArrival(boards, NOW, position("Besòs Mar", 1), 0));
         assertFalse(eta.observe(position("Besòs Mar", 1)));
 
-        boards.acceptBoard(new JSONObject("{\"stopCode\":\"413\","
-            + "\"via1\":[{\"trainCode\":\"P06\",\"secsLeft\":47}],\"via2\":[]}"), NOW);
+        raw.put("via1", new org.json.JSONArray());
+        boards.acceptBoard(raw, NOW);
         assertEquals(0, eta.predictedArrival(boards, NOW, position("Besòs Mar", 1), 0));
     }
 
@@ -75,11 +80,16 @@ public class ManualTrainEtaTest {
             eta.predictedArrival(boards, NOW, position("Barceloneta", 2), 0));
     }
 
-    @Test public void trinitatUsesTheInboundForecastForTheRenamed413() throws JSONException {
+    @Test public void trinitatUsesItsStationForecastInsteadOfThePositionTimer() throws JSONException {
         ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
-        boards.acceptBoard(new JSONObject("{\"stopCode\":\"434\","
-            + "\"via1\":[{\"trainCode\":\"M13\",\"secsLeft\":600}],"
-            + "\"via2\":[{\"trainCode\":\"P13\",\"secsLeft\":30}]}"), NOW);
+        JSONObject raw = new JSONObject().put("stopCode", "434")
+            .put("via1", new org.json.JSONArray().put(new JSONObject()
+                .put("trainCode", "M13").put("stopCode", "433").put("secsLeft", 600)))
+            .put("via2", new org.json.JSONArray())
+            .put("lineTrains", new org.json.JSONArray().put(new JSONObject()
+                .put("trainCode", "M13").put("stopCode", "433")
+                .put("platformTrack", 2).put("secsLeft", 30)));
+        boards.acceptBoard(raw, NOW);
         ManualTrainEta eta = new ManualTrainEta("434", "413", false);
         assertEquals(NOW + 600_000L,
             eta.predictedArrival(boards, NOW, position("Via Júlia", 2), 0));

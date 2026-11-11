@@ -279,13 +279,11 @@ final class PickupEta {
 
         boolean terminal = isTerminal(stop);
         String nextVia = via;
-        if (via.isEmpty()) {
-            if (terminal) {
-                nextVia = inboundTrack(stop, "");
-            } else if (maxBoardAge == ServiceAlerts.BOARD_FRESH_MS && liveTrain != null
-                && positionAgeMs >= 0 && positionAgeMs < 45_000L) {
-                nextVia = nextPassTrack(stop, liveTrain);
-            }
+        // A terminal's station forecast can be published in either array even
+        // when its map approach is on the other track (captured La Pau: via1).
+        if (via.isEmpty() && !terminal && maxBoardAge == ServiceAlerts.BOARD_FRESH_MS
+            && liveTrain != null && positionAgeMs >= 0 && positionAgeMs < 45_000L) {
+            nextVia = nextPassTrack(stop, liveTrain);
         }
         long arrival = nextVia.isEmpty()
             ? boards.predictedArrivalEitherTrack(stop, "", train, now, maxBoardAge)

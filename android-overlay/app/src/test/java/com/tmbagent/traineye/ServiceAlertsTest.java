@@ -443,7 +443,7 @@ public class ServiceAlertsTest {
             .put("lineTrains", new JSONArray().put(
                 new JSONObject().put("tren", "M13").put("stopCode", "413").put("platformTrack", 2).put("secsLeft", 120)));
         lineBoard.acceptBoard(fallback, now);
-        assertEquals(now + 120_000L, lineBoard.predictedArrival("413", "2", "P13", now));
+        assertEquals(0, lineBoard.predictedArrival("413", "2", "P13", now));
     }
 
     @Test public void acceptsNumericStringArrivalTimeLikeBackend() throws Exception {
@@ -485,7 +485,7 @@ public class ServiceAlertsTest {
         }
     }
 
-    @Test public void usesExplicitlyScopedLineTrainsWhenPlatformArrayIsEmpty() throws Exception {
+    @Test public void lineTrainPositionTimersAreNotStationForecastsEvenAtTheSelectedStop() throws Exception {
         long now = 1800000000000L;
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,"), now);
         JSONObject board = new JSONObject().put("stopCode", "413")
@@ -493,8 +493,8 @@ public class ServiceAlertsTest {
             .put("lineTrains", new org.json.JSONArray().put(
                 new JSONObject().put("trainCode", "407").put("stopCode", "413").put("platformTrack", 2).put("secsLeft", 180)));
         alerts.acceptBoard(board, now);
-        assertEquals(now + 180000L, alerts.predictedArrival("413", "2", "407", now));
-        assertEquals(now + 180000L, alerts.predictedArrivalEitherTrack("413", "1", "407", now));
+        assertEquals(0, alerts.predictedArrival("413", "2", "407", now));
+        assertEquals(0, alerts.predictedArrivalEitherTrack("413", "1", "407", now));
     }
 
     @Test public void doesNotUseAnUnscopedLineTrainTimerForLaPau() throws Exception {
@@ -504,17 +504,17 @@ public class ServiceAlertsTest {
         alerts.acceptBoard(raw, NOW);
         assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
         assertEquals(0, alerts.predictedArrivalEitherTrack("413", "", "P06", NOW));
-        assertTrue(alerts.boardStatus("413", "406", NOW).contains("rejected: lineTrains has no destination stop"));
+        assertTrue(alerts.boardStatus("413", "406", NOW).contains("rejected: lineTrains contains position timers"));
     }
 
-    @Test public void doesNotUseATrinitatForecastAsALaPauForecast() throws Exception {
+    @Test public void forecastRowsCanIncludeTheCurrentTrainStation() throws Exception {
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(""), NOW);
         JSONObject raw = board("413", 2).put("lineTrains", new JSONArray().put(
             arrival("M06", 182).put("platformTrack", 2).put("stopCode", "434")));
         alerts.acceptBoard(raw, NOW);
         assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
         alerts.acceptBoard(board("413", 2, arrival("P06", 182).put("stationId", "434")), NOW);
-        assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
+        assertEquals(NOW + 182_000L, alerts.predictedArrival("413", "2", "406", NOW));
     }
 
     @Test public void doesNotTreatATrainIdAsAStationLabel() throws Exception {
@@ -525,7 +525,7 @@ public class ServiceAlertsTest {
         assertEquals(0, alerts.predictedArrival("413", "2", "413", NOW));
     }
 
-    @Test public void guessedUnlabelledBoardsNeedAnExplicitEntryDestination() throws Exception {
+    @Test public void aCurrentStationFieldCannotLabelAnUnlabelledBoard() throws Exception {
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(""), NOW);
         JSONObject raw = new JSONObject().put("via2", new JSONArray().put(arrival("406", 182)));
         alerts.acceptBoard("413", raw, NOW);
@@ -539,7 +539,7 @@ public class ServiceAlertsTest {
         raw.put("via2", new JSONArray().put(arrival("P06", 1800)
             .put("stationCode", new JSONObject().put("code", "413"))));
         alerts.acceptBoard("413", raw, NOW);
-        assertEquals(NOW + 1_800_000L, alerts.predictedArrival("413", "2", "406", NOW));
+        assertEquals(0, alerts.predictedArrival("413", "2", "406", NOW));
     }
 
     @Test public void aMismatchedBoardCannotBeRelabelledAsLaPau() throws Exception {

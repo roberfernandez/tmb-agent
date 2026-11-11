@@ -156,7 +156,7 @@ final class ServiceAlerts {
             .put("raw", board == null ? JSONObject.NULL : board.raw);
     }
 
-    private static String arrivalStop(JSONObject entry) {
+    private static String currentTrainStop(JSONObject entry) {
         // A train's id can also be 413..434. It is never a destination label.
         for (String field : new String[]{"stopCode", "stop", "stopId", "stationId", "stationCode"}) {
             String stop = stopField(entry, field);
@@ -165,16 +165,14 @@ final class ServiceAlerts {
         return "";
     }
 
-    private static String arrivalScopeError(Board board, String stop, JSONObject entry, boolean lineTrains) {
-        if (!board.declaredStop.isEmpty() && !stop.equals(board.declaredStop))
-            return "board belongs to " + board.declaredStop;
-        String entryStop = arrivalStop(entry);
-        if (!entryStop.isEmpty())
-            return stop.equals(entryStop) ? "" : "entry belongs to " + entryStop;
-        // A lineTrains timer without an entry destination does not establish a
-        // forecast for the subscribed stop, even inside a labelled station board.
-        if (lineTrains) return "lineTrains has no destination stop";
-        return stop.equals(board.declaredStop) ? "" : "board has no destination stop";
+    private static String arrivalScopeError(Board board, String stop, boolean lineTrains) {
+        // The captured stopDataUpdate has two different clocks: via1/via2 contain
+        // forecasts for the parent board's stop, while lineTrains contains current
+        // position timers. A row's stopCode/stopName identifies the train's current
+        // location, not the destination of its station-board forecast.
+        if (lineTrains) return "lineTrains contains position timers";
+        if (board.declaredStop.isEmpty()) return "board has no destination stop";
+        return stop.equals(board.declaredStop) ? "" : "board belongs to " + board.declaredStop;
     }
 
     long boardReceivedAt(String stop) {
@@ -198,9 +196,9 @@ final class ServiceAlerts {
                 if (entry == null) continue;
                 String code = TrainId.fromBoard(entry);
                 if (train.equals(code)) {
-                    String scopeError = arrivalScopeError(board, stop, entry, "lineTrains".equals(source));
+                    String scopeError = arrivalScopeError(board, stop, "lineTrains".equals(source));
                     summary.append(" MATCH train=").append(code)
-                        .append(" entryStop=").append(arrivalStop(entry))
+                        .append(" currentStop=").append(currentTrainStop(entry))
                         .append(" arrival=").append(arrivalTime(entry, board.received))
                         .append(" secsLeft=").append(entry.opt("secsLeft"))
                         .append(" scope=").append(scopeError.isEmpty() ? "accepted" : "rejected: " + scopeError);
@@ -640,17 +638,11 @@ final class ServiceAlerts {
         List<Arrival> result = new ArrayList<>();
         Board board = fresh(stop, now, maxBoardAge);
         if (board == null) return result;
+        if (!arrivalScopeError(board, stop, false).isEmpty()) return result;
         JSONArray entries = board.data.optJSONArray("via" + via);
-        boolean needsVia = entries == null || entries.length() == 0;
-        if (needsVia) entries = board.data.optJSONArray("lineTrains");
-        if (entries == null) {
-            return result;
-        }
+        if (entries == null) return result;
         for (int i = 0; i < entries.length(); i++) {
             JSONObject entry = entries.optJSONObject(i); if (entry == null) continue;
-            if (!arrivalScopeError(board, stop, entry, needsVia).isEmpty()) continue;
-            String track = entry.optString("platformTrack", entry.optString("track", entry.optString("via", "")));
-            if (needsVia && !via.equals(track)) continue;
             String train = TrainId.fromBoard(entry);
             long at = arrivalTime(entry, board.received);
             if (!train.isEmpty() && at >= now - 15000) result.add(new Arrival(train, at));
