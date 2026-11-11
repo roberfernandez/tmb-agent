@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Read-only public Miralin client and socket contract inspection. No TMB login."""
-import json, re, time, urllib.request, urllib.parse
+import json, re, socket, time, urllib.request, urllib.parse
 from html.parser import HTMLParser
 from datetime import datetime, timezone
 
 ORIGIN = "https://miralin.cat"
-def get(url, body=None, timeout=35):
+# Match the IPv4 transport already used by our Miralin backend.
+original_getaddrinfo = socket.getaddrinfo
+def ipv4_addresses(host, port, family=0, type=0, proto=0, flags=0):
+    return original_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+socket.getaddrinfo = ipv4_addresses
+def get(url, body=None, timeout=15):
     req = urllib.request.Request(url, data=body.encode() if body is not None else None,
-        headers={"User-Agent": "TMB-Agent-Client-Diagnostic/1.0", "Content-Type": "text/plain;charset=UTF-8"})
+        headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36", "Content-Type": "text/plain;charset=UTF-8"})
     with urllib.request.urlopen(req, timeout=timeout) as response:
         return response.read(4 * 1024 * 1024).decode("utf-8", errors="replace")
 class Scripts(HTMLParser):
