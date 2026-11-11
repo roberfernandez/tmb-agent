@@ -1,11 +1,19 @@
 name: Diagnostico ETA Miralin
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - fix/realistic-eye-eta-minute
+    paths:
+      - 'diagnostics/miralin_client_probe.py'
+      - '.github/workflows/miralin-eta-probe.yml'
+permissions:
+  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Probe station 413 independently of Android
-        run: python3 android-overlay/diagnostics/miralin_eta_probe.py 413
+      - name: Inspect public Miralin client and live station data
+        run: python3 diagnostics/miralin_client_probe.py
