@@ -147,6 +147,7 @@ final class ServiceAlerts {
     }
 
     String boardStatus(String stop, String train, long now) {
+        train = TrainId.normalize(train);
         Board board = fresh(stop, now);
         if (board == null) return "no fresh board for stop " + stop;
         StringBuilder summary = new StringBuilder("stop=").append(stop);
@@ -158,7 +159,7 @@ final class ServiceAlerts {
             for (int i = 0; i < entries.length(); i++) {
                 JSONObject entry = entries.optJSONObject(i);
                 if (entry == null) continue;
-                String code = entry.optString("trainCode", entry.optString("tren", ""));
+                String code = TrainId.fromBoard(entry);
                 if (train.equals(code)) {
                     summary.append(" MATCH train=").append(code)
                         .append(" arrival=").append(arrivalTime(entry, board.received))
@@ -174,6 +175,7 @@ final class ServiceAlerts {
     }
 
     long predictedArrival(String stop, String via, String train, long now, long maxBoardAge) {
+        train = TrainId.normalize(train);
         if (stop == null || via == null || train == null || !("1".equals(via) || "2".equals(via))) return 0;
         for (Arrival arrival : arrivals(stop, via, now, maxBoardAge)) {
             if (train.equals(arrival.train) && arrival.at > now) return arrival.at;
@@ -202,7 +204,7 @@ final class ServiceAlerts {
     }
 
     void acceptMap(JSONObject trains, long now) {
-        map = trains;
+        map = TrainId.positions(trains);
         mapReceived = now;
     }
 
@@ -608,7 +610,7 @@ final class ServiceAlerts {
             JSONObject entry = entries.optJSONObject(i); if (entry == null) continue;
             String track = entry.optString("platformTrack", entry.optString("track", entry.optString("via", "")));
             if (needsVia && !via.equals(track)) continue;
-            String train = entry.optString("trainCode", entry.optString("tren", entry.optString("id", "")));
+            String train = TrainId.fromBoard(entry);
             long at = arrivalTime(entry, board.received);
             if (!train.isEmpty() && at >= now - 15000) result.add(new Arrival(train, at));
         }

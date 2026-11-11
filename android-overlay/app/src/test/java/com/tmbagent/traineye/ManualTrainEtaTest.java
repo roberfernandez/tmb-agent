@@ -48,6 +48,43 @@ public class ManualTrainEtaTest {
         assertFalse(new ManualTrainEta("423", "410", true).isWaiting());
     }
 
+    @Test public void laPauUsesTheInboundForecastWhenThe406IsLeavingOnVia1() throws JSONException {
+        ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
+        boards.acceptBoard(new JSONObject("{\"stopCode\":\"413\","
+            + "\"via1\":[{\"trainCode\":\"M06\",\"secsLeft\":47}],"
+            + "\"via2\":[{\"trainCode\":\"P06\",\"secsLeft\":4200}]}"), NOW);
+        ManualTrainEta eta = new ManualTrainEta("413", "406", false);
+        assertEquals(NOW + 4_200_000L,
+            eta.predictedArrival(boards, NOW, position("Besòs Mar", 1), 0));
+        assertFalse(eta.observe(position("Besòs Mar", 1)));
+
+        boards.acceptBoard(new JSONObject("{\"stopCode\":\"413\","
+            + "\"via1\":[{\"trainCode\":\"P06\",\"secsLeft\":47}],\"via2\":[]}"), NOW);
+        assertEquals(0, eta.predictedArrival(boards, NOW, position("Besòs Mar", 1), 0));
+    }
+
+    @Test public void theFirstPassAtAnIntermediateStationFollowsTheTrainsDirection() throws JSONException {
+        ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
+        boards.acceptBoard(board(47, 900), NOW);
+        ManualTrainEta eta = new ManualTrainEta("423", "P10", false);
+        assertEquals(NOW + 900_000L,
+            eta.predictedArrival(boards, NOW, position("Girona", 1), 0));
+
+        boards.acceptBoard(board(900, 47), NOW);
+        assertEquals(NOW + 900_000L,
+            eta.predictedArrival(boards, NOW, position("Barceloneta", 2), 0));
+    }
+
+    @Test public void trinitatUsesTheInboundForecastForTheRenamed413() throws JSONException {
+        ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
+        boards.acceptBoard(new JSONObject("{\"stopCode\":\"434\","
+            + "\"via1\":[{\"trainCode\":\"M13\",\"secsLeft\":600}],"
+            + "\"via2\":[{\"trainCode\":\"P13\",\"secsLeft\":30}]}"), NOW);
+        ManualTrainEta eta = new ManualTrainEta("434", "413", false);
+        assertEquals(NOW + 600_000L,
+            eta.predictedArrival(boards, NOW, position("Via Júlia", 2), 0));
+    }
+
     private static JSONObject board(int via1, int via2) throws JSONException {
         return new JSONObject("{\"line\":\"L4\",\"stopCode\":\"423\","
             + "\"via1\":[{\"trainCode\":\"409\",\"secsLeft\":45},{\"trainCode\":\"410\",\"secsLeft\":" + via1 + "}],"

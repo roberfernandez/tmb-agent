@@ -12,7 +12,7 @@ final class ManualTrainEta {
 
     ManualTrainEta(String stop, String train, boolean arrived) {
         this.stop = stop;
-        this.train = train;
+        this.train = TrainId.normalize(train);
         this.destination = Integer.parseInt(stop);
         this.arrived = arrived;
     }

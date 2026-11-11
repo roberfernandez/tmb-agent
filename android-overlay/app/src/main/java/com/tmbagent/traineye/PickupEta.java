@@ -53,6 +53,7 @@ final class PickupEta {
     }
 
     ServicePlan.Row target(long now, String train) {
+        train = TrainId.normalize(train);
         int minute = plan.minutesAt(now);
         ServicePlan.Row active = null;
         ServicePlan.Row next = null;
@@ -277,12 +278,31 @@ final class PickupEta {
         }
 
         boolean terminal = isTerminal(stop);
-        long arrival = terminal || via.isEmpty()
-            ? boards.predictedArrivalEitherTrack(stop, via, train, now, maxBoardAge)
-            : boards.predictedArrival(stop, via, train, now, maxBoardAge);
+        String nextVia = via;
+        if (via.isEmpty()) {
+            if (terminal) {
+                nextVia = inboundTrack(stop, "");
+            } else if (maxBoardAge == ServiceAlerts.BOARD_FRESH_MS && liveTrain != null
+                && positionAgeMs >= 0 && positionAgeMs < 45_000L) {
+                nextVia = nextPassTrack(stop, liveTrain);
+            }
+        }
+        long arrival = nextVia.isEmpty()
+            ? boards.predictedArrivalEitherTrack(stop, "", train, now, maxBoardAge)
+            : boards.predictedArrival(stop, nextVia, train, now, maxBoardAge);
         if (maxBoardAge > ServiceAlerts.BOARD_FRESH_MS && via.isEmpty() && !terminal
             && arrival != boards.predictedArrival(stop, approachVia, train, now, maxBoardAge)) return 0;
-        return arrival > now && arrival < now + 3_600_000L ? arrival : 0;
+        return arrival > now && arrival < now + LAP_MS + MATCH_WINDOW_MS ? arrival : 0;
+    }
+
+    private static String nextPassTrack(String stop, JSONObject train) {
+        int station = ServiceAlerts.stopPosition(train.optString("estacion", ""));
+        String currentVia = reportedTrack(train);
+        if (station == 0 || !validTrack(currentVia)) return "";
+        int distance = stopsUntil(Integer.parseInt(stop), station, currentVia);
+        if (distance > 0) return currentVia;
+        if (distance < 0) return "1".equals(currentVia) ? "2" : "1";
+        return "";
     }
 
     private static boolean isApproaching(String stop, String inbound, JSONObject train) {

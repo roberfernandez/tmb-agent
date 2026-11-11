@@ -121,14 +121,29 @@ function acceptStopBoard(data){
 const L4_STATION_NAMES=Object.fromEntries(['La Pau','Besòs','Besòs Mar','El Maresme | Fòrum','Selva de Mar','Poblenou','Llacuna','Bogatell','Ciutadella | Vila Olímpica','Barceloneta','Jaume I','Urquinaona','Passeig de Gràcia','Girona','Verdaguer','Joanic','Alfons X','Guinardó | Hospital de Sant Pau','Maragall','Llucmajor','Via Júlia','Trinitat Nova'].map((name,i)=>[String(413+i),name]));
 function boardEntries(board){
  const data=board?.data||board;const all=[...(Array.isArray(data?.via1)?data.via1:[]),...(Array.isArray(data?.via2)?data.via2:[]),...(Array.isArray(data?.lineTrains)?data.lineTrains:[])];
- const seen=new Set();return all.filter(e=>{const k=String(e?.trainCode??e?.tren??e?.id??'')+':'+String(e?.arrivalTime??e?.secsLeft??'');if(seen.has(k))return false;seen.add(k);return true});
+ const seen=new Set();return all.filter(e=>{const k=boardTrain(e)+':'+String(e?.arrivalTime??e?.secsLeft??'');if(seen.has(k))return false;seen.add(k);return true});
 }
 function boardEntriesOnVia(board,via){
  const data=board?.data||board,entries=data?.['via'+via];
  if(Array.isArray(entries)&&entries.length)return entries;
  return boardEntries(board).filter(e=>Number(e?.platformTrack??e?.track??e?.via)===Number(via));
 }
-function boardTrain(e){return String(e?.trainCode??e?.tren??e?.id??'')}
+function normalizedTrainId(value){
+ const code=String(value??'').trim().toUpperCase();
+ if(/^[MP](?:0[1-9]|[1-9]\d)$/.test(code))return '4'+code.slice(1);
+ return /^4(?:0[1-9]|[1-9]\d)$/.test(code)?code:'';
+}
+function normalizedTrainMap(raw){
+ const result={};
+ for(const [name,train] of Object.entries(raw||{})){
+  if(!train||typeof train!=='object')continue;
+  const code=normalizedTrainId(name)||boardTrain(train);
+  if(!code||(result[code]&&name.trim()!==code))continue;
+  result[code]=train;
+ }
+ return result;
+}
+function boardTrain(e){return normalizedTrainId(e?.trainCode??e?.tren??e?.id)}
 function boardArrival(e){const n=Number(e?.arrivalTime);if(Number.isFinite(n)&&n>100000000000)return n;const parsed=Date.parse(e?.arrivalTime);if(Number.isFinite(parsed))return parsed;const secs=Number(e?.secsLeft);return Number.isFinite(secs)?Date.now()+secs*1000:null}
 function clockText(ms){return new Intl.DateTimeFormat('ca-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit'}).format(new Date(ms))}
 function freshBoard(stop,now=Date.now()){const cached=stationBoardCache.get(String(stop));return cached&&now-cached.receivedAt<60000?cached:null}
@@ -300,8 +315,8 @@ function start() {
               const [event, data] = JSON.parse(packet.slice(2));
               if(event==='stopDataUpdate'){acceptStopBoard(data)}
               else if (event === 'mapUpdate' && data?.L4?.trains) {
-                stationPasses(data.L4.trains);
-                snapshot = data.L4.trains;
+                snapshot = normalizedTrainMap(data.L4.trains);
+                stationPasses(snapshot);
                 if(!connected||!receivedAt||Date.now()-receivedAt>45000)diagnostic('upstream_data_resumed',{previousAgeSeconds:receivedAt?Math.floor((Date.now()-receivedAt)/1000):null});
                 mapUpdates++;
                 receivedAt = Date.now();

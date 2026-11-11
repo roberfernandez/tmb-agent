@@ -161,8 +161,8 @@ public class TrainOverlayService extends Service {
         }
         if (intent != null) {
             if (popupRoot != null) closeServicePopup();
-            String selectedTrain = intent.getStringExtra(EXTRA_TRAIN);
-            if (selectedTrain != null && !selectedTrain.equals(train)) {
+            String selectedTrain = TrainId.normalize(intent.getStringExtra(EXTRA_TRAIN));
+            if (!selectedTrain.isEmpty() && !selectedTrain.equals(train)) {
                 train = selectedTrain;
                 resetTrainPosition();
             }
@@ -178,7 +178,8 @@ public class TrainOverlayService extends Service {
                 .putString(EXTRA_SERVICE_IMAGE, serviceImage).putString(EXTRA_SERVICE_ROW_BOUNDS, serviceRowBounds)
                 .putString(EXTRA_MANUAL_STOP, manualStop).remove(MANUAL_ARRIVED).apply();
         } else {
-            train = prefs.getString(EXTRA_TRAIN, "401");
+            train = TrainId.normalize(prefs.getString(EXTRA_TRAIN, "401"));
+            if (train.isEmpty()) train = "401";
             mode = prefs.getString(EXTRA_MODE, "manual");
             serviceDate = prefs.getString(EXTRA_SERVICE_DATE, "");
             schedule = prefs.getString(EXTRA_SCHEDULE, "");
@@ -832,7 +833,7 @@ public class TrainOverlayService extends Service {
                     while ((line = reader.readLine()) != null) raw.append(line);
                 }
                 JSONObject response = new JSONObject(raw.toString());
-                JSONObject item = response.optJSONObject("trains") == null ? null : response.optJSONObject("trains").optJSONObject(requestedTrain);
+                JSONObject item = TrainId.positions(response.optJSONObject("trains")).optJSONObject(requestedTrain);
                 String newStation = item == null ? "sense dades" : item.optString("station", "sense dades");
                 String newTrack = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
                 int newAge = response.isNull("ageSeconds") ? -1 : response.optInt("ageSeconds", -1);

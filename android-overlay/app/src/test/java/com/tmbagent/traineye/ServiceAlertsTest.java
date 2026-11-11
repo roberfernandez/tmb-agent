@@ -427,6 +427,25 @@ public class ServiceAlertsTest {
         assertTrue(due.get(0).body.contains("401 (pas 21:22, arribada 21:25, marge 5 min)"));
     }
 
+    @Test public void theLoaded406ServiceMatchesM06AndP06InBoardsAndMaps() throws Exception {
+        long now = ServicePlanTest.time("2026-11-11T10:25:00");
+        ServiceAlerts alerts = new ServiceAlerts(new ServicePlan(
+            "600,630,EST,413,413,,,;630,700,CON,413,434,406,2,1"), now);
+        alerts.acceptMap(position("M06", "Besòs", 2), now);
+        alerts.acceptBoard(board("413", 2, arrival("P06", 300)), now);
+        List<ServiceAlerts.Alert> due = alerts.due(now, 5);
+        assertEquals(1, due.size());
+        assertEquals("Servei · presa del 406", due.get(0).title);
+        assertTrue(alerts.boardStatus("413", "406", now).contains("MATCH train=406"));
+
+        ServiceAlerts lineBoard = new ServiceAlerts(new ServicePlan(""), now);
+        JSONObject fallback = new JSONObject().put("stopCode", "413").put("via2", new JSONArray())
+            .put("lineTrains", new JSONArray().put(
+                new JSONObject().put("tren", "M13").put("platformTrack", 2).put("secsLeft", 120)));
+        lineBoard.acceptBoard(fallback, now);
+        assertEquals(now + 120_000L, lineBoard.predictedArrival("413", "2", "P13", now));
+    }
+
     @Test public void acceptsNumericStringArrivalTimeLikeBackend() throws Exception {
         long now = 1800000000000L;
         ServiceAlerts alerts = new ServiceAlerts(new ServicePlan("600,630,EST,413,413,,,;630,690,CON,413,434,407,1,1"), now);

@@ -35,10 +35,10 @@ import static org.junit.Assert.*;
 public class TrainPositionClientTest {
     private static final String HELLO = "0{\"sid\":\"engine-session\",\"pingInterval\":25000,\"pingTimeout\":20000}";
     private static final String ACK = "40{\"sid\":\"namespace-session\"}";
-    private static final String MAP = "42[\"mapUpdate\",{\"L4\":{\"trains\":{\"410\":{\"estacion\":\"Girona\",\"platformTrack\":2}}}}]";
+    private static final String MAP = "42[\"mapUpdate\",{\"L4\":{\"trains\":{\"M10\":{\"estacion\":\"Girona\",\"platformTrack\":2}}}}]";
     private static final String SUBSCRIBE = "42[\"subscribeStop\",{\"line\":\"L4\",\"stop\":\"425\"}]";
     private static final String BOARD = "42[\"stopDataUpdate\",{\"line\":\"L4\",\"stopCode\":\"425\",\"via1\":[],"
-        + "\"via2\":[{\"trainCode\":\"410\",\"tren\":\"410\",\"secsLeft\":181,\"stopCode\":425,\"track\":2}]}]";
+        + "\"via2\":[{\"trainCode\":\"P10\",\"tren\":\"P10\",\"secsLeft\":181,\"stopCode\":425,\"track\":2}]}]";
 
     @Test public void pollsMapsDuringBlockedPostAndRecoversMissingBoardOnSameSession() throws Exception {
         AtomicLong clock = new AtomicLong(1000);
