@@ -27,10 +27,6 @@
                 <data android:scheme="tmbservei" android:host="open-viewer" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".TmbLoginActivity"
-            android:exported="false"
-            android:configChanges="keyboardHidden|orientation|screenSize" />
         <service
             android:name=".TrainOverlayService"
             android:exported="false"

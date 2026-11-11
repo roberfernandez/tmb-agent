@@ -37,90 +37,15 @@ import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class TrainOverlayService extends Service {
     static volatile boolean isActive;
-    private static TrainOverlayService activeInstance;
-    private OfficialMiralinReader officialReader;
-    private boolean officialScreenOpen;
-
-    static TrainOverlayService activeService() {
-        return activeInstance == null || activeInstance.destroyed ? null : activeInstance;
-    }
-
-    OfficialMiralinReader officialReader() {
-        if (officialReader == null)
-            officialReader = new OfficialMiralinReader(this, () -> { if (!destroyed) updateEye(); });
-        return officialReader;
-    }
-
-    void setOfficialScreenOpen(boolean open) {
-        officialScreenOpen = open;
-        if (open) hideOverlay(); else if (!destroyed) showOverlay();
-    }
-
-    void disconnectOfficial() {
-        if (officialReader != null) officialReader.dispose();
-        officialReader = null;
-        updateEye();
-    }
-
-    String officialStop() {
-        String selected = etaStop(etaTarget(System.currentTimeMillis()));
-        if (!selected.isEmpty()) return selected;
-        if (manualStop.matches("41[3-9]|42[0-9]|43[0-4]")) return manualStop;
-        JSONObject current = directMap == null ? null : directMap.optJSONObject(train);
-        int position = current == null ? 0 : ServiceAlerts.stopPosition(current.optString("estacion", ""));
-        return position >= 413 && position <= 434 ? Integer.toString(position) : "413";
-    }
-
-    private String officialVia() {
-        ServicePlan.Row pickup = etaTarget(System.currentTimeMillis());
-        return pickup == null ? "" : pickup.via;
-    }
-
-    private long displayedHeadwaySeconds(long now) {
-        // The public mirror can return a synthetic 600 s even when TMB
-        // reports a different interval. Keep it only in diagnostics.
-        return officialReader == null ? -1
-            : officialReader.seconds(train, officialVia(), officialStop(), now);
-    }
-
-    private String displayedHeadway(long now) {
-        return OfficialHeadwayBoard.format(displayedHeadwaySeconds(now));
-    }
-
-    private String displayedHeadwaySource(long now) {
-        return officialReader == null ? "official TMB not connected" : "official TMB";
-    }
-
-    private void openOfficialLogin() {
-        try {
-            // Android 15 requires the user-visible overlay at the moment a
-            // foreground-service activity is opened from the user's tap.
-            startActivity(new Intent(this, TmbLoginActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            officialScreenOpen = true;
-            closeServicePopup();
-            hideOverlay();
-        } catch (Exception error) {
-            officialScreenOpen = false;
-            showOverlay();
-            android.widget.Toast.makeText(this, "No s'ha pogut obrir l'accés a TMB.", android.widget.Toast.LENGTH_SHORT).show();
-        }
-    }
     public static final String EXTRA_ALERTS = "alerts";
     public static final String EXTRA_MARGIN = "margin";
     public static final String EXTRA_TRAIN = "train";
@@ -133,11 +58,9 @@ public class TrainOverlayService extends Service {
     private static final String MANUAL_ARRIVED = "manualArrived";
     private static final String CHANNEL_ID = "train_eye_overlay";
     private static final int NOTIFICATION_ID = 9413;
-    private static final String API = "https://tmb-servei-proves.onrender.com/api/trains?ids=";
     private static final String SERVICE_VIEWER_URL = "https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WindowManager windowManager;
     private View overlay;
     private TrainEyeView eye;
@@ -162,7 +85,6 @@ public class TrainOverlayService extends Service {
     private String track = "—";
     private int ageAtFetch = -1;
     private long fetchedAt = 0;
-    private volatile boolean requestInFlight = false;
     private TrainPositionClient directClient;
     private TextView etaDiagnosticView;
     private Button etaConfirmButton;
@@ -173,6 +95,7 @@ public class TrainOverlayService extends Service {
     private JSONObject directMap;
     private long directMapAt;
     private final TrainHeadway trainHeadway = new TrainHeadway();
+    private final StationHeadway stationHeadway = new StationHeadway();
     private String connectionStatus = "Miralin directe · connectant…";
     private boolean destroyed;
     private ServicePlan servicePlan = new ServicePlan("");
@@ -209,7 +132,6 @@ public class TrainOverlayService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        activeInstance = this;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         createChannel();
     }
@@ -308,9 +230,8 @@ public class TrainOverlayService extends Service {
     }
 
     private void showOverlay() {
-        if (overlay != null || officialScreenOpen) return;
+        if (overlay != null) return;
         FrameLayout bubble = new FrameLayout(this);
-        attachOfficialBackground(bubble);
         eye = new TrainEyeView(this);
         bubble.addView(eye, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
@@ -391,16 +312,6 @@ public class TrainOverlayService extends Service {
         }
     }
 
-    private void attachOfficialBackground(FrameLayout host) {
-        if (officialReader == null) return;
-        android.webkit.WebView page = officialReader.backgroundView();
-        if (page != null) {
-            // Keep the signed-in page attached so its existing TMB poll keeps
-            // running; the opaque front or viewer card covers this 1px view.
-            host.addView(page, new FrameLayout.LayoutParams(1, 1, Gravity.CENTER));
-        }
-    }
-
     private void openServiceViewer() {
         showServicePopup();
     }
@@ -410,7 +321,6 @@ public class TrainOverlayService extends Service {
         hideOverlay();
 
         FrameLayout root = new FrameLayout(this);
-        attachOfficialBackground(root);
         root.setBackgroundColor(0xb8000000);
         root.setFocusableInTouchMode(true);
         root.setOnClickListener(v -> closeServicePopup());
@@ -497,10 +407,6 @@ public class TrainOverlayService extends Service {
         copyDiagnostic.setOnClickListener(view -> copyEtaDiagnostic());
         etaActions.addView(copyDiagnostic, new LinearLayout.LayoutParams(0, ViewGroupParams.WRAP, 1));
         etaPanel.addView(etaActions);
-        Button connectTmb = new Button(this);
-        connectTmb.setText(officialReader == null ? "Connecta T.ANT de TMB" : "Obre la sessió de TMB");
-        connectTmb.setOnClickListener(view -> openOfficialLogin());
-        etaPanel.addView(connectTmb);
         FrameLayout.LayoutParams etaParams = new FrameLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
@@ -778,6 +684,7 @@ public class TrainOverlayService extends Service {
                     connectionStatus = status;
                     if (!status.contains("dades rebudes")) {
                         trainHeadway.clear();
+                        stationHeadway.clear();
                         if (serviceAlerts != null) serviceAlerts.clearLiveData();
                     }
                     startAsForeground();
@@ -788,6 +695,7 @@ public class TrainOverlayService extends Service {
                 handler.post(() -> {
                     if (destroyed) return;
                     trainHeadway.acceptBoard(board, received);
+                    stationHeadway.accept(stop, board, received);
                     if (serviceAlerts != null) serviceAlerts.acceptBoard(stop, board, received);
                     if (etaBoards != null) etaBoards.acceptBoard(stop, board, received);
                     updateEye();
@@ -839,24 +747,31 @@ public class TrainOverlayService extends Service {
         updateAlertWakeLock();
     }
 
+    private String headwayStop() {
+        String target = etaStop(etaTarget(System.currentTimeMillis()));
+        if (!target.isEmpty()) return target;
+        // Arrival completes the ETA only; keep the manually selected station's
+        // public table for the interval while this train is still followed.
+        if (manualStop.matches("41[3-9]|42[0-9]|43[0-4]")) return manualStop;
+        JSONObject current = directMap == null ? null : directMap.optJSONObject(train);
+        int position = current == null ? 0 : ServiceAlerts.stopPosition(current.optString("estacion", ""));
+        return position >= 413 && position <= 434 ? Integer.toString(position) : "413";
+    }
+
+    private String headwayVia() {
+        ServicePlan.Row pickup = etaTarget(System.currentTimeMillis());
+        return pickup == null ? "" : pickup.via;
+    }
+
     private void updateBoardStops() {
         if (directClient == null) return;
         long now = System.currentTimeMillis();
         Set<String> stops = new LinkedHashSet<>();
         String etaStop = etaStop(etaTarget(now));
         if (!etaStop.isEmpty()) stops.add(etaStop);
+        stops.add(headwayStop());
         if (alertsEnabled && serviceAlerts != null) stops.addAll(serviceAlerts.requiredStops(now, alertMargin));
-        if (stops.isEmpty()) {
-            // Position-only tracking still needs a station board for T.ANT.
-            // Any L4 board includes lineTrains; no arrival target is inferred.
-            JSONObject current = directMap == null ? null : directMap.optJSONObject(train);
-            if (current != null) {
-                int position = ServiceAlerts.stopPosition(current.optString("estacion", ""));
-                if (position >= 413 && position <= 434) stops.add(Integer.toString(position));
-            }
-        }
         directClient.setStops(stops);
-        if (officialReader != null) officialReader.selectStop(officialStop(), false);
     }
 
     private void updateAlertWakeLock() {
@@ -925,48 +840,9 @@ public class TrainOverlayService extends Service {
     }
 
     private void fetchTrain() {
-        if (destroyed || applyDirectTrain()) { updateEye(); return; }
-        if (requestInFlight) return;
-        requestInFlight = true;
-        final String requestedTrain = train;
-        network.execute(() -> {
-            HttpURLConnection connection = null;
-            try {
-                connection = (HttpURLConnection) new URL(API + requestedTrain).openConnection();
-                connection.setConnectTimeout(10000);
-                connection.setReadTimeout(10000);
-                connection.setRequestMethod("GET");
-                int code = connection.getResponseCode();
-                InputStream stream = code >= 400 ? connection.getErrorStream() : connection.getInputStream();
-                StringBuilder raw = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) raw.append(line);
-                }
-                JSONObject response = new JSONObject(raw.toString());
-                JSONObject item = TrainId.positions(response.optJSONObject("trains")).optJSONObject(requestedTrain);
-                String newStation = item == null ? "sense dades" : item.optString("station", "sense dades");
-                String newTrack = item == null ? "—" : item.optString("platformTrack", item.optString("track", "—"));
-                int newAge = response.isNull("ageSeconds") ? -1 : response.optInt("ageSeconds", -1);
-                handler.post(() -> {
-                    if (!destroyed && train.equals(requestedTrain) && !applyDirectTrain() &&
-                        (fetchedAt == 0 || (newAge >= 0 && newAge < 45))) {
-                        station = newStation;
-                        track = newTrack;
-                        ageAtFetch = newAge;
-                        fetchedAt = System.currentTimeMillis();
-                    }
-                });
-            } catch (Exception ignored) {
-                handler.post(() -> {
-                    if (!destroyed && !applyDirectTrain() && fetchedAt == 0) station = "sense connexió";
-                });
-            } finally {
-                if (connection != null) connection.disconnect();
-                requestInFlight = false;
-                handler.post(this::updateEye);
-            }
-        });
+        if (destroyed) return;
+        if (!applyDirectTrain() && fetchedAt == 0) station = "sense connexió";
+        updateEye();
     }
 
     private void applyScheduledTrain(boolean refreshNow) {
@@ -1069,11 +945,11 @@ public class TrainOverlayService extends Service {
                 .put("requestedVia", pickup == null ? "" : pickup.via)
                 .put("positionAgeMs", directMapAt == 0 ? -1 : android.os.SystemClock.elapsedRealtime() - directMapAt)
                 .put("position", directMap == null ? JSONObject.NULL : directMap.opt(train))
-                .put("headwaySeconds", displayedHeadwaySeconds(now))
-                .put("headwaySource", displayedHeadwaySource(now))
-                .put("miralinCatHeadwaySeconds", trainHeadway.seconds(train, now))
-                .put("officialTmb", officialReader == null ? JSONObject.NULL
-                    : officialReader.diagnostic(train, officialVia(), officialStop(), now))
+                .put("headwaySeconds", stationHeadway.seconds(headwayStop(), headwayVia(), train, now))
+                .put("headwaySource", stationHeadway.source(headwayStop(), headwayVia(), train, now))
+                .put("headwayStop", headwayStop())
+                .put("mapHeadwaySeconds", trainHeadway.seconds(train, now))
+                .put("dataSource", "miralin.cat")
                 .put("arrivalAt", estimate.arrival)
                 .put("approximate", estimate.approximate)
                 .put("socketStatus", etaStationPhases.getOrDefault(stop, etaSocketStatus))
@@ -1110,8 +986,7 @@ public class TrainOverlayService extends Service {
             + (error.isEmpty() ? "" : "\nÚltimo fallo: " + error)
             + "\nÚltima previsión: " + (received == 0 ? "ninguna" : Math.max(0, (now - received) / 1000) + " s")
             + (pickup == null ? "" : "\nVoltes pendents: " + (laps < 0 ? "per confirmar" : laps))
-            + "\nT.ANT: " + displayedHeadway(now)
-            + (officialReader == null ? "" : " · TMB")
+            + "\nT.ANT: " + stationHeadway.label(headwayStop(), headwayVia(), train, now)
             + "\nCoincidencia: " + (arrival == 0 ? "sin previsión" : countdown(estimate, now))
             + (retained ? " · previsión aproximada" : "")
             + "\nDatos: " + (stop.isEmpty() ? (manualEta != null ? "arribada detectada" : "sin recogida pendiente")
@@ -1134,7 +1009,7 @@ public class TrainOverlayService extends Service {
         eye.setStatus(train, currentStation, currentTrack, ageText);
         long now = System.currentTimeMillis();
         ServicePlan.Row pickup = etaTarget(now);
-        eye.setHeadway(displayedHeadway(now));
+        eye.setHeadway(stationHeadway.label(headwayStop(), headwayVia(), train, now));
         eye.setCountdown(countdown(predictedEta(pickup, now), now));
     }
 
@@ -1152,8 +1027,6 @@ public class TrainOverlayService extends Service {
         isActive = false;
         if (alertWakeLock != null && alertWakeLock.isHeld()) alertWakeLock.release();
         destroyed = true;
-        activeInstance = null;
-        if (officialReader != null) { officialReader.dispose(); officialReader = null; }
         if (directClient != null) directClient.close();
         handler.removeCallbacks(poll);
         handler.removeCallbacks(ageTicker);
@@ -1163,7 +1036,6 @@ public class TrainOverlayService extends Service {
             popupImageView = null;
         }
         hideOverlay();
-        if (network != null) network.shutdownNow();
         stopForeground(true);
         super.onDestroy();
     }
