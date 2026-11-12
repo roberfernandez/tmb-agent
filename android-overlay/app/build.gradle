@@ -10,8 +10,8 @@ android {
         applicationId 'com.tmbagent.traineye'
         minSdk 26
         targetSdk 35
-        versionCode 47
-        versionName '0.14.41'
+        versionCode 48
+        versionName '0.14.42'
     }
 
     compileOptions {
@@ -21,6 +21,10 @@ android {
 }
 
 dependencies {
+    implementation('io.socket:socket.io-client:2.1.2') {
+        exclude group: 'org.json', module: 'json'
+    }
+    testImplementation 'com.squareup.okhttp3:mockwebserver:3.12.12'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }

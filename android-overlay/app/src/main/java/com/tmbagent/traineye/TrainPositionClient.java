@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -27,7 +28,7 @@ import java.util.function.Supplier;
 
 /** The live map and L4 station boards use the same Engine.IO session. */
 final class TrainPositionClient implements AutoCloseable {
-    private static final String ENDPOINT = "https://miralin.cat/socket.io/?EIO=4&transport=polling";
+    private static final URI ORIGIN = URI.create("https://miralin.cat");
     private static final long STALE_MAP_MS = 90_000;
     private static final long BOARD_REFRESH_MS = 40_000;
     private static final long BOARD_FRESH_MS = 60_000;
@@ -48,6 +49,7 @@ final class TrainPositionClient implements AutoCloseable {
     }
 
     private final Listener listener;
+    private final SocketIoConnection standard;
     private final SocketDiagnostics diagnostics = new SocketDiagnostics();
     private final Transport reader;
     private final Supplier<Transport> writerTransport;
@@ -59,9 +61,18 @@ final class TrainPositionClient implements AutoCloseable {
     private boolean sessionHadMap;
 
     TrainPositionClient(Listener listener) {
-        this(listener, ENDPOINT, () -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime()));
+        this(listener, ORIGIN, () -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime()));
     }
 
+    TrainPositionClient(Listener listener, URI origin, LongSupplier elapsedMs) {
+        this.listener = listener;
+        this.reader = null;
+        this.writerTransport = null;
+        this.elapsedMs = elapsedMs;
+        this.standard = new SocketIoConnection(listener, origin, elapsedMs);
+    }
+
+    // Kept for regression testing the legacy polling transport.
     TrainPositionClient(Listener listener, String endpoint, LongSupplier elapsedMs) {
         this(listener, new PollingTransport(endpoint), () -> new PollingTransport(endpoint), elapsedMs);
     }
@@ -71,6 +82,7 @@ final class TrainPositionClient implements AutoCloseable {
         this.reader = reader;
         this.writerTransport = writerTransport;
         this.elapsedMs = elapsedMs;
+        this.standard = null;
     }
 
     void setStops(Set<String> requested) {
@@ -78,12 +90,15 @@ final class TrainPositionClient implements AutoCloseable {
         Set<String> valid = new LinkedHashSet<>();
         for (String stop : requested) if (stop.matches("41[3-9]|42[0-9]|43[0-4]")) valid.add(stop);
         stops = valid;
+        if (standard != null) { standard.setStops(valid); return; }
         SessionWriter writer = activeWriter;
         if (writer != null) writer.syncSubscriptions();
     }
 
     synchronized void start() {
-        if (worker != null || closed) return;
+        if (closed) return;
+        if (standard != null) { standard.start(); return; }
+        if (worker != null) return;
         worker = new Thread(this::run, "miralin-direct");
         worker.start();
     }
@@ -195,6 +210,7 @@ final class TrainPositionClient implements AutoCloseable {
     }
 
     JSONObject diagnosticSnapshot() {
+        if (standard != null) return standard.diagnosticSnapshot();
         JSONObject report = diagnostics.snapshot(elapsedMs.getAsLong());
         try {
             JSONArray requested = new JSONArray();
@@ -214,7 +230,7 @@ final class TrainPositionClient implements AutoCloseable {
                 response = transport.request(sid, body);
             } catch (IOException error) {
                 String detail = error.getMessage();
-                if (detail == null || !detail.startsWith("HTTP ")) detail = error.getClass().getSimpleName();
+                if (detail == null || !detail.startsWith("HTTP ")) detail = SocketDiagnostics.errorText(error);
                 throw new IOException(phase + " · " + detail, error);
             }
             if (body != null && !"ok".equals(response)) throw new IOException(phase + " · respuesta distinta de ok");
@@ -228,6 +244,7 @@ final class TrainPositionClient implements AutoCloseable {
 
     @Override public synchronized void close() {
         closed = true;
+        if (standard != null) { standard.close(); return; }
         reader.cancel();
         SessionWriter writer = activeWriter;
         if (writer != null) writer.stop();

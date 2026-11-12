@@ -17,6 +17,29 @@ final class SocketDiagnostics {
     private JSONObject lastBoard;
     private int sessions, requests, boardFrames, acceptedBoards, rejectedBoards;
 
+    synchronized void state(String kind, String detail, long now) {
+        add(kind, detail.length() > 1024 ? detail.substring(0, 1024) : detail, now);
+    }
+
+    static String errorText(Object value) {
+        if (!(value instanceof Throwable)) return value == null ? "unknown error" : clean(String.valueOf(value));
+        StringBuilder text = new StringBuilder();
+        Throwable cause = (Throwable) value;
+        for (int depth = 0; cause != null && depth < 4; depth++, cause = cause.getCause()) {
+            if (text.length() > 0) text.append(" <- ");
+            text.append(cause.getClass().getSimpleName());
+            String message = cause.getMessage();
+            if (message != null && !message.isEmpty()) text.append(": ").append(clean(message));
+        }
+        return text.toString();
+    }
+
+    private static String clean(String value) {
+        String text = value.replaceAll("(?i)(sid|token|authorization)=([^\\s&]+)", "$1=[redacted]")
+            .replace('\n', ' ').replace('\r', ' ');
+        return text.length() > 240 ? text.substring(0, 240) : text;
+    }
+
     synchronized void session(long now) {
         sessions++;
         add("session", "Session " + sessions, now);

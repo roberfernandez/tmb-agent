@@ -194,7 +194,7 @@ public class TrainPositionClientTest {
             client.receiveSession();
             fail("Expected timeout");
         } catch (IOException error) {
-            assertEquals(phase + " · SocketTimeoutException", error.getMessage());
+            assertEquals(phase + " · SocketTimeoutException: test timeout", error.getMessage());
             assertTrue(error.getCause() instanceof SocketTimeoutException);
         } finally {
             client.close();

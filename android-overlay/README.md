@@ -10,7 +10,7 @@ Complement Android opcional per mostrar el tren per sobre d’altres aplicacions
 
 ## Connexió
 
-A partir de la versió 0.14.14, el servei Android obre una única connexió HTTPS Engine.IO amb Miralin.cat mentre el seguiment està actiu. Rep les posicions de la L4 i escull el tren segons el mode manual o l’horari rebut. Respon als missatges de manteniment, torna a connectar amb una espera de 2 a 30 segons després d’un tall i reinicia la sessió si passen 90 segons sense cap mapa nou. Aturar el seguiment tanca el client de xarxa.
+Des de la versió 0.14.42, l'entrada nativa utilitza el client estàndard `io.socket:socket.io-client:2.1.2` directament amb Miralin.cat. Prioritza WebSocket; si fallen tres intents, passa al polling de la mateixa llibreria amb possibilitat d'actualització a WebSocket. La llibreria gestiona el protocol, els batecs i les reconnexions. El mapa i els quadres d'estació comparteixen connexió i es tornen a demanar les estacions seleccionades quan es reconnecta. Aturar el seguiment tanca el client i el control de frescor. El transport HTTP propi anterior es conserva només per a les proves de regressió.
 
 Des de la versió 0.14.40, la recepció de mapes i la del quadre de cada estació es vigilen per separat: si una estació sol·licitada passa 60 segons sense resposta, es renova la sessió i es torna a subscriure a les estacions escollides. Un quadre sense etiqueta només s'atribueix quan s'ha demanat una única estació en aquella sessió, i aquesta identificació es conserva per a l'arribada i l'interval. El seguiment manual serveix per a qualsevol de les 22 estacions de L4; no fixa La Pau. La pantalla provisional de previsualització d'avisos de la 0.14.39 s'ha retirat.
 
@@ -27,6 +27,8 @@ Des de la versió 0.14.15, Android també calcula els avisos al dispositiu. Amb 
 Els avisos emesos es desen per servei i jornada per evitar repeticions després d’un reinici. Android ofereix permetre l’activitat en segon pla per mantenir connexió i CPU amb el mòbil bloquejat; el bloqueig de pantalla, l’estalvi de bateria i el comportament del fabricant requereixen una prova real al telèfon. El manteniment de CPU només s’aplica amb avisos automàtics pendents i s’allibera en aturar-los. Els avisos web de la resta de plataformes continuen depenent de Render.
 
 La miniapp mostra el tren previst. Quan s’interpreta una captura diferent amb el seguiment ja actiu, apareix «Actualitza el seguiment» perquè l’usuari transfereixi l’horari nou a Android. La sessió actual continua fins que es prem aquest botó o «Atura». Fins que l’usuari aplica el servei nou, Android conserva la sessió anterior i la miniapp indica que hi ha un servei pendent d’aplicar. Canviar l’antelació mostra «Aplica els canvis»; carregar la pàgina no obre automàticament l’app Android. Activar o actualitzar envia l’horari complet, el marge i la configuració d’avisos.
+
+Els errors de connexió conserven la causa i el missatge de xarxa, en lloc de reduir-los a `IOException`. El diagnòstic indica la llibreria i el transport seleccionat; continua disponible des del visor.
 
 ## Diagnòstic sota demanda
 
