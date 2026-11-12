@@ -48,6 +48,7 @@ final class TrainPositionClient implements AutoCloseable {
     }
 
     private final Listener listener;
+    private final SocketDiagnostics diagnostics = new SocketDiagnostics();
     private final Transport reader;
     private final Supplier<Transport> writerTransport;
     private final LongSupplier elapsedMs;
@@ -121,6 +122,7 @@ final class TrainPositionClient implements AutoCloseable {
         }
         if (sid.isEmpty()) throw new IOException("Handshake (GET) · sin sid");
 
+        diagnostics.session(elapsedMs.getAsLong());
         SessionWriter writer = new SessionWriter(sid, writerTransport.get());
         activeWriter = writer;
         try {
@@ -152,8 +154,16 @@ final class TrainPositionClient implements AutoCloseable {
                             listener.onBoardState("", "Espera de eventos (GET) · evento inválido", true);
                             continue;
                         }
+                        diagnostics.event(event.optString(0));
                         JSONObject data = event.optJSONObject(1);
-                        if ("stopDataUpdate".equals(event.optString(0)) && data != null) writer.acceptBoard(data);
+                        if ("stopDataUpdate".equals(event.optString(0))) {
+                            if (data != null) writer.acceptBoard(data);
+                            else {
+                                JSONObject frame = new JSONObject();
+                                try { frame.put("payload", event.opt(1)); } catch (JSONException ignored) {}
+                                diagnostics.board("", frame, "payload is not an object", elapsedMs.getAsLong());
+                            }
+                        }
                         if (!"mapUpdate".equals(event.optString(0))) continue;
                         JSONObject line = data == null ? null : data.optJSONObject("L4");
                         JSONObject trains = line == null ? null : line.optJSONObject("trains");
@@ -184,17 +194,36 @@ final class TrainPositionClient implements AutoCloseable {
         }
     }
 
-    private static String request(Transport transport, String phase, String sid, String body) throws IOException {
-        String response;
+    JSONObject diagnosticSnapshot() {
+        JSONObject report = diagnostics.snapshot(elapsedMs.getAsLong());
         try {
-            response = transport.request(sid, body);
+            JSONArray requested = new JSONArray();
+            for (String stop : stops) requested.put(stop);
+            SessionWriter writer = activeWriter;
+            report.put("requestedStops", requested).put("closed", closed)
+                .put("namespaceReady", writer != null && writer.namespaceReady);
+        } catch (JSONException ignored) {}
+        return report;
+    }
+
+    private String request(Transport transport, String phase, String sid, String body) throws IOException {
+        diagnostics.requestStarted(phase, body, elapsedMs.getAsLong());
+        try {
+            String response;
+            try {
+                response = transport.request(sid, body);
+            } catch (IOException error) {
+                String detail = error.getMessage();
+                if (detail == null || !detail.startsWith("HTTP ")) detail = error.getClass().getSimpleName();
+                throw new IOException(phase + " · " + detail, error);
+            }
+            if (body != null && !"ok".equals(response)) throw new IOException(phase + " · respuesta distinta de ok");
+            diagnostics.requestFinished(phase, body, "", elapsedMs.getAsLong());
+            return response;
         } catch (IOException error) {
-            String detail = error.getMessage();
-            if (detail == null || !detail.startsWith("HTTP ")) detail = error.getClass().getSimpleName();
-            throw new IOException(phase + " · " + detail, error);
+            diagnostics.requestFinished(phase, body, error.getMessage(), elapsedMs.getAsLong());
+            throw error;
         }
-        if (body != null && !"ok".equals(response)) throw new IOException(phase + " · respuesta distinta de ok");
-        return response;
     }
 
     @Override public synchronized void close() {
@@ -292,24 +321,42 @@ final class TrainPositionClient implements AutoCloseable {
         }
 
         void acceptBoard(JSONObject board) {
+            JSONObject wire = board;
             JSONObject data = board.optJSONObject("data");
             JSONObject rows = data == null ? board : data;
-            if (rows.optJSONArray("via1") == null && rows.optJSONArray("via2") == null) return;
+            if (rows.optJSONArray("via1") == null && rows.optJSONArray("via2") == null) {
+                diagnostics.board("", wire, "missing via1/via2 arrays", elapsedMs.getAsLong());
+                return;
+            }
             String line = data == null ? board.optString("line", "L4") : data.optString("line", board.optString("line", "L4"));
-            if (!"L4".equals(line)) return;
+            if (!"L4".equals(line)) {
+                diagnostics.board("", wire, "line is " + line, elapsedMs.getAsLong());
+                return;
+            }
             String stop = ServiceAlerts.boardStop(board);
             // Stale subscriptions are filtered locally so a change of stop cannot reset the map.
             // An unlabelled board is only safe before any other stop has been requested on this sid.
             if (stop.isEmpty()) stop = onlyAttempted;
-            if (stop == null || !stops.contains(stop) || !attempted.contains(stop)) return;
+            if (stop == null || stop.isEmpty()) {
+                diagnostics.board("", wire, "unlabelled board after multiple or no station requests", elapsedMs.getAsLong());
+                return;
+            }
+            if (!stops.contains(stop) || !attempted.contains(stop)) {
+                diagnostics.board(stop, wire, "station was not requested on this session", elapsedMs.getAsLong());
+                return;
+            }
             if (ServiceAlerts.boardStop(board).isEmpty()) {
                 // Only this station has ever been requested on this sid. Carry its
                 // verified scope into both ETA and headway consumers, which must
                 // never infer a target from the current location in a train row.
                 try { board = new JSONObject(board.toString()).put("stopCode", stop); }
-                catch (JSONException ignored) { return; }
+                catch (JSONException ignored) {
+                    diagnostics.board(stop, wire, "cannot attach station scope", elapsedMs.getAsLong());
+                    return;
+                }
             }
             long now = elapsedMs.getAsLong();
+            diagnostics.board(stop, wire, "accepted", now);
             Long previous = lastBoard.put(stop, now);
             if (previous == null || now - previous >= BOARD_REFRESH_MS) {
                 listener.onBoardState(stop, "stopDataUpdate " + stop + " recibido", false);

@@ -348,6 +348,12 @@ public class TrainPositionClientTest {
             assertEquals(initiallyHasBoard ? 2 : 1, receivedStops.size());
             assertEquals("An unlabelled single-station board lost its verified scope", now + 900_000L, arrival.get());
             assertEquals(203, headway.get());
+            JSONObject diagnostics = holder[0].diagnosticSnapshot();
+            assertEquals(2, diagnostics.getInt("sessionCount"));
+            assertTrue(diagnostics.getJSONObject("events").getInt("mapUpdate") >= 3);
+            assertEquals(initiallyHasBoard ? 2 : 1, diagnostics.getInt("acceptedBoards"));
+            assertEquals("accepted", diagnostics.getJSONObject("lastBoardFrame").getString("decision"));
+            assertEquals(target, diagnostics.getJSONObject("lastBoardFrame").getString("stop"));
         } finally {
             holder[0].close();
         }

@@ -28,6 +28,10 @@ Els avisos emesos es desen per servei i jornada per evitar repeticions després 
 
 La miniapp mostra el tren previst. Quan s’interpreta una captura diferent amb el seguiment ja actiu, apareix «Actualitza el seguiment» perquè l’usuari transfereixi l’horari nou a Android. La sessió actual continua fins que es prem aquest botó o «Atura». Fins que l’usuari aplica el servei nou, Android conserva la sessió anterior i la miniapp indica que hi ha un servei pendent d’aplicar. Canviar l’antelació mostra «Aplica els canvis»; carregar la pàgina no obre automàticament l’app Android. Activar o actualitzar envia l’horari complet, el marge i la configuració d’avisos.
 
+## Diagnòstic sota demanda
+
+A la versió 0.14.41, toca el frontal i prem «Copia el diagnòstic» al visor. Copia l'estació realment configurada, l'estat d'arribada manual, el quadre acceptat i una traça limitada de la connexió: peticions, errors, esdeveniments i el darrer quadre rebut encara que s'hagi descartat. La traça es manté només en memòria i no s'envia automàticament. No inclou la captura ni l'horari personal del servei. No hi ha un panell ETA permanent i el botó no confirma l'arribada ni modifica la selecció.
+
 ## Instal·lació de prova
 
 Baixa l’APK amb nom de versió des de la miniapp o des de les [versions publicades](https://github.com/roberfernandez/tmb-agent/releases). La compilació executa les proves de sessió, heartbeat, lectura de mapes i reconnexió abans de publicar l’arxiu. No està publicat a Google Play.
