@@ -32,6 +32,7 @@ final class TrainPositionClient implements AutoCloseable {
     private static final long BOARD_REFRESH_MS = 40_000;
     private static final long BOARD_FRESH_MS = 60_000;
     private static final long BOARD_RETRY_MS = 20_000;
+    private static final long BOARD_RECOVERY_MS = 60_000;
     private static final long POST_RETRY_MS = 5_000;
 
     interface Listener {
@@ -170,6 +171,9 @@ final class TrainPositionClient implements AutoCloseable {
                     throw new IOException("Confirmación del canal (GET 40) · sin respuesta");
                 }
                 if (now - lastMap > STALE_MAP_MS) throw new IOException("Espera de eventos (GET) · sin mapa reciente");
+                // A healthy position stream does not prove that station subscriptions work.
+                // Recreate the sid if re-subscribing cannot restore a requested board.
+                writer.checkBoards(now);
             }
         } finally {
             activeWriter = null;
@@ -209,6 +213,7 @@ final class TrainPositionClient implements AutoCloseable {
         private final Set<String> attempted = ConcurrentHashMap.newKeySet();
         private final Map<String, Long> retryAt = new ConcurrentHashMap<>();
         private final Map<String, Long> lastBoard = new ConcurrentHashMap<>();
+        private final Map<String, Long> firstRequest = new ConcurrentHashMap<>();
         private final AtomicBoolean subscriptionQueued = new AtomicBoolean();
         private volatile String onlyAttempted;
         private volatile boolean namespaceReady;
@@ -260,6 +265,7 @@ final class TrainPositionClient implements AutoCloseable {
             }
             onlyAttempted = onlyAttempted == null || onlyAttempted.equals(stop) ? stop : "";
             attempted.add(stop);
+            firstRequest.putIfAbsent(stop, elapsedMs.getAsLong());
             listener.onBoardState(stop, phase, false);
             String packet = "42[\"subscribeStop\",{\"line\":\"L4\",\"stop\":" + JSONObject.quote(stop) + "}]";
             try {
@@ -274,8 +280,21 @@ final class TrainPositionClient implements AutoCloseable {
             }
         }
 
+        void checkBoards(long now) throws IOException {
+            for (String stop : stops) {
+                Long requested = firstRequest.get(stop);
+                if (requested == null) continue;
+                long last = lastBoard.getOrDefault(stop, requested);
+                if (now - last >= BOARD_RECOVERY_MS) {
+                    throw new IOException("Cuadro " + stop + " sin respuesta reciente · renovando sesión");
+                }
+            }
+        }
+
         void acceptBoard(JSONObject board) {
             JSONObject data = board.optJSONObject("data");
+            JSONObject rows = data == null ? board : data;
+            if (rows.optJSONArray("via1") == null && rows.optJSONArray("via2") == null) return;
             String line = data == null ? board.optString("line", "L4") : data.optString("line", board.optString("line", "L4"));
             if (!"L4".equals(line)) return;
             String stop = ServiceAlerts.boardStop(board);
@@ -283,6 +302,13 @@ final class TrainPositionClient implements AutoCloseable {
             // An unlabelled board is only safe before any other stop has been requested on this sid.
             if (stop.isEmpty()) stop = onlyAttempted;
             if (stop == null || !stops.contains(stop) || !attempted.contains(stop)) return;
+            if (ServiceAlerts.boardStop(board).isEmpty()) {
+                // Only this station has ever been requested on this sid. Carry its
+                // verified scope into both ETA and headway consumers, which must
+                // never infer a target from the current location in a train row.
+                try { board = new JSONObject(board.toString()).put("stopCode", stop); }
+                catch (JSONException ignored) { return; }
+            }
             long now = elapsedMs.getAsLong();
             Long previous = lastBoard.put(stop, now);
             if (previous == null || now - previous >= BOARD_REFRESH_MS) {

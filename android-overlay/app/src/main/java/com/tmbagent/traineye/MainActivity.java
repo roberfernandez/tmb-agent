@@ -3,12 +3,6 @@ package com.tmbagent.traineye;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
-import android.view.Gravity;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -56,10 +50,6 @@ public class MainActivity extends Activity {
         }
         if (data == null || !"tmbservei".equals(data.getScheme())) {
             finish();
-            return;
-        }
-        if ("preview".equals(data.getHost())) {
-            showAlertPreview();
             return;
         }
         if ("stop".equals(data.getHost())) {
@@ -246,71 +236,6 @@ public class MainActivity extends Activity {
                 try { startActivityForResult(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName())), REQUEST_BACKGROUND); }
                 catch (Exception ignored) { finish(); }
             }).setOnCancelListener(dialog -> finish()).show();
-    }
-
-    private void showAlertPreview() {
-        LinearLayout list = new LinearLayout(this);
-        list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(28, 20, 28, 12);
-        list.setBackgroundColor(Color.rgb(17, 30, 48));
-
-        TextView title = new TextView(this);
-        title.setText("Previsualització · Avisos del servei");
-        title.setTextColor(Color.rgb(244, 208, 0));
-        title.setTextSize(21);
-        title.setGravity(Gravity.CENTER);
-        title.setPadding(0, 0, 0, 18);
-        list.addView(title);
-
-        TextView intro = new TextView(this);
-        intro.setText("Aquests són els únics avisos que volem conservar. No hi ha avisos de tren perdut ni de seguiment actualitzat.");
-        intro.setTextColor(Color.WHITE);
-        intro.setTextSize(14);
-        intro.setPadding(0, 0, 0, 18);
-        list.addView(intro);
-
-        addPreviewCard(list, "🚇  AVÍS NORMAL", "Tren 416 · La Pau · via 1\\nArriba en 3 minuts", 0xfff4d000);
-        addPreviewCard(list, "⚠️  ÚLTIMA OPCIÓ", "Coge el 411 por vía 2\\nLlegas con 2 minutos de margen", 0xffff9800);
-        addPreviewCard(list, "🔄  VIA CONTRÀRIA", "Desplázate por vía 2\\nTren 409 · margen 4 minutos", 0xffe53935);
-
-        Button close = new Button(this);
-        close.setText("Tanca");
-        close.setOnClickListener(v -> finish());
-        list.addView(close, new LinearLayout.LayoutParams(-1, -2));
-
-        new AlertDialog.Builder(this)
-            .setView(list)
-            .setOnDismissListener(d -> finish())
-            .show();
-    }
-
-    private void addPreviewCard(LinearLayout list, String heading, String body, int color) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(22, 16, 22, 16);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(0xff1d2b40);
-        bg.setCornerRadius(18);
-        bg.setStroke(3, color);
-        card.setBackground(bg);
-
-        TextView h = new TextView(this);
-        h.setText(heading);
-        h.setTextColor(color);
-        h.setTextSize(17);
-        h.setTypeface(null, android.graphics.Typeface.BOLD);
-        card.addView(h);
-
-        TextView b = new TextView(this);
-        b.setText(body);
-        b.setTextColor(Color.WHITE);
-        b.setTextSize(16);
-        b.setPadding(0, 8, 0, 0);
-        card.addView(b);
-
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-        params.setMargins(0, 0, 0, 12);
-        list.addView(card, params);
     }
 
     private void openServicePage() {

@@ -260,6 +260,99 @@ public class TrainPositionClientTest {
         }
     }
 
+    @Test public void reconnectsForAMissingStationBoardWhileMapsKeepArriving() throws Exception {
+        assertStationRecovery("425", false);
+    }
+
+    @Test public void reconnectsWhenAPreviouslyWorkingStationBoardStopsUpdating() throws Exception {
+        assertStationRecovery("428", true);
+    }
+
+    private static void assertStationRecovery(String target, boolean initiallyHasBoard) throws Exception {
+        AtomicLong clock = new AtomicLong(1000);
+        AtomicInteger sessions = new AtomicInteger();
+        AtomicInteger polls = new AtomicInteger();
+        AtomicInteger maps = new AtomicInteger();
+        AtomicReference<CountDownLatch> subscribed = new AtomicReference<>();
+        CountDownLatch recovered = new CountDownLatch(1);
+        List<String> subscriptionSids = new CopyOnWriteArrayList<>();
+        List<String> receivedStops = new CopyOnWriteArrayList<>();
+        List<String> errors = new CopyOnWriteArrayList<>();
+        AtomicLong arrival = new AtomicLong();
+        AtomicLong headway = new AtomicLong(-1);
+        long now = 1_794_492_000_000L;
+        String unlabelledBoard = "42[\"stopDataUpdate\",{\"data\":{\"via1\":[],\"via2\":["
+            + "{\"trainCode\":\"M10\",\"stopCode\":431,\"secsLeft\":900,\"secPreviousTrain\":203}]}}]";
+        TrainPositionClient.Transport reader = new TrainPositionClient.Transport() {
+            @Override public String request(String sid, String body) throws IOException {
+                if (sid == null) {
+                    polls.set(0);
+                    subscribed.set(new CountDownLatch(1));
+                    return HELLO.replace("engine-session", "board-" + sessions.incrementAndGet());
+                }
+                if (body != null) return "ok";
+                int poll = polls.getAndIncrement();
+                if (poll == 0) return ACK + "\u001e" + MAP;
+                try {
+                    if (!subscribed.get().await(2, TimeUnit.SECONDS)) throw new IOException("missing station request");
+                } catch (InterruptedException error) { throw new IOException(error); }
+                if (sessions.get() == 1) {
+                    if (initiallyHasBoard && poll == 1) {
+                        return BOARD.replace("425", target);
+                    }
+                    // Position events stay fresh. Only the station board has stopped.
+                    clock.addAndGet(60_001);
+                    return MAP;
+                }
+                return unlabelledBoard;
+            }
+            @Override public void cancel() {}
+        };
+        TrainPositionClient[] holder = new TrainPositionClient[1];
+        holder[0] = new TrainPositionClient(new TrainPositionClient.Listener() {
+            @Override public void onMap(JSONObject trains) { maps.incrementAndGet(); }
+            @Override public void onState(String status) {}
+            @Override public void onBoardState(String stop, String status, boolean error) {
+                if (error) errors.add(status);
+            }
+            @Override public void onBoard(String stop, JSONObject board) {
+                receivedStops.add(stop);
+                if (sessions.get() < 2) return;
+                ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), now);
+                boards.acceptBoard(stop, board, now);
+                arrival.set(boards.predictedArrival(target, "2", "410", now));
+                StationHeadway intervals = new StationHeadway();
+                intervals.accept(stop, board, now);
+                headway.set(intervals.seconds(target, "", "P10", now));
+                holder[0].close();
+                recovered.countDown();
+            }
+        }, reader, () -> new TrainPositionClient.Transport() {
+            @Override public String request(String sid, String body) {
+                subscriptionSids.add(sid);
+                subscribed.get().countDown();
+                return "ok";
+            }
+            @Override public void cancel() {}
+        }, clock::get);
+        holder[0].setStops(Set.of(target));
+        holder[0].start();
+        try {
+            assertTrue("Fresh maps hid the missing station board", recovered.await(8, TimeUnit.SECONDS));
+            assertEquals(2, sessions.get());
+            assertTrue(subscriptionSids.contains("board-1"));
+            assertTrue(subscriptionSids.contains("board-2"));
+            assertTrue(maps.get() >= 3);
+            assertTrue(errors.stream().anyMatch(error -> error.contains("Cuadro " + target)));
+            assertTrue(receivedStops.stream().allMatch(target::equals));
+            assertEquals(initiallyHasBoard ? 2 : 1, receivedStops.size());
+            assertEquals("An unlabelled single-station board lost its verified scope", now + 900_000L, arrival.get());
+            assertEquals(203, headway.get());
+        } finally {
+            holder[0].close();
+        }
+    }
+
     private static TrainPositionClient.Listener listener() {
         return new TrainPositionClient.Listener() {
             @Override public void onMap(JSONObject trains) {}
