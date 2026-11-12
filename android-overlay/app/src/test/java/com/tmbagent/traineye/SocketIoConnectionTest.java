@@ -144,7 +144,7 @@ public class SocketIoConnectionTest {
         try {
             assertTrue(observer.first.await(8, TimeUnit.SECONDS));
             peer.live.get().close(1001, "test interruption");
-            assertTrue(observer.second.await(8, TimeUnit.SECONDS));
+            assertTrue("Reconnect did not deliver a second board: " + client.diagnosticSnapshot(), observer.second.await(8, TimeUnit.SECONDS));
             assertEquals(List.of("434", "434"), observer.stops);
             assertEquals(2, peer.connections.get());
             assertNull(peer.failure.get());

@@ -7,6 +7,10 @@ import io.socket.engineio.client.Transport;
 import io.socket.engineio.client.transports.Polling;
 import io.socket.engineio.client.transports.WebSocket;
 import io.socket.thread.EventThread;
+import okhttp3.OkHttpClient;
+import okhttp3.Response;
+import okhttp3.WebSocketListener;
+import okio.ByteString;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -31,6 +35,8 @@ final class SocketIoConnection implements AutoCloseable {
     private final LongSupplier clock;
     private final long retryDelay;
     private final SocketDiagnostics trace = new SocketDiagnostics();
+    private final OkHttpClient network = new OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS).readTimeout(45, TimeUnit.SECONDS).build();
     private final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "miralin-health"));
     private volatile Set<String> stops = Collections.emptySet();
     private volatile Socket socket;
@@ -90,6 +96,8 @@ final class SocketIoConnection implements AutoCloseable {
         options.reconnectionDelayMax = 30_000;
         options.randomizationFactor = 0.2;
         options.timeout = 12_000;
+        options.callFactory = network;
+        options.webSocketFactory = this::openWebSocket;
         final Socket current = IO.socket(origin, options);
         socket = current;
         listener.onState("Miralin directe · connectant Socket.IO…");
@@ -168,6 +176,22 @@ final class SocketIoConnection implements AutoCloseable {
             } else acceptBoard(raw);
         });
         current.connect();
+    }
+
+    private okhttp3.WebSocket openWebSocket(okhttp3.Request request, WebSocketListener delegate) {
+        return network.newWebSocket(request, new WebSocketListener() {
+            @Override public void onOpen(okhttp3.WebSocket socket, Response response) { delegate.onOpen(socket, response); }
+            @Override public void onMessage(okhttp3.WebSocket socket, String text) { delegate.onMessage(socket, text); }
+            @Override public void onMessage(okhttp3.WebSocket socket, ByteString bytes) { delegate.onMessage(socket, bytes); }
+            @Override public void onClosing(okhttp3.WebSocket socket, int code, String reason) {
+                // Complete the WebSocket close handshake so the Engine.IO
+                // listener receives onClosed promptly and can reconnect.
+                delegate.onClosing(socket, code, reason);
+                socket.close(code, reason);
+            }
+            @Override public void onClosed(okhttp3.WebSocket socket, int code, String reason) { delegate.onClosed(socket, code, reason); }
+            @Override public void onFailure(okhttp3.WebSocket socket, Throwable error, Response response) { delegate.onFailure(socket, error, response); }
+        });
     }
 
     private boolean current(Socket candidate) { return !closed && socket == candidate; }
@@ -261,6 +285,9 @@ final class SocketIoConnection implements AutoCloseable {
             Socket previous = socket;
             socket = null;
             dispose(previous);
+            network.dispatcher().cancelAll();
+            network.connectionPool().evictAll();
+            network.dispatcher().executorService().shutdown();
         });
     }
 
