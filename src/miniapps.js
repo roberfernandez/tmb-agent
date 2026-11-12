@@ -27,23 +27,24 @@ export function renderTramits(){
 }
 
 export const payments=[
- {month:0,title:'Gratificació de vacances',when:'Amb la nòmina de gener'},
- {month:1,title:'Complement de formació',when:'Amb la nòmina de febrer'},
+ {month:0,paidMonth:1,title:'Gratificació de vacances',when:'Amb la nòmina de gener'},
+ {month:1,paidMonth:2,title:'Complement de formació',when:'Amb la nòmina de febrer'},
  {month:2,title:'Paga extraordinària',when:'A finals de març'},
  {month:5,title:'Paga extraordinària',when:'A finals de juny'},
  {month:8,title:'Paga extraordinària',when:'A finals de setembre'},
- {month:9,title:'Prima de productivitat',when:'Amb la nòmina d’octubre'},
+ {month:9,paidMonth:10,title:'Prima de productivitat',when:'Amb la nòmina d’octubre'},
  {month:11,title:'Paga extraordinària de Nadal',when:'A mitjan desembre'},
 ];
 const monthNames=['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
 export function upcomingPayment(date=new Date()){
  const month=Number(new Intl.DateTimeFormat('en',{month:'numeric',timeZone:'Europe/Madrid'}).format(date))-1;
  const year=Number(new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Europe/Madrid'}).format(date));
- return {...(payments.find(p=>p.month>=month)||payments[0]),year:payments.some(p=>p.month>=month)?year:year+1};
+ const next=payments.find(p=>(p.paidMonth??p.month)>=month);
+ return {...(next||payments[0]),year:next?year:year+1};
 }
 export function renderCobraments(){
  const root=shell('Dates de cobrament','Els cobraments complementaris al llarg de l’any.');
- const next=upcomingPayment();const hero=card('Pròxim període de cobrament',[`${monthNames[next.month]} · ${next.year}`,next.title,next.when]);hero.classList.add('mini-highlight');root.append(hero);
+ const next=upcomingPayment();const hero=card('Pròxim període de cobrament',[`${monthNames[next.paidMonth??next.month]} · ${next.year}`,next.title,next.when]);hero.classList.add('mini-highlight');root.append(hero);
  root.append(el('p','mini-intro','Els períodes són orientatius: el document no fixa un dia bancari exacte.'));
  const list=el('div','mini-list');for(const p of payments){const c=card(p.title,[p.when]);c.prepend(el('span','mini-month',monthNames[p.month]));list.append(c);}root.append(list);
  root.append(el('h2','','Bestretes'));
