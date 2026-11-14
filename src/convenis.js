@@ -66,7 +66,7 @@ export function renderConvenis() {
       const label=el('label','cv-filter','Tipus de document '), select=el('select');
       for(const kind of ['',...new Set(docs.map(d=>d.kind))]){const o=el('option','',kind||'Tots');o.value=kind;select.append(o);}select.value=state.kind;
       select.onchange=()=>{state.kind=select.value;save();draw();};label.append(select);body.append(label);
-      const grid=el('div','cv-grid');const filtered=docs.filter(d=>!state.kind||d.kind===state.kind).sort((a,b)=>Number(b.id==='c2023')-Number(a.id==='c2023')||b.year-a.year);
+      const grid=el('div','cv-grid');const filtered=docs.filter(d=>!state.kind||d.kind===state.kind).sort((a,b)=>a.year-b.year);
       for(const doc of filtered)grid.append(docCard(doc));body.append(grid);if(!filtered.length)body.append(el('p','cv-empty','No hi ha documents d’aquest tipus.'));
     }else if(state.tab==='cerca'){
       body.append(el('h2','','On està escrit?'),el('p','cv-intro','Cerca dins dels documents amb text disponible. Pots cercar en català o castellà; els temes suggerits inclouen totes dues llengües. Els resultats s’actualitzen mentre escrius i les coincidències es ressalten en groc.'));searchBox();
