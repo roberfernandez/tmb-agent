@@ -41,7 +41,7 @@ export function renderConvenis() {
     if(doc.note)card.append(el('p','cv-note',doc.note));
     if(doc.relatedNote)card.append(el('p','cv-note',doc.relatedNote));
     for(const source of doc.relatedSources||[])card.append(link(source.label+' ↗',source.url,'cv-history-source'));
-    if(doc.historicalDocuments?.length){const details=el('details','cv-card');details.append(el('summary','','PDFs històrics disponibles · 1961–1996'));for(const item of doc.historicalDocuments){const row=el('article','cv-timeline');row.append(el('strong','',String(item.year)),link(item.title+' ↗',item.url),el('small','',item.kind));if(item.note)row.append(el('small','',item.note));details.append(row);}card.append(details);}
+    if(doc.summaryOnly){card.append(link('Obre el PDF original ↗',doc.url,'cv-source-original'));return card;}
     if(doc.ocr)card.append(el('p','cv-ocr-note',`Escaneig amb cerca per OCR · ${doc.ocr.indexedPages} pàgines amb text`));
     if(!doc.pages.length)card.append(el('p','cv-note','PDF escanejat: cerca de text no disponible.'));
     card.append(readerLink('Consulta el document · Cercar al document',doc));if(doc.fileUrl)card.append(link('Font original · '+doc.source+' ↗',doc.url,'cv-source-original'));return card;
@@ -109,6 +109,6 @@ export function renderConvenis() {
     }
   }
   body.append(el('p','cv-empty','Carregant l’arxiu de convenis…'));
-  async function load(){try{const response=await fetch('./assets/convenis/index.json');if(!response.ok)throw Error();docs=await response.json();draw();}catch{body.replaceChildren(el('p','cv-empty','No s’ha pogut carregar l’arxiu de Convenis. Comprova la connexió i torna-ho a provar.'),button('Torna-ho a provar',load));}}
+  async function load(){try{const response=await fetch('./assets/convenis/index.json');if(!response.ok)throw Error();const records=await response.json();docs=records.flatMap(record=>{const {historicalDocuments=[],...entry}=record;return [...historicalDocuments.map(item=>({...item,summaryOnly:true})),entry];});draw();}catch{body.replaceChildren(el('p','cv-empty','No s’ha pogut carregar l’arxiu de Convenis. Comprova la connexió i torna-ho a provar.'),button('Torna-ho a provar',load));}}
   load();return root;
 }
