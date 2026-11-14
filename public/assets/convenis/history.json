@@ -3,76 +3,12 @@
   "updated": "2026-11-14",
   "agreements": [
     {
-      "year": 1961,
-      "label": "I · 1961–1963",
-      "title": "I conveni · 1961–1963",
-      "category": "conveni",
-      "kind": "Norma de obligado cumplimiento",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
-    },
-    {
-      "year": 1963,
-      "label": "II · 1963–1967",
-      "title": "II conveni · 1963–1967",
-      "category": "conveni",
-      "kind": "Norma de obligado cumplimiento",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
-    },
-    {
-      "year": 1967,
-      "label": "III · 1967–1969",
-      "title": "III conveni · 1967–1969",
-      "category": "conveni",
-      "kind": "Norma de obligado cumplimiento",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
-    },
-    {
-      "year": 1969,
-      "label": "IV · 1969–1970",
-      "title": "IV conveni · 1969–1970",
-      "category": "conveni",
-      "kind": "Norma de obligado cumplimiento",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
-    },
-    {
-      "year": 1970,
-      "label": "V · 1970–1971",
-      "title": "V conveni · 1970–1971",
-      "category": "conveni",
-      "kind": "Norma de obligado cumplimiento",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
-    },
-    {
-      "year": 1971,
-      "label": "VI · 1971–1973",
-      "title": "VI conveni · 1971–1973",
-      "category": "conveni",
-      "kind": "Norma de obligado cumplimiento",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
-    },
-    {
-      "year": 1973,
-      "label": "VII · 1973–1975",
-      "title": "VII conveni · 1973–1975",
-      "category": "conveni",
-      "kind": "Conveni col·lectiu",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
-    },
-    {
       "year": 1975,
       "label": "VIII · 1975–1976",
       "title": "VIII conveni · 1975–1976",
       "category": "conveni",
       "kind": "Conveni col·lectiu",
       "summary": "El text del VIII conveni preveu el pas de 48 a 44 hores setmanals per als col·lectius afectats."
-    },
-    {
-      "year": 1977,
-      "label": "IX · 1977",
-      "title": "IX conveni · 1977",
-      "category": "conveni",
-      "kind": "Conveni col·lectiu",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
     },
     {
       "year": 1978,
@@ -113,31 +49,6 @@
       "category": "conveni",
       "kind": "Conveni col·lectiu",
       "summary": "El juliol de 1982 es va formalitzar una ruptura de negociació després de jornades de vaga."
-    },
-    {
-      "year": 1984,
-      "label": "XV · 1984",
-      "title": "XV conveni · 1984",
-      "category": "conveni",
-      "kind": "Conveni extraestatutari",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
-    },
-    {
-      "year": 1985,
-      "label": "XVI · 1985–1986",
-      "title": "XVI conveni · 1985–1986",
-      "category": "conveni",
-      "kind": "Conveni col·lectiu",
-      "docId": "c1985",
-      "summary": "L’inventari oficial de TMB registra aquest període. El text es pot consultar a Documents."
-    },
-    {
-      "year": 1987,
-      "label": "XVII · 1987–1988",
-      "title": "XVII conveni · 1987–1988",
-      "category": "conveni",
-      "kind": "Conveni extraestatutari",
-      "summary": "L’inventari oficial de TMB registra aquest període. Aquesta entrada és una referència de l’inventari; el text íntegre no està inclòs aquí."
     },
     {
       "year": 1989,
@@ -217,15 +128,6 @@
       "kind": "Conveni col·lectiu",
       "docId": "c2016",
       "summary": "La pròrroga 2020–2022 dona continuïtat al conveni."
-    },
-    {
-      "year": 2023,
-      "label": "XXVII · 2023–2027",
-      "title": "XXVII conveni · 2023–2027",
-      "category": "conveni",
-      "kind": "Conveni col·lectiu",
-      "docId": "c2023",
-      "summary": "L’inventari oficial de TMB registra aquest període. El text es pot consultar a Documents."
     }
   ],
   "conflicts": [
@@ -400,5 +302,5 @@
       "docId": "p2013"
     }
   ],
-  "editorialNote": "Aquesta guia combina inventari oficial, textos locals i fonts contemporànies. Una entrada bibliogràfica no equival al text íntegre ni acredita totes les condicions pactades. Les fonts sindicals, empresarials i periodístiques es mostren amb procedència; les afirmacions controvertides s’atribueixen a qui les publica."
+  "editorialNote": "Aquesta secció recull fets i acords amb una descripció i fonts disponibles. El catàleg oficial de TMB també enumera altres períodes; aquests no es presenten aquí com a fitxes fins que es puguin documentar amb fonts i contingut específic. Les fonts sindicals, empresarials i periodístiques es mostren amb procedència; les afirmacions controvertides s’atribueixen a qui les publica."
 }
