@@ -1297,7 +1297,22 @@
       "indexedPages": 27,
       "blankPages": [],
       "sourceSha256": "8d2a683015bfab9e807f0950f8381bf770e4162a65fdeb8dc1cd8bcab92ce3e7"
-    }
+    },
+    "relatedNote": "El Mobile World Congress de febrer de 2012 va acabar després d’un referèndum sobre l’oferta: 68,92% de participació i 74,66% de vots favorables. La vaga de setembre per la retallada de la paga extra va ser un episodi diferent.",
+    "relatedSources": [
+      {
+        "label": "CCOO · resultat del referèndum (2012)",
+        "url": "https://www.ccoo.cat/noticies/serveis-a-la-ciutadania/els-treballadors-de-metro-de-barcelona-han-decidit-en-referendum-desconvocar-la-vaga/"
+      },
+      {
+        "label": "Europa Press · seguiment atribuït als sindicats (2012)",
+        "url": "https://www.europapress.es/economia/transportes-00343/noticia-economia-transportes-centenares-empleados-renfe-adif-tmb-manifiestan-barcelona-20120917120316.html"
+      },
+      {
+        "label": "Sindicatura · informe 27/2015",
+        "url": "https://transparencia.tmb.cat/documents/525003/9ccb8bc1-c864-45eb-bf89-7d824dc30c49"
+      }
+    ]
   },
   {
     "id": "c2008",
@@ -1583,7 +1598,18 @@
         "text": "CONVENI_04_07 Página 25de 25 remitida al organismo competente para su archivo, según establece la normativa vigente. 3. Reclamaciones.- Cualquier posible reclamación por lo que respecta a la interpretación o aplicación de este Convenio Colectivo tendrá que ser sometida a esta comisión, que levantará el acta correspondiente, como vía previa a la vía jurisdiccional y quedarán excluidas de este trámite todas las reclamaciones de carácter individual. DISPOSICIÓN TRANSITORIA I Ambas partes firmantes, se comprometen en un plazo máximo de un mes en establecer, de futuro, distintas alternativas para los distintos colectivos, adheridos o no adheridos al Plan de Pensiones, en materia de protección social. DISPOSICIÓN TRANSITORIA II Período de transición a Agente de Atención al Cliente: Para poder aplicar el abono de la Prima de Agente de Atención al Cliente de manera anticipada a partir del día 1 de Mayo de 2005, es imprescindible un período de transición a fin de acomodar los actuales criterios organizativos de las categorías de procedencia a esta nueva para permitir un traspaso lo más ordenado y correcto posible. En dicho sentido, la Comisión Mixta y Paritaria negociará los actuales criterios de organización del trabajo que se opongan al nuevo modelo entre ellos, sin ánimo exhaustivo los siguientes: - Servicios de descansos. - Zonificación de las líneas. - Propiedad de los servicios en estaciones. - Número de vueltas por línea. - Creación de 4 letras de fiesta en trenes. - Predisposición a la formación. - Cómputo horario. - Descansos centrados. - Tiempo de solape en la entrada y salida del servicio. - Ayudas a la información de los clientes. - Petición de vacaciones anuales. - Servicios de documentación y valijas. - Tareas fuera de la cabina o taquilla. - Reducción progresiva de los servicios partidos."
       }
     ],
-    "pageCount": 25
+    "pageCount": 25,
+    "relatedNote": "El conveni coincideix amb el desplegament progressiu del Nou Model Organitzatiu (NMO), que agrupà funcions d’atenció, venda i conducció en l’AAC. El desplegament es prolongà durant diversos anys.",
+    "relatedSources": [
+      {
+        "label": "ALAMYS · presentació del NMO (2009)",
+        "url": "https://alamys.org/wp-content/files_mf/147032721714507098924lolapresentacion_comite_de_gestion__barcelona__2009.pdf"
+      },
+      {
+        "label": "El País · funcions AAC (2006)",
+        "url": "https://elpais.com/diario/2006/07/08/catalunya/1152320857_850215.html"
+      }
+    ]
   },
   {
     "id": "c2002",
@@ -1921,7 +1947,18 @@
       }
     ],
     "pageCount": 14,
-    "fileUrl": "./assets/convenis/conveni-xx-1993-1995.pdf"
+    "fileUrl": "./assets/convenis/conveni-xx-1993-1995.pdf",
+    "relatedNote": "El conflicte sobre jubilació i pensions complementàries va continuar a mitjan dècada. El 1997 hi hagué 14 dies de vaga; les reivindicacions concretes varien segons l’episodi.",
+    "relatedSources": [
+      {
+        "label": "Eurofound · vaga del Metro (1997)",
+        "url": "https://www.eurofound.europa.eu/en/publications/all/strike-barcelona-metro"
+      },
+      {
+        "label": "Servimedia · vaga per jubilació (1997)",
+        "url": "https://www.servimedia.es/noticias/trabajadores-metro-barcelona-realizaron-segunda-jornada-huelga-24-horas-este-mes-incidentes/1410872919"
+      }
+    ]
   },
   {
     "id": "c1985",
@@ -2090,7 +2127,14 @@
     "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/XVIII-CC-1989.pdf",
     "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
     "pages": [],
-    "summaryOnly": true
+    "summaryOnly": true,
+    "relatedNote": "El 15 de maig de 1989, el comitè de vaga rebutjà una oferta empresarial del 6% per desconvocar una vaga prevista.",
+    "relatedSources": [
+      {
+        "label": "El País · oferta rebutjada (1989)",
+        "url": "https://elpais.com/diario/1989/05/15/economia/611186420_850215.html"
+      }
+    ]
   },
   {
     "id": "l1991a",
@@ -2101,7 +2145,14 @@
     "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/XIX-CC-1991-1%C2%AAparte.pdf",
     "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
     "pages": [],
-    "summaryOnly": true
+    "summaryOnly": true,
+    "relatedNote": "El 1992 es va convocar una vaga indefinida contra l’automatització de les línies 1 i 3 i per millores salarials. El comitè denunciava l’eliminació del lloc de cap de tren.",
+    "relatedSources": [
+      {
+        "label": "Servimedia · vaga i cap de tren (1992)",
+        "url": "https://www.servimedia.es/noticias/hulga-metro-barcelona-afecta-450000-usuarios/1410779834"
+      }
+    ]
   },
   {
     "id": "l1991b",
