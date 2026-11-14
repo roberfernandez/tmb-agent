@@ -86,7 +86,7 @@ export function renderConvenis() {
       refreshMatches=()=>{columns.replaceChildren();
       for(const [key,label] of [['left','Primer document'],['right','Segon document']]){
         const column=el('section','cv-column'),field=el('label','cv-filter',label),select=el('select');
-        for(const doc of docs.filter(d=>d.kind!=='Inventari')){const o=el('option','',doc.title);o.value=doc.id;select.append(o);}select.value=state[key];
+        for(const doc of docs.filter(d=>d.kind!=='Inventari'&&!d.summaryOnly)){const o=el('option','',doc.title);o.value=doc.id;select.append(o);}select.value=state[key];
         select.onchange=()=>{state[key]=select.value;save();refreshMatches();};field.append(select);column.append(field);
         const doc=docs.find(d=>d.id===state[key]);if(doc){column.append(readerLink('Consulta el document · Cercar al document',doc));
           if(!doc.pages.length)column.append(el('p','cv-empty','Aquest PDF és un escaneig. Obre’l per comparar-lo visualment.'));
@@ -96,7 +96,7 @@ export function renderConvenis() {
       }};refreshMatches();body.append(columns);
     }else if(state.tab==='cronologia'){
       body.append(el('h2','','Cronologia documental'),el('p','cv-intro','Els períodes identifiquen els documents. No equivalen a una validació de la vigència de cada clàusula.'));
-      for(const doc of [...docs].filter(d=>d.kind!=='Inventari').sort((a,b)=>a.year-b.year)){const row=el('article','cv-timeline');row.append(el('strong','',String(doc.year)),readerLink(doc.title,doc),el('small','',doc.kind));body.append(row);}
+      for(const doc of [...docs].filter(d=>d.kind!=='Inventari').sort((a,b)=>a.year-b.year)){const row=el('article','cv-timeline');row.append(el('strong','',String(doc.year)),doc.summaryOnly?link(doc.title+' ↗',doc.url):readerLink(doc.title,doc),el('small','',doc.kind));body.append(row);}
       const old=el('details','cv-card');old.append(el('summary','','Antecedents des de 1961 i altres pactes'));
       old.append(el('p','','L’inventari d’abril de 2020 recull convenis, normes de compliment obligatori, el laude de 1979, l’arbitratge de 1981 i acords específics sobre organització, vacances, contractació, Non Stop i jubilació parcial. Són referències històriques: no tots els textos individuals estan disponibles.'));
       old.append(link('Consulta la secció FMB · pàg. 34 ↗',pageUrl(docs.find(d=>d.id==='inventari2020'),34)));body.append(old);
