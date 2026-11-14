@@ -54,7 +54,7 @@ export function renderConvenis() {
   function draw(){
     clearTimeout(searchTimer);refreshMatches=()=>{};
     tabs.replaceChildren();body.replaceChildren();
-    for(const [id,label] of [['documents','Documents'],['cerca','On està escrit?'],['compara','Compara'],['cronologia','Cronologia'],['fonts','Fonts']]){
+    for(const [id,label] of [['documents','Documents'],['cerca','On està escrit?'],['compara','Compara'],['historia','Història i lluites'],['cronologia','Cronologia documental'],['fonts','Fonts']]){
       const b=button(label,()=>{state.tab=id;state.limit=20;save();draw();},'cv-tab');b.setAttribute('aria-current',state.tab===id?'page':'false');tabs.append(b);
     }
     if(state.tab==='documents'){
@@ -91,6 +91,35 @@ export function renderConvenis() {
           else{const matches=matchingPages(doc,expandedQuery());column.append(el('p','cv-meta',`${matches.length} pàgines amb coincidències`));const passages=el('div','cv-passages');passages.tabIndex=0;passages.setAttribute('aria-label','Fragments de '+doc.title);for(const page of matches.slice(0,state.limit))passages.append(snippet(doc,page));if(matches.length>state.limit)passages.append(button('Mostra més fragments',()=>{state.limit+=20;save();refreshMatches();}));if(!matches.length)passages.append(el('p','cv-empty','Sense coincidències textuals. Això no acredita que el dret no existís.'));column.append(passages);}
         }columns.append(column);
       }};refreshMatches();body.append(columns);
+    }else if(state.tab==='historia'){
+      body.append(el('h2','','Convenis, mobilitzacions i canvis de Metro'),el('p','cv-intro','27 convenis numerats i 10 fitxes de conflictes. Les entrades distingeixen el text consultable, la referència bibliogràfica i els fets relatats per fonts sindicals o periodístiques.'));
+      const controls=el('div','cv-history-controls');
+      const typeLabel=el('label','cv-filter','Mostra '),type=el('select');
+      for(const [value,label] of [['all','Tot'],['conveni','Convenis'],['conflicte','Conflictes i lluites']]){const o=el('option','',label);o.value=value;type.append(o);}
+      type.value=state.historyType||'all';type.onchange=()=>{state.historyType=type.value;save();draw();};typeLabel.append(type);
+      const eraLabel=el('label','cv-filter','Període '),era=el('select');
+      for(const [value,label] of [['all','Tots els anys'],['1961-1979','1961–1979'],['1980-1999','1980–1999'],['2000-2015','2000–2015'],['2016-2027','2016–2027']]){const o=el('option','',label);o.value=value;era.append(o);}
+      era.value=state.historyEra||'all';era.onchange=()=>{state.historyEra=era.value;save();draw();};eraLabel.append(era);controls.append(typeLabel,eraLabel);body.append(controls);
+      const agreementsShown=(historyData?.agreements||[]).map(x=>({...x,category:'conveni'}));
+      const conflictsShown=(historyData?.conflicts||[]).map(x=>({...x,category:'conflicte'}));
+      let entries=[...agreementsShown,...conflictsShown];
+      if(state.historyType&&state.historyType!=='all')entries=entries.filter(x=>x.category===state.historyType);
+      if(state.historyEra&&state.historyEra!=='all'){const [from,to]=state.historyEra.split('-').map(Number);entries=entries.filter(x=>x.year>=from&&x.year<=to);}
+      entries.sort((a,b)=>a.year-b.year||(a.category==='conveni'?-1:1));
+      body.append(el('p','cv-meta',`${entries.length} entrades · ${agreementsShown.length} convenis · ${conflictsShown.length} conflictes`));
+      const list=el('div','cv-history-list');
+      for(const item of entries){const card=el('article',item.category==='conflicte'?'cv-history-card cv-history-conflict':'cv-history-card cv-history-agreement');
+        const top=el('div','cv-history-top');top.append(el('span','cv-history-year',item.label),el('span','cv-history-kind',item.kind));card.append(top,el('h3','',item.title),el('p','',item.summary));
+        const links=el('div','cv-history-links');const doc=item.docId?docs.find(d=>d.id===item.docId):null;
+        if(doc)links.append(readerLink(item.category==='conveni'?'Consulta el text a Convenis':'Obre el document relacionat',doc));
+        for(const source of item.sources||[])links.append(link(source.label+' ↗',source.url,'cv-history-source'));
+        if(item.category==='conveni'&&!item.docId){const inv=docs.find(d=>d.id==='inventari2020');if(inv)links.append(readerLink('Comprova l’entrada a l’inventari de TMB',inv,34));}
+        if(links.childNodes.length)card.append(links);list.append(card);
+      }body.append(list);
+      const note=el('details','cv-card');note.append(el('summary','','Com llegir aquesta cronologia'),el('p','',historyData?.editorialNote||'Les entrades que només remeten a l’inventari són referències bibliogràfiques, no textos íntegres.'));
+      note.append(link('Arxiu de convenis del Sindicato Unitario ↗','https://sindicatounitario.es/convenios/','cv-history-source'),link('Arxiu de convenis de CCOO Metro ↗','https://ccoo.app/metro-barcelona/convenis/','cv-history-source'));
+      note.append(el('p','cv-note','Els materials privats de Telegram no formen part d’aquesta versió pública.'));
+      body.append(note);
     }else if(state.tab==='cronologia'){
       body.append(el('h2','','Cronologia documental'),el('p','cv-intro','Els períodes identifiquen els documents. No equivalen a una validació de la vigència de cada clàusula.'));
       for(const doc of [...docs].filter(d=>d.kind!=='Inventari').sort((a,b)=>a.year-b.year)){const row=el('article','cv-timeline');row.append(el('strong','',String(doc.year)),readerLink(doc.title,doc),el('small','',doc.kind));body.append(row);}
@@ -105,6 +134,7 @@ export function renderConvenis() {
     }
   }
   body.append(el('p','cv-empty','Carregant l’arxiu de convenis…'));
-  async function load(){try{const response=await fetch('./assets/convenis/index.json');if(!response.ok)throw Error();docs=await response.json();draw();}catch{body.replaceChildren(el('p','cv-empty','No s’ha pogut carregar l’arxiu. Comprova la connexió.'),button('Torna-ho a provar',load));}}
+  let historyData=null;
+  async function load(){try{const [response,historyResponse]=await Promise.all([fetch('./assets/convenis/index.json'),fetch('./assets/convenis/history.json')]);if(!response.ok||!historyResponse.ok)throw Error();docs=await response.json();historyData=await historyResponse.json();draw();}catch{body.replaceChildren(el('p','cv-empty','No s’ha pogut carregar l’arxiu de Convenis. Comprova la connexió i torna-ho a provar.'),button('Torna-ho a provar',load));}}
   load();return root;
 }
