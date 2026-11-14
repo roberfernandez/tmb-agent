@@ -31,3 +31,6 @@
   .cv-reader-search label{grid-column:1 / -1}
   .cv-reader-search output{min-width:0}
 }
+
+/* Història documental i fitxes de conflictes */
+.cv-history-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0 8px}.cv-history-controls .cv-filter{margin:0}.cv-history-list{display:grid;gap:14px;margin-top:14px}.cv-history-card{background:#111e30;border:1px solid #ffffff25;border-left:4px solid #64748b;border-radius:14px;padding:18px;min-width:0}.cv-history-conflict{border-left-color:#ef6a72}.cv-history-agreement{border-left-color:#6ba8d9}.cv-history-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.cv-history-year{font-size:13px;font-weight:700;color:#abd5ff}.cv-history-conflict .cv-history-year{color:#ffbdc4}.cv-history-kind{font-size:12px;background:#304058;border-radius:999px;padding:4px 9px;color:#d5e2f1}.cv-history-card h3{margin:8px 0}.cv-history-card p{margin:8px 0;color:#d5deeb}.cv-history-links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px}.cv-history-source{color:#b8dbff;text-decoration:underline;text-underline-offset:3px;padding:4px 0;overflow-wrap:anywhere}.cv-history-card .cv-link{padding:4px 0}@media(max-width:650px){.cv-history-controls{grid-template-columns:1fr}.cv-history-card{padding:15px}}
