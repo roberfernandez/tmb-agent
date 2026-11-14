@@ -39,6 +39,7 @@ export function renderConvenis() {
     const card=el('article','cv-card'), top=el('div','cv-card-top'); top.append(el('span','cv-tag',doc.kind));
     card.append(top,el('h2','',doc.title),el('p','cv-meta',`${doc.source}${doc.pageCount?' · '+doc.pageCount+' pàgines':''}`));
     if(doc.note)card.append(el('p','cv-note',doc.note));
+    if(doc.relatedNote){card.append(el('p','cv-note',doc.relatedNote));for(const source of doc.relatedSources||[])card.append(link(source.label+' ↗',source.url,'cv-history-source'));}
     if(doc.summaryOnly){card.append(link('Obre el PDF original ↗',doc.url,'cv-source-original'));return card;}
     if(doc.ocr)card.append(el('p','cv-ocr-note',`Escaneig amb cerca per OCR · ${doc.ocr.indexedPages} pàgines amb text`));
     if(!doc.pages.length)card.append(el('p','cv-note','PDF escanejat: cerca de text no disponible.'));
