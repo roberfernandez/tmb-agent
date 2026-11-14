@@ -1,5 +1,5 @@
 import { readOrigin, originUrl, renderMiralinCard } from './miralin.js?v=corners-v1';
-import { renderConvenis } from './convenis.js?v=readable-v2';
+import { renderConvenis } from './convenis.js?v=historic-list-v1';
 import { renderVendaDiners } from './venda-diners.js?v=venda-v1';
 import { renderObjectes } from './objectes.js?v=objectes-v1';
 import { renderFarmacioles } from './farmacioles.js?v=farmacioles-v1';
