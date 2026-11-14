@@ -1684,7 +1684,7 @@
     "year": 1999,
     "source": "CGT",
     "url": "https://cgtmetro.org/wp-content/uploads/2025/08/XXII-CC-1999-2001.pdf",
-    "note": "CCOO cataloga una còpia com a 1999–2000; pendent de coteig.",
+    "note": "L’inventari de TMB el data 1999–2001; CCOO cataloga una còpia com a 1999–2000 i l’arxiu del Sindicato Unitario publica un exemplar titulat 1998–2001. Les dates varien segons la còpia i resten pendents de coteig.",
     "pages": [
       {
         "page": 1,
@@ -1861,7 +1861,13 @@
       "indexedPages": 27,
       "blankPages": [],
       "sourceSha256": "28a84cb141292dba0f4eb4a35c595258be1af06a20a30fae788cbae6af314587"
-    }
+    },
+    "relatedSources": [
+      {
+        "label": "Sindicato Unitario · exemplar 1998–2001",
+        "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/1998-2001-1.pdf"
+      }
+    ]
   },
   {
     "id": "c1997",
@@ -2172,17 +2178,6 @@
     "year": 1996,
     "source": "Sindicato Unitario · arxiu de convenis",
     "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/XX-CC-Pr%C3%B3rroga-1996.pdf",
-    "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
-    "pages": [],
-    "summaryOnly": true
-  },
-  {
-    "id": "l1998",
-    "title": "Conveni col·lectiu · 1998–2001",
-    "kind": "Conveni",
-    "year": 1998,
-    "source": "Sindicato Unitario · arxiu de convenis",
-    "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/1998-2001-1.pdf",
     "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
     "pages": [],
     "summaryOnly": true
