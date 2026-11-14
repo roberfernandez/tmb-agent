@@ -1100,7 +1100,7 @@
     "year": 2012,
     "source": "CGT",
     "url": "https://cgtmetro.org/wp-content/uploads/2025/08/Prorroga-XXV-CC-2012-13.pdf",
-    "note": "El PDF inclou també el text del XXV conveni 2008–2011 a partir de la pàgina 8. Les coincidències d’aquesta part no són canvis de la pròrroga.",
+    "note": "El PDF inclou també el text del XXV conveni 2008–2011 a partir de la pàgina 8. Les coincidències d’aquesta part no són canvis de la pròrroga. El conflicte del Mobile World Congress de febrer de 2012 es va resoldre després d’un referèndum sobre l’oferta. La vaga de setembre pel descompte de la paga extra va ser un episodi diferent.",
     "pages": [
       {
         "page": 1,
@@ -1306,7 +1306,7 @@
     "year": 2008,
     "source": "CGT",
     "url": "https://cgtmetro.org/wp-content/uploads/2025/08/XXV-CC-2008-11.pdf",
-    "note": "",
+    "note": "Conveni XXV, vigent en 2008–2011 i prorrogat durant la negociació posterior. El NMO/AAC i els conflictes de 2012 s’han de llegir en els documents i acords de cada període.",
     "pages": [
       {
         "page": 1,
@@ -1480,7 +1480,7 @@
     "year": 2004,
     "source": "CGT",
     "url": "https://cgtmetro.org/wp-content/uploads/2025/08/XXIV_CONVENI_COLECT_M.pdf",
-    "note": "",
+    "note": "Conveni XXIV, durant el desplegament del Nou Model Organitzatiu i la consolidació de funcions polivalents AAC; consulteu els articles del text per a les condicions pactades.",
     "pages": [
       {
         "page": 1,
@@ -2033,7 +2033,7 @@
     "year": 1975,
     "source": "Sindicato Unitario · arxiu de convenis",
     "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/1975-8%C2%BA-Convenio-Colectivo.pdf",
-    "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
+    "note": "L’article 7 passa la jornada dels col·lectius afectats de 48 a 44 hores setmanals des de l’1 de juliol de 1975. L’article 9 eleva de 22 a 24 els dies laborables de vacances a partir de 1976.",
     "pages": [],
     "summaryOnly": true
   },
@@ -2055,17 +2055,83 @@
     "year": 1978,
     "source": "Sindicato Unitario · arxiu de convenis",
     "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/1978-10%C2%BA-Convenio-Colectivo.pdf",
-    "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
+    "note": "El conveni estableix 42 hores setmanals des de l’1 d’octubre de 1978 per als col·lectius amb jornada superior a 42 hores. Inclou també pactes salarials, nocturnitat, vacances i organització del treball.",
     "pages": [],
     "summaryOnly": true
   },
   {
     "id": "l1979",
-    "title": "Laude / XI · 1979",
+    "title": "Laude de 1979 · pròrroga del X Conveni",
     "kind": "Laude",
     "year": 1979,
     "source": "Sindicato Unitario · arxiu de convenis",
     "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/1979-11%C2%BA-Convenio-Colectivo-1.pdf",
+    "note": "Laude de març de 1979 arran de la ruptura de negociacions. Va prorrogar el conveni de 1978 fins al 31 de desembre i va modificar, entre altres matèries, la jubilació i les pensions.",
+    "pages": [],
+    "summaryOnly": true
+  },
+  {
+    "id": "l1987",
+    "title": "XVII Conveni col·lectiu · 1987",
+    "kind": "Conveni",
+    "year": 1987,
+    "source": "Sindicato Unitario · arxiu de convenis",
+    "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/XVII-CC-1987.pdf",
+    "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
+    "pages": [],
+    "summaryOnly": true
+  },
+  {
+    "id": "l1989",
+    "title": "XVIII Conveni col·lectiu · 1989",
+    "kind": "Conveni",
+    "year": 1989,
+    "source": "Sindicato Unitario · arxiu de convenis",
+    "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/XVIII-CC-1989.pdf",
+    "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
+    "pages": [],
+    "summaryOnly": true
+  },
+  {
+    "id": "l1991a",
+    "title": "XIX Conveni col·lectiu · 1991 · part 1",
+    "kind": "Conveni",
+    "year": 1991,
+    "source": "Sindicato Unitario · arxiu de convenis",
+    "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/XIX-CC-1991-1%C2%AAparte.pdf",
+    "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
+    "pages": [],
+    "summaryOnly": true
+  },
+  {
+    "id": "l1991b",
+    "title": "XIX Conveni col·lectiu · 1991 · part 2",
+    "kind": "Conveni",
+    "year": 1991,
+    "source": "Sindicato Unitario · arxiu de convenis",
+    "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/XIX-CC-1991-2%C2%AAparte.pdf",
+    "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
+    "pages": [],
+    "summaryOnly": true
+  },
+  {
+    "id": "l1996",
+    "title": "Pròrroga del XX Conveni · 1996",
+    "kind": "Pròrroga",
+    "year": 1996,
+    "source": "Sindicato Unitario · arxiu de convenis",
+    "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/XX-CC-Pr%C3%B3rroga-1996.pdf",
+    "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
+    "pages": [],
+    "summaryOnly": true
+  },
+  {
+    "id": "l1998",
+    "title": "Conveni col·lectiu · 1998–2001",
+    "kind": "Conveni",
+    "year": 1998,
+    "source": "Sindicato Unitario · arxiu de convenis",
+    "url": "https://sindicatounitario.es/wp-content/uploads/2020/07/1998-2001-1.pdf",
     "note": "Document complet disponible a l’arxiu sindical. En aquesta miniapp s’obre com a PDF original; el text encara no està indexat per a cerca.",
     "pages": [],
     "summaryOnly": true
