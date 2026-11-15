@@ -20,7 +20,9 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build Android test app
-        run: gradle -p android-overlay :app:testDebugUnitTest :app:assembleDebug
+        run: |
+          set -o pipefail
+          gradle -p android-overlay :app:testDebugUnitTest :app:assembleDebug --stacktrace 2>&1 | tee "$RUNNER_TEMP/train-eye-gradle.log"
       - name: Verify main APK signature and package
         run: |
           apk=android-overlay/app/build/outputs/apk/debug/app-debug.apk
@@ -38,6 +40,31 @@ jobs:
         if: failure()
         run: |
           find android-overlay/app/build/test-results/testDebugUnitTest -name '*.xml' -type f -print -exec grep -n -A 5 -B 2 '<failure' {} \; || true
+      - name: Preserve failure report for debugging from GitHub
+        if: failure() && github.ref == 'refs/heads/fix/realistic-eye-eta-minute'
+        run: |
+          mkdir -p .github/ci-reports
+          {
+            echo "ANDROID TRAIN EYE FAILURE"
+            echo "Commit: $GITHUB_SHA"
+            echo "Run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "Date (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "=== Last Gradle output lines ==="
+            if [ -f "$RUNNER_TEMP/train-eye-gradle.log" ]; then
+              tail -n 250 "$RUNNER_TEMP/train-eye-gradle.log"
+            else
+              echo "Gradle step was not reached (or failed before logging)."
+            fi
+            echo
+            echo "=== JUnit failures ==="
+            find android-overlay/app/build/test-results/testDebugUnitTest -name '*.xml' -type f -print -exec grep -n -A 8 -B 2 '<failure' {} \\; 2>/dev/null || true
+          } > .github/ci-reports/android-train-eye-last-failure.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/ci-reports/android-train-eye-last-failure.log
+          git commit -m "ci: preserve failing Android build diagnostics [skip ci]" || true
+          git push origin "HEAD:refs/heads/fix/realistic-eye-eta-minute"
       - name: Read app version
         id: app-version
         run: |
