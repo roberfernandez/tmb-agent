@@ -58,7 +58,7 @@ jobs:
             fi
             echo
             echo "=== JUnit failures ==="
-            find android-overlay/app/build/test-results/testDebugUnitTest -name '*.xml' -type f -print -exec grep -n -A 8 -B 2 '<failure' {} \\; 2>/dev/null || true
+            find android-overlay/app/build/test-results/testDebugUnitTest -name '*.xml' -type f 2>/dev/null | while read -r file; do echo "$file"; grep -n -A 8 -B 2 '<failure' "$file" || true; done
           } > .github/ci-reports/android-train-eye-last-failure.log
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
