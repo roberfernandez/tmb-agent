@@ -45,12 +45,6 @@
  <div class="row" style="margin-top:12px"><button id="startTrainWatch" class="primary" disabled>Segueix aquest tren</button><button id="editTrainWatch" hidden>Modifica</button><button id="applyTrainWatch" class="primary" hidden>Aplica el canvi</button><button id="cancelTrainWatchEdit" hidden>Cancel·la</button><button id="stopTrainWatch" disabled>Atura</button></div>
  <p id="trainWatchStatus" role="status" class="muted">Seguiment manual desactivat.</p>
  </section>
-<details id="etaDiagnosticPanel" class="card" style="display:none">
- <summary>Diagnòstic ETA · prova temporal</summary>
- <p class="muted">Amb el seguiment actiu, copia els temps rebuts de Miralín i el que mostra l’ull. No atura ni modifica el seguiment i no envia dades a cap servidor.</p>
- <button id="copyEtaDiagnostic" type="button">Copia el diagnòstic ETA</button>
- <p id="etaDiagnosticStatus" role="status" class="muted"></p>
-</details>
 <section class="card">
  <h2>Avisos del servei</h2><label for="margin">Antelació dels avisos del servei</label><div class="minute-stepper"><button id="marginUp" type="button" aria-label="Augmenta un minut">▲</button><input id="margin" type="number" inputmode="numeric" min="1" max="120" step="1" value="5" aria-label="Minuts d’antelació"><button id="marginDown" type="button" aria-label="Redueix un minut">▼</button><span>minuts</span></div>
  <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button><button id="test">Prova el so</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>Els avisos poden arribar encara que tanquis la miniapp. Cal permetre les notificacions i tenir connexió; les alternatives depenen de les dades recents de Miralin. A Android, si ja ets a l’estació de la presa, l’avís es calcula amb l’arribada estimada en directe.</small>
@@ -246,15 +240,6 @@ try{load()}catch{state.text='';state.date=new Date().toISOString().slice(0,10);l
 
 // Els modes automàtic i manual són excloents.
 const watchTrain=$('watchTrain'),watchStop=$('watchStop'),watchVia=$('watchVia');
-$('copyEtaDiagnostic').onclick=()=>{
- if(!isAndroid)return;
- if(followMode!=='manual'&&followMode!=='service'){
-  $('etaDiagnosticStatus').textContent='Activa primer un seguiment.';
-  return;
- }
- $('etaDiagnosticStatus').textContent='S’obrirà la captura tècnica de l’APK. Després enganxa el resultat al xat.';
- location.href='intent://diagnostic#Intent;scheme=tmbservei;package=com.tmbagent.traineye;end';
-};
 const validManualTrain=value=>/^(40[1-9]|41\d|42[0-5])$/.test(value||'');
 const validManualStop=value=>/^(41[3-9]|42\d|43[0-4])$/.test(value||'');
 const terminalManualStop=value=>value==='413'||value==='434';
@@ -285,7 +270,6 @@ function refreshManualWatchControls(){
  $('cancelTrainWatchEdit').hidden=!editing;
  $('cancelTrainWatchEdit').disabled=watchActionBusy;
  $('stopTrainWatch').disabled=!active||watchActionBusy;
- $('etaDiagnosticPanel').style.display=isAndroid&&active?'':'none';
 }
 function showServiceEyeError(message){const status=$('serviceEyeStatus');status.textContent=message||'';status.hidden=!message}
 function showFollowMode(mode){
