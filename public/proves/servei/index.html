@@ -423,8 +423,8 @@ async function stopTrainPushWatch(){
  }
 }
 
-$('startTrainWatch').onclick=async()=>{
- if(followMode||watchActionBusy)return;
+async function startOrChangeTrainWatch(replacing=false){
+ if(watchActionBusy||(!replacing&&followMode)||(replacing&&(followMode!=='manual'||!watchEditing)))return;
  const train=watchTrain.value,stop=watchStop.value;
  const via=terminalManualStop(stop)?'':watchVia.value;
  if(!validManualTrain(train)){
@@ -444,32 +444,57 @@ $('startTrainWatch').onclick=async()=>{
  }
  watchActionBusy=true;refreshManualWatchControls();
  try{
+  // Replacement updates the running Android overlay directly; no stop/restart.
+  // Legacy web-push subscriptions are cleared before creating a new one.
   const stopped=await stopTrainPushWatch();
   if(!stopped)return;
   localStorage.setItem('tmb-servei-manual-train',train);
   localStorage.setItem('tmb-servei-manual-stop',stop);
   if(via)localStorage.setItem('tmb-servei-manual-via',via);
+  else localStorage.removeItem('tmb-servei-manual-via');
   const params=new URLSearchParams({mode:'manual',train,stop});
   if(via)params.set('via',via);
+  watchEditing=false;watchBeforeEdit=null;
   showFollowMode('manual');
   if(isIOS){
-   $('trainWatchStatus').textContent='Iniciant el seguiment manual del tren '+train+' a '+stations[stop]+(via?' · via '+via:'')+'.';
+   $('trainWatchStatus').textContent=(replacing?'Actualitzant':'Iniciant')+' el seguiment manual del tren '+train+'.';
    location.href='tmbservei-ios://watch?'+params.toString();
    return;
   }
   if(isAndroid){
-   $('trainWatchStatus').textContent='Iniciant l’ull per al tren '+train+' a '+stations[stop]+(via?' · via '+via:'')+'.';
+   $('trainWatchStatus').textContent=(replacing?'Actualitzant l’ull per al tren ':'Iniciant l’ull per al tren ')+train+' a '+stations[stop]+(via?' · via '+via:'')+'.';
    openAndroidEye(params);
    return;
   }
   await activateTrainWatch(false);
  }finally{watchActionBusy=false;refreshManualWatchControls()}
-};
+}
+$('startTrainWatch').onclick=()=>startOrChangeTrainWatch(false);
+$('applyTrainWatch').onclick=()=>startOrChangeTrainWatch(true);
 
-
-
-const selectedTrainFromPush=new URLSearchParams(location.search).get('watch');
-if(validManualTrain(selectedTrainFromPush)){watchTrain.value=selectedTrainFromPush;localStorage.setItem('tmb-servei-manual-train',selectedTrainFromPush)}
+const watchQuery=new URLSearchParams(location.search);
+const selectedTrainFromPush=watchQuery.get('watch');
+if(validManualTrain(selectedTrainFromPush)){
+ watchTrain.value=selectedTrainFromPush;
+ localStorage.setItem('tmb-servei-manual-train',selectedTrainFromPush);
+}
+if(watchQuery.get('manualWatch')==='1'){
+ const selectedStop=watchQuery.get('stop'),selectedVia=watchQuery.get('via');
+ if(validManualStop(selectedStop)){
+  watchStop.value=selectedStop;
+  localStorage.setItem('tmb-servei-manual-stop',selectedStop);
+  watchVia.value=!terminalManualStop(selectedStop)&&(selectedVia==='1'||selectedVia==='2')?selectedVia:'';
+  if(watchVia.value)localStorage.setItem('tmb-servei-manual-via',watchVia.value);
+  else localStorage.removeItem('tmb-servei-manual-via');
+ }
+ showFollowMode('manual');
+ $('trainWatchStatus').textContent='Seguiment manual actiu. Pots aturar-lo o modificar el tren, l’estació i la via.';
+ // Avoid reactivating a stopped manual follow if this URL is reloaded.
+ for(const key of ['manualWatch','watch','stop','via'])watchQuery.delete(key);
+ const cleanUrl=location.pathname+(watchQuery.toString()?'?'+watchQuery.toString():'')+location.hash;
+ history.replaceState(history.state,'',cleanUrl);
+ requestAnimationFrame(()=>$('manualTrainCard').scrollIntoView({block:'start',behavior:'auto'}));
+}
 refreshManualWatchControls();
 
 
