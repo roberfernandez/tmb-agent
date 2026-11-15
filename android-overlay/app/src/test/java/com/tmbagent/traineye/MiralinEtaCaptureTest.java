@@ -34,7 +34,7 @@ public class MiralinEtaCaptureTest {
         JSONObject capture = capture();
         long now = capture.getLong("capturedAt");
         ServiceAlerts boards = boards(capture, new ServicePlan(""));
-        ManualTrainEta eta = new ManualTrainEta("413", "406", false);
+        ManualTrainEta eta = new ManualTrainEta("413", "", "406", false);
         JSONObject position = capture.getJSONObject("position");
         assertFalse(eta.observe(position));
         long arrival = eta.predictedArrival(boards, now, position, capture.getLong("positionAgeMs"));
@@ -50,7 +50,7 @@ public class MiralinEtaCaptureTest {
         capture.getJSONObject("board").getJSONObject("raw").getJSONArray("via1")
             .getJSONObject(1).remove("stopCode");
         ServiceAlerts boards = boards(capture, new ServicePlan(""));
-        ManualTrainEta eta = new ManualTrainEta("413", "P06", false);
+        ManualTrainEta eta = new ManualTrainEta("413", "", "P06", false);
         assertEquals(LA_PAU_ARRIVAL, eta.predictedArrival(boards, capture.getLong("capturedAt"),
             capture.getJSONObject("position"), capture.getLong("positionAgeMs")));
     }
@@ -75,7 +75,7 @@ public class MiralinEtaCaptureTest {
         JSONObject raw = capture.getJSONObject("board").getJSONObject("raw");
         raw.put("via1", new JSONArray().put(raw.getJSONArray("via1").getJSONObject(0)));
         ServiceAlerts boards = boards(capture, new ServicePlan(""));
-        ManualTrainEta eta = new ManualTrainEta("413", "M06", false);
+        ManualTrainEta eta = new ManualTrainEta("413", "", "M06", false);
         long now = capture.getLong("capturedAt");
         assertEquals(0, eta.predictedArrival(boards, now, capture.getJSONObject("position"), 72));
         assertEquals(0, boards.predictedArrivalEitherTrack("413", "", "406", now));
