@@ -54,6 +54,7 @@ public class TrainOverlayService extends Service {
     public static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
     public static final String EXTRA_MANUAL_STOP = "manualStop";
     public static final String EXTRA_MANUAL_VIA = "manualVia";
+    public static final String ACTION_COPY_ETA_DIAGNOSTIC = "COPY_ETA_DIAGNOSTIC";
     private static final String CHANNEL_ID = "train_eye_overlay";
     private static final int NOTIFICATION_ID = 9413;
     private static final String SERVICE_VIEWER_URL = "https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1";
@@ -141,6 +142,16 @@ public class TrainOverlayService extends Service {
         if (intent != null && "SHOW_OVERLAY".equals(intent.getAction())) {
             showOverlay();
             return START_STICKY;
+        }
+        // Read-only temporary diagnostic. Never reinitialise or stop the live watch.
+        if (intent != null && ACTION_COPY_ETA_DIAGNOSTIC.equals(intent.getAction())) {
+            if (isActive) copyEtaDiagnostic();
+            else {
+                android.widget.Toast.makeText(this, "No hi ha cap seguiment actiu.",
+                    android.widget.Toast.LENGTH_SHORT).show();
+                stopSelf();
+            }
+            return isActive ? START_STICKY : START_NOT_STICKY;
         }
         android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
         if (intent != null && "CONFIGURE_ALERTS".equals(intent.getAction()) && isActive) {
@@ -960,6 +971,10 @@ public class TrainOverlayService extends Service {
                 .put("headwayStop", intervalStop)
                 .put("dataSource", "miralin.cat")
                 .put("arrivalAt", estimate.arrival).put("approximate", estimate.approximate)
+                .put("displayCountdown", countdown(estimate, now))
+                .put("secondsToArrival", estimate.arrival > now ? (estimate.arrival - now + 999) / 1000 : -1)
+                .put("forecastAgeMs", received > 0 ? Math.max(0, now - received) : -1)
+                .put("diagnosticType", "temporary-read-only-eta")
                 .put("connectionStatus", connectionStatus)
                 .put("socketStatus", phase).put("socketError", error)
                 .put("board", etaBoards == null || stop.isEmpty() ? JSONObject.NULL : etaBoards.diagnosticBoard(stop))
