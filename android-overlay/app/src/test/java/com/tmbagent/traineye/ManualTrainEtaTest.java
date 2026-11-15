@@ -9,18 +9,21 @@ import static org.junit.Assert.*;
 public class ManualTrainEtaTest {
     private static final long NOW = 1_794_317_508_000L;
 
-    @Test public void usesTheFirstArrivalOfTheSelectedTrainAcrossBothTracks() throws JSONException {
-        ManualTrainEta eta = new ManualTrainEta("423", "410", false);
+    @Test public void followsOnlySelectedTrackEvenWhenOtherTrackArrivesEarlier() throws JSONException {
+        ManualTrainEta via1 = new ManualTrainEta("423", "1", "410", false);
+        ManualTrainEta via2 = new ManualTrainEta("423", "2", "410", false);
         ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
         boards.acceptBoard(board(2893, 411), NOW);
-        assertEquals(NOW + 411_000, eta.predictedArrival(boards, NOW, null, 0));
+        assertEquals(NOW + 2_893_000, via1.predictedArrival(boards, NOW, null, 0));
+        assertEquals(NOW + 411_000, via2.predictedArrival(boards, NOW, null, 0));
 
         boards.acceptBoard(board(202, 1100), NOW + 1_000);
-        assertEquals(NOW + 203_000, eta.predictedArrival(boards, NOW + 1_000, null, 0));
+        assertEquals(NOW + 203_000, via1.predictedArrival(boards, NOW + 1_000, null, 0));
+        assertEquals(NOW + 1_101_000, via2.predictedArrival(boards, NOW + 1_000, null, 0));
     }
 
     @Test public void retainsOnlyTheFirstArrivalWithRecentPositionOnItsApproach() throws JSONException {
-        ManualTrainEta eta = new ManualTrainEta("423", "410", false);
+        ManualTrainEta eta = new ManualTrainEta("423", "2", "410", false);
         ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
         boards.acceptBoard(board(2893, 411), NOW);
 
@@ -32,12 +35,12 @@ public class ManualTrainEtaTest {
     }
 
     @Test public void endsTheCountdownAtTheFirstPassOrWhenTheMapSkipsTheStation() throws JSONException {
-        ManualTrainEta eastbound = new ManualTrainEta("423", "410", false);
+        ManualTrainEta eastbound = new ManualTrainEta("423", "1", "410", false);
         assertTrue(eastbound.observe(position("Jaume I", 1)));
         assertFalse(eastbound.isWaiting());
         assertFalse(eastbound.confirm());
 
-        ManualTrainEta westbound = new ManualTrainEta("423", "410", false);
+        ManualTrainEta westbound = new ManualTrainEta("423", "2", "410", false);
         assertFalse(westbound.observe(position("Passeig de Gràcia", 2)));
         assertTrue(westbound.observe(position("Barceloneta", 2)));
         assertFalse(westbound.isWaiting());
@@ -45,7 +48,7 @@ public class ManualTrainEtaTest {
         ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
         boards.acceptBoard(board(2893, 411), NOW);
         assertEquals(0, westbound.predictedArrival(boards, NOW, null, 0));
-        assertFalse(new ManualTrainEta("423", "410", true).isWaiting());
+        assertFalse(new ManualTrainEta("423", "2", "410", true).isWaiting());
     }
 
     @Test public void laPauUsesTheStationForecastEvenWhenPublishedOnVia1() throws JSONException {
@@ -58,7 +61,7 @@ public class ManualTrainEtaTest {
                 .put("trainCode", "M06").put("stopCode", "415")
                 .put("platformTrack", 1).put("secsLeft", 47)));
         boards.acceptBoard(raw, NOW);
-        ManualTrainEta eta = new ManualTrainEta("413", "406", false);
+        ManualTrainEta eta = new ManualTrainEta("413", "", "406", false);
         assertEquals(NOW + 4_200_000L,
             eta.predictedArrival(boards, NOW, position("Besòs Mar", 1), 0));
         assertFalse(eta.observe(position("Besòs Mar", 1)));
@@ -68,16 +71,30 @@ public class ManualTrainEtaTest {
         assertEquals(0, eta.predictedArrival(boards, NOW, position("Besòs Mar", 1), 0));
     }
 
-    @Test public void theFirstPassAtAnIntermediateStationFollowsTheTrainsDirection() throws JSONException {
+    @Test public void selectedTrackDoesNotChangeWithTrainsDirection() throws JSONException {
         ServiceAlerts boards = new ServiceAlerts(new ServicePlan(""), NOW);
+        ManualTrainEta via1 = new ManualTrainEta("423", "1", "P10", false);
+        ManualTrainEta via2 = new ManualTrainEta("423", "2", "P10", false);
         boards.acceptBoard(board(47, 900), NOW);
-        ManualTrainEta eta = new ManualTrainEta("423", "P10", false);
+        assertEquals(NOW + 47_000L,
+            via1.predictedArrival(boards, NOW, position("Girona", 1), 0));
         assertEquals(NOW + 900_000L,
-            eta.predictedArrival(boards, NOW, position("Girona", 1), 0));
+            via2.predictedArrival(boards, NOW, position("Girona", 1), 0));
 
         boards.acceptBoard(board(900, 47), NOW);
         assertEquals(NOW + 900_000L,
-            eta.predictedArrival(boards, NOW, position("Barceloneta", 2), 0));
+            via1.predictedArrival(boards, NOW, position("Barceloneta", 2), 0));
+        assertEquals(NOW + 47_000L,
+            via2.predictedArrival(boards, NOW, position("Barceloneta", 2), 0));
+    }
+
+    @Test public void intermediateStationsRequireViaAndIgnorePassesOnOtherTrack() throws JSONException {
+        assertThrows(IllegalArgumentException.class, () -> new ManualTrainEta("425", "", "410", false));
+        ManualTrainEta eta = new ManualTrainEta("425", "2", "410", false);
+        assertFalse(eta.observe(position("Passeig de Gràcia", 1)));
+        assertTrue(eta.isWaiting());
+        assertTrue(eta.observe(position("Passeig de Gràcia", 2)));
+        assertFalse(eta.isWaiting());
     }
 
     @Test public void trinitatUsesItsStationForecastInsteadOfThePositionTimer() throws JSONException {
@@ -90,7 +107,7 @@ public class ManualTrainEtaTest {
                 .put("trainCode", "M13").put("stopCode", "433")
                 .put("platformTrack", 2).put("secsLeft", 30)));
         boards.acceptBoard(raw, NOW);
-        ManualTrainEta eta = new ManualTrainEta("434", "413", false);
+        ManualTrainEta eta = new ManualTrainEta("434", "", "413", false);
         assertEquals(NOW + 600_000L,
             eta.predictedArrival(boards, NOW, position("Via Júlia", 2), 0));
     }
