@@ -54,6 +54,7 @@ public class TrainOverlayService extends Service {
     public static final String EXTRA_SERVICE_IMAGE = "serviceImage";
     public static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
     public static final String EXTRA_MANUAL_STOP = "manualStop";
+    public static final String EXTRA_MANUAL_VIA = "manualVia";
     private static final String MANUAL_ARRIVED = "manualArrived";
     private static final String CHANNEL_ID = "train_eye_overlay";
     private static final int NOTIFICATION_ID = 9413;
@@ -79,6 +80,7 @@ public class TrainOverlayService extends Service {
     private String serviceImage = "";
     private String serviceRowBounds = "";
     private String manualStop = "";
+    private String manualVia = "";
     private String station = "connectant…";
     private String track = "—";
     private int ageAtFetch = -1;
@@ -160,10 +162,14 @@ public class TrainOverlayService extends Service {
             serviceRowBounds = intent.getStringExtra(EXTRA_SERVICE_ROW_BOUNDS) == null ? "" : intent.getStringExtra(EXTRA_SERVICE_ROW_BOUNDS);
             String selectedStop = intent.getStringExtra(EXTRA_MANUAL_STOP);
             manualStop = "manual".equals(mode) && selectedStop != null ? selectedStop : "";
+            String selectedVia = intent.getStringExtra(EXTRA_MANUAL_VIA);
+            manualVia = "manual".equals(mode) && !PickupEta.isTerminal(manualStop)
+                && ("1".equals(selectedVia) || "2".equals(selectedVia)) ? selectedVia : "";
             prefs.edit().putString(EXTRA_TRAIN, train).putString(EXTRA_MODE, mode)
                 .putString(EXTRA_SERVICE_DATE, serviceDate).putString(EXTRA_SCHEDULE, schedule)
                 .putString(EXTRA_SERVICE_IMAGE, serviceImage).putString(EXTRA_SERVICE_ROW_BOUNDS, serviceRowBounds)
-                .putString(EXTRA_MANUAL_STOP, manualStop).remove(MANUAL_ARRIVED).apply();
+                .putString(EXTRA_MANUAL_STOP, manualStop).putString(EXTRA_MANUAL_VIA, manualVia)
+                .remove(MANUAL_ARRIVED).apply();
         } else {
             train = TrainId.normalize(prefs.getString(EXTRA_TRAIN, "401"));
             if (train.isEmpty()) train = "401";
@@ -173,6 +179,7 @@ public class TrainOverlayService extends Service {
             serviceImage = prefs.getString(EXTRA_SERVICE_IMAGE, "");
             serviceRowBounds = prefs.getString(EXTRA_SERVICE_ROW_BOUNDS, "");
             manualStop = prefs.getString(EXTRA_MANUAL_STOP, "");
+            manualVia = prefs.getString(EXTRA_MANUAL_VIA, "");
         }
         servicePlan = new ServicePlan(schedule);
         configureEta(prefs);
@@ -725,6 +732,7 @@ public class TrainOverlayService extends Service {
     }
 
     private String headwayVia() {
+        if ("manual".equals(mode)) return PickupEta.isTerminal(manualStop) ? "" : manualVia;
         ServicePlan.Row pickup = etaTarget(System.currentTimeMillis());
         return pickup == null ? "" : pickup.via;
     }
@@ -839,8 +847,11 @@ public class TrainOverlayService extends Service {
         if (!"service".equals(mode)) {
             pickupEta = null;
             etaPlanKey = "";
-            manualEta = manualStop.matches("41[3-9]|42[0-9]|43[0-4]")
-                ? new ManualTrainEta(manualStop, train, prefs.getBoolean(MANUAL_ARRIVED, false))
+            boolean validStop = manualStop.matches("41[3-9]|42[0-9]|43[0-4]");
+            boolean validVia = PickupEta.isTerminal(manualStop)
+                || "1".equals(manualVia) || "2".equals(manualVia);
+            manualEta = validStop && validVia
+                ? new ManualTrainEta(manualStop, manualVia, train, prefs.getBoolean(MANUAL_ARRIVED, false))
                 : null;
             etaBoards = manualEta == null ? null : new ServiceAlerts(servicePlan, now);
             return;
@@ -918,11 +929,11 @@ public class TrainOverlayService extends Service {
             JSONObject report = new JSONObject()
                 .put("version", getPackageManager().getPackageInfo(getPackageName(), 0).versionName)
                 .put("capturedAt", now).put("mode", mode).put("train", train)
-                .put("manualStop", manualStop)
+                .put("manualStop", manualStop).put("manualVia", manualVia)
                 .put("manualWaiting", manualEta == null ? JSONObject.NULL : manualEta.isWaiting())
                 .put("requestedStop", stop)
                 .put("requestedStation", stop.isEmpty() ? "" : stationName(stop))
-                .put("requestedVia", pickup == null ? "" : pickup.via)
+                .put("requestedVia", manualEta != null ? manualEta.via : pickup == null ? "" : pickup.via)
                 .put("positionAgeMs", directMapAt == 0 ? -1 : android.os.SystemClock.elapsedRealtime() - directMapAt)
                 .put("position", directMap == null || directMap.optJSONObject(train) == null
                     ? JSONObject.NULL : directMap.optJSONObject(train))
