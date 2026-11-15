@@ -260,8 +260,9 @@ function refreshManualWatchControls(){
  watchVia.disabled=active||!needVia;
  watchTrain.disabled=active;
  watchStop.disabled=active;
- $('startTrainWatch').disabled=active||watchActionBusy||!validManualTrain(watchTrain.value)
-   ||!validManualStop(station)||(needVia&&watchVia.value!=='1'&&watchVia.value!=='2');
+ // El botó d'inici només depèn de si ja hi ha un seguiment actiu.
+ // Els camps obligatoris es validen en prémer-lo, amb un missatge clar.
+ $('startTrainWatch').disabled=active||watchActionBusy;
  $('stopTrainWatch').disabled=!active||watchActionBusy;
 }
 function showServiceEyeError(message){const status=$('serviceEyeStatus');status.textContent=message||'';status.hidden=!message}
@@ -401,8 +402,19 @@ $('startTrainWatch').onclick=async()=>{
  if(followMode||watchActionBusy)return;
  const train=watchTrain.value,stop=watchStop.value;
  const via=terminalManualStop(stop)?'':watchVia.value;
- if(!validManualTrain(train)||!validManualStop(stop)||(!terminalManualStop(stop)&&via!=='1'&&via!=='2')){
-  $('trainWatchStatus').textContent='Selecciona un tren del 401 al 425, una estació i la via (excepte a les capçaleres).';
+ if(!validManualTrain(train)){
+  $('trainWatchStatus').textContent='Tria un tren de la L4, del 401 al 425.';
+  watchTrain.focus();
+  return;
+ }
+ if(!validManualStop(stop)){
+  $('trainWatchStatus').textContent='Tria l’estació on esperes el tren.';
+  watchStop.focus();
+  return;
+ }
+ if(!terminalManualStop(stop)&&via!=='1'&&via!=='2'){
+  $('trainWatchStatus').textContent='Tria la via 1 o 2 per a '+stations[stop]+'.';
+  watchVia.focus();
   return;
  }
  watchActionBusy=true;refreshManualWatchControls();
