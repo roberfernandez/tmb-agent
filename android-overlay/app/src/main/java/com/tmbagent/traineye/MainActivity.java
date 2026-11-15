@@ -24,6 +24,7 @@ public class MainActivity extends Activity {
     private String pendingImage = "";
     private String pendingRowBounds = "";
     private String pendingManualStop = "";
+    private String pendingManualVia = "";
 
     @Override
     protected void onCreate(Bundle state) {
@@ -77,7 +78,7 @@ public class MainActivity extends Activity {
         }
 
         String train = TrainId.normalize(data.getQueryParameter("train"));
-        if (ServicePlan.isTrain(train)) {
+        if (ServicePlan.isTrain(train) && Integer.parseInt(train) <= 425) {
             pendingTrain = train;
             pendingMode = "manual";
             pendingDate = null;
@@ -85,10 +86,32 @@ public class MainActivity extends Activity {
             pendingImage = "";
             pendingRowBounds = "";
             pendingManualStop = "";
-            chooseManualStation();
+            pendingManualVia = "";
+            String requestedStop = data.getQueryParameter("stop");
+            String requestedVia = data.getQueryParameter("via");
+            if (requestedStop != null || requestedVia != null) {
+                if (!validManualStop(requestedStop) ||
+                    (!PickupEta.isTerminal(requestedStop) && !validManualVia(requestedVia))) {
+                    showMessageAndClose("Tria una estació i la via 1 o 2 (excepte La Pau i Trinitat Nova).");
+                    return;
+                }
+                pendingManualStop = requestedStop;
+                pendingManualVia = PickupEta.isTerminal(requestedStop) ? "" : requestedVia;
+                startPendingOverlay();
+            } else {
+                chooseManualStation();
+            }
         } else {
-            showMessageAndClose("No s’ha rebut un tren vàlid.");
+            showMessageAndClose("Selecciona un tren vàlid del 401 al 425.");
         }
+    }
+
+    private static boolean validManualStop(String stop) {
+        return stop != null && stop.matches("41[3-9]|42[0-9]|43[0-4]");
+    }
+
+    private static boolean validManualVia(String via) {
+        return "1".equals(via) || "2".equals(via);
     }
 
     private void chooseManualStation() {
@@ -96,10 +119,27 @@ public class MainActivity extends Activity {
             .setTitle("On esperes el tren " + pendingTrain + "?")
             .setItems(ServiceAlerts.stations(), (dialog, which) -> {
                 pendingManualStop = Integer.toString(ServiceAlerts.FIRST_STOP + which);
+                if (PickupEta.isTerminal(pendingManualStop)) {
+                    pendingManualVia = "";
+                    startPendingOverlay();
+                } else {
+                    chooseManualVia();
+                }
+            })
+            .setNegativeButton("Cancel·la", (dialog, which) -> finish())
+            .setOnCancelListener(dialog -> finish())
+            .show();
+    }
+
+    private void chooseManualVia() {
+        new AlertDialog.Builder(this)
+            .setTitle("Per quina via esperes el tren " + pendingTrain + "?")
+            .setItems(new String[]{"Via 1", "Via 2"}, (dialog, which) -> {
+                pendingManualVia = Integer.toString(which + 1);
                 startPendingOverlay();
             })
-            .setNegativeButton("Només posició", (dialog, which) -> startPendingOverlay())
-            .setOnCancelListener(dialog -> startPendingOverlay())
+            .setNegativeButton("Cancel·la", (dialog, which) -> finish())
+            .setOnCancelListener(dialog -> finish())
             .show();
     }
 
@@ -166,6 +206,7 @@ public class MainActivity extends Activity {
         pendingImage = image != null && image.length() <= 220000 ? image : "";
         pendingRowBounds = rowBounds != null && rowBounds.length() <= 12000 ? rowBounds : "";
         pendingManualStop = "";
+        pendingManualVia = "";
         pendingTrain = trainForCurrentTime(pendingSchedule, firstTrain);
         startPendingOverlay();
     }
@@ -211,7 +252,8 @@ public class MainActivity extends Activity {
             .putExtra(TrainOverlayService.EXTRA_SCHEDULE, pendingSchedule)
             .putExtra(TrainOverlayService.EXTRA_SERVICE_IMAGE, pendingImage)
             .putExtra(TrainOverlayService.EXTRA_SERVICE_ROW_BOUNDS, pendingRowBounds)
-            .putExtra(TrainOverlayService.EXTRA_MANUAL_STOP, pendingManualStop);
+            .putExtra(TrainOverlayService.EXTRA_MANUAL_STOP, pendingManualStop)
+            .putExtra(TrainOverlayService.EXTRA_MANUAL_VIA, pendingManualVia);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
         finishOrOfferBackground();
     }
