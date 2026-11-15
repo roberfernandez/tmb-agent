@@ -22,7 +22,7 @@ public class SelectedStationTrackingTest {
             String via = terminal ? "" : id % 2 == 0 ? "2" : "1";
             String selectedTrain = id % 2 == 0 ? "M16" : "P16";
             ManualTrainEta manual = new ManualTrainEta(target, via, selectedTrain, false);
-            long expectedArrival = id % 2 == 0 ? 2_111_000L : 4_000_000L;
+            long expectedArrival = terminal || id % 2 == 0 ? 2_111_000L : 4_000_000L;
             assertEquals("ETA selected stop " + target, NOW + expectedArrival,
                 manual.predictedArrival(boards, NOW, null, 0));
             long expectedHeadway = terminal || "2".equals(via) ? 203 : 500;
