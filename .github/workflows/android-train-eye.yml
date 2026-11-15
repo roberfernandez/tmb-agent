@@ -7,6 +7,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: android-train-eye-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build-debug-apk:
     runs-on: ubuntu-latest
@@ -22,7 +25,18 @@ jobs:
       - name: Build Android test app
         run: |
           set -o pipefail
-          gradle -p android-overlay :app:testDebugUnitTest :app:assembleDebug --stacktrace 2>&1 | tee "$RUNNER_TEMP/train-eye-gradle.log"
+          for attempt in 1 2 3; do
+            echo "Android Gradle build attempt $attempt/3"
+            if gradle -p android-overlay :app:testDebugUnitTest :app:assembleDebug --stacktrace 2>&1 | tee "$RUNNER_TEMP/train-eye-gradle.log"; then
+              exit 0
+            fi
+            if ! grep -Eiq 'Received status code 429|Too Many Requests' "$RUNNER_TEMP/train-eye-gradle.log"; then
+              exit 1
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            echo "Maven Central rate-limit (429); backing off before retry."
+            sleep $((attempt * 25))
+          done
       - name: Verify main APK signature and package
         run: |
           apk=android-overlay/app/build/outputs/apk/debug/app-debug.apk
