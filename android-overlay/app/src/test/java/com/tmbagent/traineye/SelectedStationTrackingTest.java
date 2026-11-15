@@ -18,10 +18,16 @@ public class SelectedStationTrackingTest {
             JSONObject board = forecast(target, 4000, 2111);
             boards.acceptBoard(target, board, NOW);
             headway.accept(target, board, NOW);
-            ManualTrainEta manual = new ManualTrainEta(target, id % 2 == 0 ? "M16" : "P16", false);
-            assertEquals("ETA selected stop " + target, NOW + 2_111_000L,
+            boolean terminal = PickupEta.isTerminal(target);
+            String via = terminal ? "" : id % 2 == 0 ? "2" : "1";
+            String selectedTrain = id % 2 == 0 ? "M16" : "P16";
+            ManualTrainEta manual = new ManualTrainEta(target, via, selectedTrain, false);
+            long expectedArrival = id % 2 == 0 ? 2_111_000L : 4_000_000L;
+            assertEquals("ETA selected stop " + target, NOW + expectedArrival,
                 manual.predictedArrival(boards, NOW, null, 0));
-            assertEquals("Headway selected stop " + target, 203, headway.seconds(target, "", "416", NOW));
+            long expectedHeadway = terminal || "2".equals(via) ? 203 : 500;
+            assertEquals("Headway selected stop " + target, expectedHeadway,
+                headway.seconds(target, via, "416", NOW));
             assertEquals(target, manual.stop);
             assertTrue(manual.isWaiting());
         }
@@ -29,9 +35,9 @@ public class SelectedStationTrackingTest {
         // A refreshed Joanic board must not replace a previously selected Girona board.
         boards.acceptBoard("428", forecast("428", 300, 600), NOW);
         headway.accept("428", forecast("428", 300, 600), NOW);
-        assertEquals(NOW + 300_000L, new ManualTrainEta("428", "416", false)
+        assertEquals(NOW + 300_000L, new ManualTrainEta("428", "1", "416", false)
             .predictedArrival(boards, NOW, null, 0));
-        assertEquals(NOW + 2_111_000L, new ManualTrainEta("426", "416", false)
+        assertEquals(NOW + 2_111_000L, new ManualTrainEta("426", "2", "416", false)
             .predictedArrival(boards, NOW, null, 0));
         assertEquals(500, headway.seconds("428", "", "416", NOW));
         assertEquals(203, headway.seconds("426", "", "416", NOW));
@@ -47,7 +53,7 @@ public class SelectedStationTrackingTest {
         boards.acceptBoard("413", board, NOW);
         StationHeadway headway = new StationHeadway();
         headway.accept("413", board, NOW);
-        ManualTrainEta manual = new ManualTrainEta("413", "416", false);
+        ManualTrainEta manual = new ManualTrainEta("413", "", "416", false);
         assertFalse(manual.observe(position));
         assertEquals(NOW + 2_111_000L, manual.predictedArrival(boards, NOW, position, 0));
         assertEquals("3′23″", headway.label("413", "", "416", NOW));
