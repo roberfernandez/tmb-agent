@@ -1,9 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="t d">
-  <title id="t">VAGA</title>
-  <desc id="d">Memòria de les lluites obreres del Metro de Barcelona</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">VAGA · Metro i treballadors</title>
+  <desc id="desc">Persones i una bandera davant del frontal d’un tren de metro.</desc>
   <rect width="256" height="256" rx="58" fill="#101c2d"/>
   <circle cx="128" cy="128" r="105" fill="#15263a" stroke="#edc763" stroke-width="5"/>
-  <text x="128" y="111" text-anchor="middle" fill="#fff4d6" font-family="system-ui, sans-serif" font-size="38" font-weight="800" letter-spacing="3">VAGA</text>
-  <path d="M57 151h142M57 190h142" fill="none" stroke="#e3574d" stroke-width="8" stroke-linecap="round"/>
-  <path d="M77 146v49m34-49v49m34-49v49m34-49v49" fill="none" stroke="#edc763" stroke-width="5" stroke-linecap="round"/>
+  <path d="M74 39v111" fill="none" stroke="#fff0d0" stroke-width="7" stroke-linecap="round"/>
+  <path d="M80 46c37-15 72-9 116 7l-13 39c-39-14-69-19-103-5z" fill="#e3574d"/>
+  <circle cx="111" cy="105" r="11" fill="#fff0d0"/>
+  <circle cx="148" cy="101" r="11" fill="#edc763"/>
+  <circle cx="179" cy="109" r="10" fill="#fff0d0"/>
+  <path d="M93 135c1-15 9-23 18-23s17 8 18 23m2-1c1-17 8-25 17-25s16 8 17 25m1 0c1-14 8-22 16-22s15 8 16 22" fill="#edc763"/>
+  <path d="M48 157c0-16 11-27 27-27h106c16 0 27 11 27 27v47c0 13-10 23-23 23H71c-13 0-23-10-23-23z" fill="#fff0d0"/>
+  <path d="M49 163h158v17H49z" fill="#e3574d"/>
+  <rect x="67" y="138" width="51" height="21" rx="6" fill="#183047"/>
+  <rect x="138" y="138" width="51" height="21" rx="6" fill="#183047"/>
+  <path d="M78 184h100" stroke="#d7d6ca" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="68" cy="197" r="6" fill="#edc763"/>
+  <circle cx="188" cy="197" r="6" fill="#edc763"/>
+  <path d="M72 227h112" stroke="#edc763" stroke-width="5" stroke-linecap="round"/>
 </svg>
