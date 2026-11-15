@@ -54,7 +54,6 @@ public class TrainOverlayService extends Service {
     public static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
     public static final String EXTRA_MANUAL_STOP = "manualStop";
     public static final String EXTRA_MANUAL_VIA = "manualVia";
-    public static final String ACTION_COPY_ETA_DIAGNOSTIC = "COPY_ETA_DIAGNOSTIC";
     private static final String CHANNEL_ID = "train_eye_overlay";
     private static final int NOTIFICATION_ID = 9413;
     private static final String SERVICE_VIEWER_URL = "https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1";
@@ -142,16 +141,6 @@ public class TrainOverlayService extends Service {
         if (intent != null && "SHOW_OVERLAY".equals(intent.getAction())) {
             showOverlay();
             return START_STICKY;
-        }
-        // Read-only temporary diagnostic. Never reinitialise or stop the live watch.
-        if (intent != null && ACTION_COPY_ETA_DIAGNOSTIC.equals(intent.getAction())) {
-            if (isActive) copyEtaDiagnostic();
-            else {
-                android.widget.Toast.makeText(this, "No hi ha cap seguiment actiu.",
-                    android.widget.Toast.LENGTH_SHORT).show();
-                stopSelf();
-            }
-            return isActive ? START_STICKY : START_NOT_STICKY;
         }
         android.content.SharedPreferences prefs = getSharedPreferences("overlay", MODE_PRIVATE);
         if (intent != null && "CONFIGURE_ALERTS".equals(intent.getAction()) && isActive) {
@@ -932,60 +921,6 @@ public class TrainOverlayService extends Service {
         long arrival = manualEta.predictedArrival(etaBoards, now, liveTrain, positionAge);
         boolean retained = arrival > 0 && now - etaBoards.boardReceivedAt(manualEta.stop) >= ServiceAlerts.BOARD_FRESH_MS;
         return new PickupEta.Estimate(arrival, retained);
-    }
-
-    private void copyEtaDiagnostic() {
-        long now = System.currentTimeMillis();
-        ServicePlan.Row pickup = etaTarget(now);
-        String stop = etaStop(pickup);
-        if (stop.isEmpty() && manualEta != null) stop = manualEta.stop;
-        String intervalStop = headwayStop();
-        String phaseStop = stop.isEmpty() ? intervalStop : stop;
-        try {
-            PickupEta.Estimate estimate = predictedEta(pickup, now);
-            long received = etaBoards == null || stop.isEmpty() ? 0 : etaBoards.boardReceivedAt(stop);
-            String phase = etaStationPhases.getOrDefault(phaseStop, etaSocketStatus);
-            String error = etaStationErrors.getOrDefault(phaseStop, etaSocketError);
-            String summary = "ETA DIAGNÓSTICO · tren " + train + " · estación "
-                + (stop.isEmpty() ? "sin estación de espera" : stationName(stop) + " (" + stop + ")")
-                + "\nSocket: " + phase
-                + (error.isEmpty() ? "" : "\nÚltimo fallo: " + error)
-                + "\nÚltimo cuadro: " + (received == 0 ? "ninguno" : Math.max(0, (now - received) / 1000) + " s")
-                + "\nT.ANT: " + stationHeadway.label(intervalStop, headwayVia(), train, now)
-                + "\nLlegada: " + countdown(estimate, now)
-                + "\nDatos: " + (etaBoards == null || stop.isEmpty() ? "sin estación de espera configurada"
-                    : etaBoards.boardStatus(stop, train, now));
-            JSONObject report = new JSONObject()
-                .put("version", getPackageManager().getPackageInfo(getPackageName(), 0).versionName)
-                .put("capturedAt", now).put("mode", mode).put("train", train)
-                .put("manualStop", manualStop).put("manualVia", manualVia)
-                .put("manualWaiting", manualEta == null ? JSONObject.NULL : manualEta.isWaiting())
-                .put("requestedStop", stop)
-                .put("requestedStation", stop.isEmpty() ? "" : stationName(stop))
-                .put("requestedVia", manualEta != null ? manualEta.via : pickup == null ? "" : pickup.via)
-                .put("positionAgeMs", directMapAt == 0 ? -1 : android.os.SystemClock.elapsedRealtime() - directMapAt)
-                .put("position", directMap == null || directMap.optJSONObject(train) == null
-                    ? JSONObject.NULL : directMap.optJSONObject(train))
-                .put("headwaySeconds", stationHeadway.seconds(intervalStop, headwayVia(), train, now))
-                .put("headwaySource", stationHeadway.source(intervalStop, headwayVia(), train, now))
-                .put("headwayStop", intervalStop)
-                .put("dataSource", "miralin.cat")
-                .put("arrivalAt", estimate.arrival).put("approximate", estimate.approximate)
-                .put("displayCountdown", countdown(estimate, now))
-                .put("secondsToArrival", estimate.arrival > now ? (estimate.arrival - now + 999) / 1000 : -1)
-                .put("forecastAgeMs", received > 0 ? Math.max(0, now - received) : -1)
-                .put("diagnosticType", "temporary-read-only-eta")
-                .put("connectionStatus", connectionStatus)
-                .put("socketStatus", phase).put("socketError", error)
-                .put("board", etaBoards == null || stop.isEmpty() ? JSONObject.NULL : etaBoards.diagnosticBoard(stop))
-                .put("transport", directClient == null ? JSONObject.NULL : directClient.diagnosticSnapshot())
-                .put("summary", summary);
-            android.content.ClipboardManager clipboard = getSystemService(android.content.ClipboardManager.class);
-            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Diagnòstic ETA", report.toString(2)));
-            android.widget.Toast.makeText(this, "Diagnòstic copiat. Enganxa'l al xat.", android.widget.Toast.LENGTH_SHORT).show();
-        } catch (Exception error) {
-            android.widget.Toast.makeText(this, "No s'ha pogut copiar el diagnòstic.", android.widget.Toast.LENGTH_SHORT).show();
-        }
     }
 
     private void updateEye() {
