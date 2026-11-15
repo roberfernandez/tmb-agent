@@ -58,6 +58,18 @@ public class MainActivity extends Activity {
             finish();
             return;
         }
+        // One-tap, read-only diagnostic from El meu servei.
+        if ("diagnostic".equals(data.getHost())) {
+            if (TrainOverlayService.isActive) {
+                startService(new Intent(this, TrainOverlayService.class)
+                    .setAction(TrainOverlayService.ACTION_COPY_ETA_DIAGNOSTIC));
+            } else {
+                Toast.makeText(this, "Activa primer el seguiment del tren.",
+                    Toast.LENGTH_LONG).show();
+            }
+            finish();
+            return;
+        }
         saveAlertSettings(data);
         if ("alerts".equals(data.getHost())) {
             if (TrainOverlayService.isActive) startService(new Intent(this, TrainOverlayService.class).setAction("CONFIGURE_ALERTS"));
