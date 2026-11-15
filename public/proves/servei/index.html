@@ -345,7 +345,7 @@ $('stopTrainWatch').onclick=async()=>{
  finally{watchActionBusy=false;refreshManualWatchControls()}
 };
 watchTrain.onchange=()=>{if(validManualTrain(watchTrain.value))localStorage.setItem('tmb-servei-manual-train',watchTrain.value);refreshManualWatchControls()};
-watchStop.onchange=()=>{if(validManualStop(watchStop.value))localStorage.setItem('tmb-servei-manual-stop',watchStop.value);refreshManualWatchControls()};
+watchStop.onchange=()=>{if(validManualStop(watchStop.value))localStorage.setItem('tmb-servei-manual-stop',watchStop.value);watchVia.value='';localStorage.removeItem('tmb-servei-manual-via');refreshManualWatchControls()};
 watchVia.onchange=()=>{if(watchVia.value==='1'||watchVia.value==='2')localStorage.setItem('tmb-servei-manual-via',watchVia.value);refreshManualWatchControls()};
 showFollowMode(followMode==='service'||followMode==='manual'?followMode:'');
 
