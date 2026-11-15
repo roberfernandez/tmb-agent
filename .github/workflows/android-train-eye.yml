@@ -85,17 +85,27 @@ jobs:
           version=$(awk -F "'" '/versionName/ {print $2}' android-overlay/app/build.gradle)
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Publish direct APK download
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/realistic-eye-eta-minute'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.app-version.outputs.version }}
         run: |
-          tag="miralin-tren-ull-v${VERSION}"
-          cp android-overlay/app/build/outputs/apk/debug/app-debug.apk "Miralin-Tren-Ull-v${VERSION}.apk"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "Miralin-Tren-Ull-v${VERSION}.apk" --clobber
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            tag="miralin-tren-ull-v${VERSION}"
+            apk="Miralin-Tren-Ull-v${VERSION}.apk"
+            title="Miralin Tren Ull v${VERSION}"
+            extra=""
           else
-            gh release create "$tag" "Miralin-Tren-Ull-v${VERSION}.apk" --title "Miralin Tren Ull v${VERSION}" --notes "APK debug per instal·lar manualment a Android."
+            tag="miralin-tren-ull-v${VERSION}-manual-beta"
+            apk="Miralin-Tren-Ull-v${VERSION}-manual-beta.apk"
+            title="Miralin Tren Ull v${VERSION} · Prova seguiment manual"
+            extra="--prerelease"
+          fi
+          cp android-overlay/app/build/outputs/apk/debug/app-debug.apk "$apk"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --clobber
+          else
+            gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "$title" --notes "APK Android debug: selecció manual de via, trens 401–425 i botons de seguiment." $extra
           fi
       - uses: actions/upload-artifact@v4
         with:
