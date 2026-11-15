@@ -37,12 +37,12 @@
  <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-tren-ull-v0.14.26/Miralin-Tren-Ull-v0.14.26.apk" target="_blank" rel="noopener">Android · baixa l’APK 0.14.26</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
  <p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
 </section>
-<section class="card">
+<section class="card" id="manualTrainCard">
  <h2>Segueix un tren</h2><p>Escull manualment el tren que vols seguir. Aquest mode atura el seguiment automàtic del servei.</p>
  <label for="watchTrain">Tren de la L4</label><select id="watchTrain"><option value="" selected disabled>Tria un tren…</option></select>
  <label for="watchStop">Estació on esperes el tren</label><select id="watchStop"><option value="" selected disabled>Tria una estació…</option></select>
  <div id="watchViaGroup" hidden><label for="watchVia">Via d’arribada</label><select id="watchVia"><option value="" selected disabled>Tria la via…</option><option value="1">Via 1</option><option value="2">Via 2</option></select></div>
- <div class="row" style="margin-top:12px"><button id="startTrainWatch" class="primary" disabled>Segueix aquest tren</button><button id="stopTrainWatch" disabled>Atura</button></div>
+ <div class="row" style="margin-top:12px"><button id="startTrainWatch" class="primary" disabled>Segueix aquest tren</button><button id="editTrainWatch" hidden>Modifica</button><button id="applyTrainWatch" class="primary" hidden>Aplica el canvi</button><button id="cancelTrainWatchEdit" hidden>Cancel·la</button><button id="stopTrainWatch" disabled>Atura</button></div>
  <p id="trainWatchStatus" role="status" class="muted">Seguiment manual desactivat.</p>
  </section>
 <section class="card">
@@ -243,7 +243,7 @@ const watchTrain=$('watchTrain'),watchStop=$('watchStop'),watchVia=$('watchVia')
 const validManualTrain=value=>/^(40[1-9]|41\d|42[0-5])$/.test(value||'');
 const validManualStop=value=>/^(41[3-9]|42\d|43[0-4])$/.test(value||'');
 const terminalManualStop=value=>value==='413'||value==='434';
-let watchActionBusy=false;
+let watchActionBusy=false,watchEditing=false,watchBeforeEdit=null;
 for(let train=401;train<=425;train++)watchTrain.add(new Option(String(train),String(train)));
 for(let stop=413;stop<=434;stop++)watchStop.add(new Option(stations[stop],String(stop)));
 const savedManualTrain=localStorage.getItem('tmb-servei-manual-train');
@@ -254,20 +254,27 @@ const savedManualVia=localStorage.getItem('tmb-servei-manual-via');
 if(savedManualVia==='1'||savedManualVia==='2')watchVia.value=savedManualVia;
 function refreshManualWatchControls(){
  const active=followMode==='manual'||followMode==='service';
+ const editing=followMode==='manual'&&watchEditing;
  const station=watchStop.value;
  const needVia=validManualStop(station)&&!terminalManualStop(station);
  $('watchViaGroup').hidden=!needVia;
- watchVia.disabled=active||!needVia;
- watchTrain.disabled=active;
- watchStop.disabled=active;
- // El botó d'inici només depèn de si ja hi ha un seguiment actiu.
- // Els camps obligatoris es validen en prémer-lo, amb un missatge clar.
+ watchVia.disabled=(active&&!editing)||!needVia||watchActionBusy;
+ watchTrain.disabled=(active&&!editing)||watchActionBusy;
+ watchStop.disabled=(active&&!editing)||watchActionBusy;
  $('startTrainWatch').disabled=active||watchActionBusy;
+ $('startTrainWatch').hidden=editing;
+ $('editTrainWatch').hidden=followMode!=='manual'||editing;
+ $('editTrainWatch').disabled=watchActionBusy;
+ $('applyTrainWatch').hidden=!editing;
+ $('applyTrainWatch').disabled=watchActionBusy;
+ $('cancelTrainWatchEdit').hidden=!editing;
+ $('cancelTrainWatchEdit').disabled=watchActionBusy;
  $('stopTrainWatch').disabled=!active||watchActionBusy;
 }
 function showServiceEyeError(message){const status=$('serviceEyeStatus');status.textContent=message||'';status.hidden=!message}
 function showFollowMode(mode){
  followMode=mode;
+ if(mode!=='manual'){watchEditing=false;watchBeforeEdit=null}
  if(mode)localStorage.setItem(followModeKey,mode);else localStorage.removeItem(followModeKey);
  refreshServiceFollowControls();
  refreshManualWatchControls();
@@ -345,9 +352,27 @@ $('stopTrainWatch').onclick=async()=>{
  try{const ok=await stopTrainPushWatch();if(ok){await stopNativeEye();showFollowMode('')}}
  finally{watchActionBusy=false;refreshManualWatchControls()}
 };
-watchTrain.onchange=()=>{if(validManualTrain(watchTrain.value))localStorage.setItem('tmb-servei-manual-train',watchTrain.value);refreshManualWatchControls()};
-watchStop.onchange=()=>{if(validManualStop(watchStop.value))localStorage.setItem('tmb-servei-manual-stop',watchStop.value);watchVia.value='';localStorage.removeItem('tmb-servei-manual-via');refreshManualWatchControls()};
-watchVia.onchange=()=>{if(watchVia.value==='1'||watchVia.value==='2')localStorage.setItem('tmb-servei-manual-via',watchVia.value);refreshManualWatchControls()};
+$('editTrainWatch').onclick=()=>{
+ if(watchActionBusy||followMode!=='manual')return;
+ watchBeforeEdit={train:watchTrain.value,stop:watchStop.value,via:watchVia.value};
+ watchEditing=true;
+ $('trainWatchStatus').textContent='Modifica el tren, l’estació o la via i prem «Aplica el canvi».';
+ refreshManualWatchControls();
+};
+$('cancelTrainWatchEdit').onclick=()=>{
+ if(!watchEditing||watchActionBusy)return;
+ if(watchBeforeEdit){
+  watchTrain.value=watchBeforeEdit.train;
+  watchStop.value=watchBeforeEdit.stop;
+  watchVia.value=watchBeforeEdit.via;
+ }
+ watchEditing=false;watchBeforeEdit=null;
+ $('trainWatchStatus').textContent='Seguiment manual actiu.';
+ refreshManualWatchControls();
+};
+watchTrain.onchange=()=>{if(!watchEditing&&validManualTrain(watchTrain.value))localStorage.setItem('tmb-servei-manual-train',watchTrain.value);refreshManualWatchControls()};
+watchStop.onchange=()=>{if(!watchEditing&&validManualStop(watchStop.value))localStorage.setItem('tmb-servei-manual-stop',watchStop.value);watchVia.value='';if(!watchEditing)localStorage.removeItem('tmb-servei-manual-via');refreshManualWatchControls()};
+watchVia.onchange=()=>{if(!watchEditing&&(watchVia.value==='1'||watchVia.value==='2'))localStorage.setItem('tmb-servei-manual-via',watchVia.value);refreshManualWatchControls()};
 showFollowMode(followMode==='service'||followMode==='manual'?followMode:'');
 
 async function activateTrainWatch(stop=false){
@@ -385,7 +410,7 @@ async function stopTrainPushWatch(){
   const subscription=await registration?.pushManager.getSubscription();
   if(!subscription){status.textContent='No hi ha avisos push actius.';return true;}
   if(subscription){
-   const train=$('watchTrain').value||'401';
+   const train=localStorage.getItem('tmb-servei-manual-train')||$('watchTrain').value||'401';
    const response=await fetch('https://tmb-servei-proves.onrender.com/api/push-train-watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subscription.toJSON(),train,action:'stop'}),signal:AbortSignal.timeout(20000)});
    const result=await response.json();if(!response.ok)throw Error(result.error||'No s’han pogut aturar els avisos.');
    try{for(const notification of await registration.getNotifications({tag:'train-watch-'+train}))notification.close()}catch{}
