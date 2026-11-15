@@ -20,6 +20,7 @@ export const modules = [
   { id: 'objectes-perduts', name: 'Objectes perduts', initials: 'OP', description: 'Procediment, tràmit del viatger i recollida', icon: './assets/objectes/objectes-256.webp' },
   { id: 'venda-diners', name: 'Incidències de venda i diners trobats', initials: 'VD', description: 'Procediments d’incidències i diners trobats a les DA', icon: './assets/icons/venda-diners-256.webp?v=refresh-20261030' },
   { id: 'cercapersones', name: 'Cercapersones', initials: 'CP', description: 'Directori corporatiu de persones de TMB', icon: './assets/icons/cercapersones-256.webp', externalUrl: 'https://tmbbcn.sharepoint.com/sites/PortalGenTMB/SitePages/CercaPersones.aspx' },
+  { id: 'vaga', name: 'VAGA', initials: 'VG', description: 'Memòria de les lluites i dels drets del Metro', icon: './assets/icons/vaga-256.svg', externalUrl: 'https://vaga-maqueta-privada.elodcoliv36.chatgpt.site/', adminOnly: true, trackOpens: false },
   { id: 'convenis', name: 'Convenis', initials: 'CV', description: 'Documents, cerca i comparació dels convenis de Metro', icon: './assets/icons/convenis-256.webp' },
   { id: 'jubilacio', name: 'La meva jubilació', initials: 'JU', description: 'Accés a la Seguretat Social amb identificació via SMS', icon: './assets/icons/jubilacio-400.webp', externalUrl: 'https://share.google/4iPNnIJi7ZeXv9GvD' },
   { id: 'calendaris', name: 'Calendaris', initials: 'CA', description: 'Calendaris AAC 2026 i 2027', icon: './assets/icons/calendaris-400.webp' },

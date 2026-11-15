@@ -7,7 +7,7 @@ import { renderAtencio } from './atencio.js?v=atencio-v2';
 import { callAdmin, launcherHeartbeat, recordOpen, renderAdministration } from './administration.js?v=activity-v2';
 let canAdmin = false;
 import { renderMap } from './map.js?v=image-gestures-v1';
-import { modules } from './modules.js?v=miniapps-v1';
+import { modules } from './modules.js?v=vaga-admin-v1';
 import { renderCalendaris, renderTramits, renderCobraments, renderRC } from './miniapps.js?v=calendaris-v3';
 import { renderTMobilitat } from './tmobilitat.js?v=image-gestures-v1';
 import { renderAscensors } from './ascensors.js?v=ascensors-v1';
@@ -292,7 +292,11 @@ function render() {
     hero.append(lines);
     content.append(hero, grid);
     enableModuleReorder(grid);
-    grid.addEventListener('click', event => { const card = event.target.closest('[data-module]'); if (!event.defaultPrevented && card && card.dataset.module !== 'administracio') recordOpen(card.dataset.module); });
+    grid.addEventListener('click', event => {
+      const card = event.target.closest('[data-module]');
+      const module = modules.find(item => item.id === card?.dataset.module);
+      if (!event.defaultPrevented && card && card.dataset.module !== 'administracio' && module?.trackOpens !== false) recordOpen(card.dataset.module);
+    });
     refreshCQuadreBadges();
   } else {
     const module = modules.find(item => moduleRoute === `/${item.id}`);
