@@ -66,7 +66,7 @@ public class SelectedStationTrackingTest {
         boards.acceptBoard("413", otherStation, NOW);
         StationHeadway headway = new StationHeadway();
         headway.accept("413", otherStation, NOW);
-        assertEquals(0, new ManualTrainEta("413", "416", false).predictedArrival(boards, NOW, null, 0));
+        assertEquals(0, new ManualTrainEta("413", "", "416", false).predictedArrival(boards, NOW, null, 0));
         assertEquals(-1, headway.seconds("413", "", "416", NOW));
     }
 
