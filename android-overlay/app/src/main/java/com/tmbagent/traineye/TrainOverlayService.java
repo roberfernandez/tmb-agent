@@ -25,7 +25,6 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -55,10 +54,10 @@ public class TrainOverlayService extends Service {
     public static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
     public static final String EXTRA_MANUAL_STOP = "manualStop";
     public static final String EXTRA_MANUAL_VIA = "manualVia";
-    private static final String MANUAL_ARRIVED = "manualArrived";
     private static final String CHANNEL_ID = "train_eye_overlay";
     private static final int NOTIFICATION_ID = 9413;
     private static final String SERVICE_VIEWER_URL = "https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1";
+    private static final String MANUAL_WATCH_URL = "https://roberfernandez.github.io/tmb-agent/proves/servei/";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private WindowManager windowManager;
@@ -169,7 +168,7 @@ public class TrainOverlayService extends Service {
                 .putString(EXTRA_SERVICE_DATE, serviceDate).putString(EXTRA_SCHEDULE, schedule)
                 .putString(EXTRA_SERVICE_IMAGE, serviceImage).putString(EXTRA_SERVICE_ROW_BOUNDS, serviceRowBounds)
                 .putString(EXTRA_MANUAL_STOP, manualStop).putString(EXTRA_MANUAL_VIA, manualVia)
-                .remove(MANUAL_ARRIVED).apply();
+                .remove("manualArrived").apply();
         } else {
             train = TrainId.normalize(prefs.getString(EXTRA_TRAIN, "401"));
             if (train.isEmpty()) train = "401";
@@ -201,7 +200,8 @@ public class TrainOverlayService extends Service {
     }
 
     private void startAsForeground() {
-        Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(SERVICE_VIEWER_URL));
+        Intent open = new Intent(Intent.ACTION_VIEW,
+            "manual".equals(mode) ? manualWatchUri() : Uri.parse(SERVICE_VIEWER_URL));
         PendingIntent content = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         boolean serviceTracking = "service".equals(mode);
         Notification notification = new Notification.Builder(this, CHANNEL_ID)
@@ -314,11 +314,43 @@ public class TrainOverlayService extends Service {
         }
     }
 
+    private Uri manualWatchUri() {
+        Uri.Builder link = Uri.parse(MANUAL_WATCH_URL).buildUpon()
+            .appendQueryParameter("manualWatch", "1")
+            .appendQueryParameter("watch", train);
+        if (manualStop.matches("41[3-9]|42[0-9]|43[0-4]")) {
+            link.appendQueryParameter("stop", manualStop);
+            if (!PickupEta.isTerminal(manualStop) && ("1".equals(manualVia) || "2".equals(manualVia))) {
+                link.appendQueryParameter("via", manualVia);
+            }
+        }
+        return link.build();
+    }
+
+    private void openManualWatchEditor() {
+        try {
+            Intent browser = new Intent(Intent.ACTION_VIEW, manualWatchUri())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(browser);
+        } catch (Exception error) {
+            android.widget.Toast.makeText(this,
+                "No s’ha pogut obrir El meu servei.", android.widget.Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void openServiceViewer() {
+        if ("manual".equals(mode)) {
+            openManualWatchEditor();
+            return;
+        }
         showServicePopup();
     }
 
     private void showServicePopup() {
+        if ("manual".equals(mode)) {
+            openManualWatchEditor();
+            return;
+        }
         if (popupRoot != null) return;
         hideOverlay();
 
@@ -385,22 +417,6 @@ public class TrainOverlayService extends Service {
         closeParams.rightMargin = dp(6);
         card.addView(close, closeParams);
 
-        Button copyDiagnostic = new Button(this);
-        copyDiagnostic.setText("Copia el diagnòstic");
-        copyDiagnostic.setAllCaps(false);
-        copyDiagnostic.setTextColor(0xff111e30);
-        GradientDrawable diagnosticBackground = new GradientDrawable();
-        diagnosticBackground.setColor(0xfff4d000);
-        diagnosticBackground.setCornerRadius(dp(12));
-        copyDiagnostic.setBackground(diagnosticBackground);
-        copyDiagnostic.setOnClickListener(view -> copyEtaDiagnostic());
-        FrameLayout.LayoutParams diagnosticParams = new FrameLayout.LayoutParams(
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT, dp(48), Gravity.BOTTOM);
-        diagnosticParams.leftMargin = dp(24);
-        diagnosticParams.rightMargin = dp(24);
-        diagnosticParams.bottomMargin = dp(24);
-        root.addView(copyDiagnostic, diagnosticParams);
-
         popupRoot = root;
         int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
         WindowManager.LayoutParams popupParams = new WindowManager.LayoutParams(
@@ -426,7 +442,8 @@ public class TrainOverlayService extends Service {
         list.setOrientation(LinearLayout.VERTICAL);
         if (!"service".equals(mode)) {
             String title = "Seguiment manual · tren " + train;
-            if (manualEta != null) title += "\nPrimera arribada a " + stationName(manualEta.stop);
+            if (manualEta != null) title += "\n" + stationName(manualEta.stop)
+                + (manualEta.via.isEmpty() ? "" : " · Via " + manualEta.via);
             TextView summary = popupText(title, 16, 0xfff4d000, true);
             summary.setPadding(dp(12), dp(48), dp(12), dp(12));
             list.addView(summary);
@@ -851,7 +868,7 @@ public class TrainOverlayService extends Service {
             boolean validVia = PickupEta.isTerminal(manualStop)
                 || "1".equals(manualVia) || "2".equals(manualVia);
             manualEta = validStop && validVia
-                ? new ManualTrainEta(manualStop, manualVia, train, prefs.getBoolean(MANUAL_ARRIVED, false))
+                ? new ManualTrainEta(manualStop, manualVia, train, false)
                 : null;
             etaBoards = manualEta == null ? null : new ServiceAlerts(servicePlan, now);
             return;
@@ -880,10 +897,11 @@ public class TrainOverlayService extends Service {
 
     private void finishEtaPickup() {
         if (manualEta != null) {
-            getSharedPreferences("overlay", MODE_PRIVATE).edit().putBoolean(MANUAL_ARRIVED, true).apply();
-        } else {
-            saveEtaProgress();
+            // A manual arrival is transient: the same train will return on later circuits.
+            // Do not save a permanently completed state or unsubscribe its station.
+            return;
         }
+        saveEtaProgress();
         updateBoardStops();
     }
 
