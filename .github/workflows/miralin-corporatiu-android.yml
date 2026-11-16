@@ -1,0 +1,59 @@
+name: Miralin corporatiu Android beta
+
+on:
+  push:
+    branches:
+      - feat/miralin-corporatiu-android
+    paths:
+      - 'miralin-corporatiu-android/**'
+      - '.github/workflows/miralin-corporatiu-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: miralin-corporatiu-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Test parser and build APK
+        run: gradle -p miralin-corporatiu-android :app:testDebugUnitTest :app:assembleDebug --stacktrace
+      - name: Check APK certificate and package
+        run: |
+          apk=miralin-corporatiu-android/app/build/outputs/apk/debug/app-debug.apk
+          tools=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          "$tools" verify --print-certs "$apk"
+          "$(dirname "$tools")/aapt" dump badging "$apk" | sed -n '1p'
+      - name: Publish direct APK beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(awk -F "'" '/versionName/ {print $2}' miralin-corporatiu-android/app/build.gradle)
+          tag="miralin-corporatiu-v${version}-beta"
+          apk="Miralin-Corporatiu-v${version}-beta.apk"
+          cp miralin-corporatiu-android/app/build/outputs/apk/debug/app-debug.apk "$apk"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --clobber
+          else
+            gh release create "$tag" "$apk" --target "$GITHUB_SHA" \
+              --title "Miralín corporatiu · v${version} (prova)" \
+              --notes "APK de prova independent: lectura directa de les taules de TMB amb credencials locals xifrades. La connexió corporativa real encara s'ha de validar en un dispositiu autoritzat." \
+              --prerelease
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: miralin-corporatiu-debug
+          path: miralin-corporatiu-android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
