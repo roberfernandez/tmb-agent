@@ -19,7 +19,7 @@ final class CorporateMiralinClient {
     }
 
     CorporateBoardParser.Board fetch(String username, String password, int stop) throws IOException {
-        if (username == null || username.isBlank() || username.contains(":") || password == null || password.isEmpty()) {
+        if (username == null || username.trim().isEmpty() || username.contains(":") || password == null || password.isEmpty()) {
             throw new IllegalArgumentException("Introdueix un usuari i una contrasenya corporatius vàlids.");
         }
         if (stop < 413 || stop > 434) throw new IllegalArgumentException("Estació de la L4 incorrecta.");
