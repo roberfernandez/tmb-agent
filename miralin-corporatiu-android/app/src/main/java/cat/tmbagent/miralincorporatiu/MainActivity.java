@@ -237,8 +237,10 @@ public final class MainActivity extends Activity {
                 busy = false;
                 if (isFinishing() || isDestroyed()) return;
                 if (error != null) {
-                    if (error instanceof CorporateMiralinClient.AccessDenied) {
-                        running = false; // No retry loop on 401 or 403.
+                    if (error instanceof CorporateMiralinClient.AccessDenied
+                        || error instanceof CorporateMiralinClient.AuthenticationRedirect) {
+                        running = false; // No retry loop on login redirects, 401 or 403.
+                        handler.removeCallbacks(autoRefresh);
                         status.setText(error.getMessage() + " No es repetiran automàticament les consultes.");
                     } else {
                         status.setText("No s'ha pogut actualitzar: " + error.getMessage());
