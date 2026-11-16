@@ -17,7 +17,7 @@ final class CorporateBoardParser {
     private CorporateBoardParser() {}
 
     static Board parse(String html) {
-        if (html == null || html.isBlank()) throw new IllegalArgumentException("Resposta HTML buida.");
+        if (html == null || html.trim().isEmpty()) throw new IllegalArgumentException("Resposta HTML buida.");
         Document doc = Jsoup.parse(html);
         Track via1 = parseTrack(doc, "indexForm:tableArrivals1", 1);
         Track via2 = parseTrack(doc, "indexForm:tableArrivals2", 2);
@@ -31,7 +31,7 @@ final class CorporateBoardParser {
     private static Track parseTrack(Document doc, String tableId, int number) {
         Element root = doc.getElementById(tableId);
         if (root == null) root = doc.getElementById(tableId + "_data");
-        if (root == null) return new Track(number, false, List.of(), List.of());
+        if (root == null) return new Track(number, false, Collections.emptyList(), Collections.emptyList());
 
         Element table = root.tagName().equalsIgnoreCase("table") ? root : root.selectFirst("table");
         if (table == null) {
@@ -48,7 +48,7 @@ final class CorporateBoardParser {
         if (head != null) {
             for (Element th : head.select("th")) {
                 String label = cleanText(th);
-                if (!label.isBlank()) headers.add(label);
+                if (!label.trim().isEmpty()) headers.add(label);
                 else headers.add(" ");
             }
         }
@@ -68,12 +68,12 @@ final class CorporateBoardParser {
                 cells.add(cleanText(td));
             }
             if (emptyMessage) continue;
-            if (!cells.isEmpty() && cells.stream().anyMatch(v -> !v.isBlank())) {
+            if (!cells.isEmpty() && cells.stream().anyMatch(v -> !v.trim().isEmpty())) {
                 rows.add(Collections.unmodifiableList(cells));
             }
             if (rows.size() > 150) throw new IllegalArgumentException("Taula de la via " + number + " massa gran.");
         }
-        return new Track(number, true, List.copyOf(headers), List.copyOf(rows));
+        return new Track(number, true, Collections.unmodifiableList(new ArrayList<>(headers)), Collections.unmodifiableList(new ArrayList<>(rows)));
     }
 
     private static String cleanText(Element element) {
