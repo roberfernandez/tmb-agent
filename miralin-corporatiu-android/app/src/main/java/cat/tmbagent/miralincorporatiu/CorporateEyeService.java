@@ -31,6 +31,9 @@ public final class CorporateEyeService extends Service {
     static final String EXTRA_TRAIN = "train";
     static final String EXTRA_STOP = "stop";
     static final String EXTRA_TARGET_VIA = "targetVia";
+    static final String EXTRA_MODE = "mode";
+    static final String EXTRA_SERVICE_DATE = "serviceDate";
+    static final String EXTRA_SCHEDULE = "schedule";
     static volatile boolean isActive;
 
     private static final String CHANNEL = "corporate_eye_active";
@@ -48,6 +51,9 @@ public final class CorporateEyeService extends Service {
     private String train = "406";
     private int stop = 413;
     private int targetVia = 1;
+    private String mode = "manual";
+    private CorporateServicePlan servicePlan;
+    private int selectionGeneration;
     private long departureAt = -1;
     private CorporateTrainSelection.Train lastTrain;
     private long receivedAt;
@@ -66,6 +72,7 @@ public final class CorporateEyeService extends Service {
             final String requested = train;
             final int requestedStop = stop;
             final int requestedVia = targetVia;
+            final int generation = selectionGeneration;
             network.execute(() -> {
                 CorporateTrainSelection.Train found = null;
                 CorporateTrainSelection.Train matchingDeparture = null;
@@ -75,7 +82,9 @@ public final class CorporateEyeService extends Service {
                     if (login == null) throw new SecurityException("Cal iniciar sessió a l'aplicació.");
                     CorporateBoardParser.Board board = client.fetch(login.username, login.password, requestedStop);
                     found = CorporateTrainSelection.find(board, requested);
-                    matchingDeparture = CorporateTrainSelection.find(board, requested, requestedVia);
+                    matchingDeparture = requestedVia == 0
+                        ? onlyDepartureAtTerminal(board, requested)
+                        : CorporateTrainSelection.find(board, requested, requestedVia);
                 } catch (Exception e) {
                     failure = e;
                 }
@@ -85,6 +94,11 @@ public final class CorporateEyeService extends Service {
                 ui.post(() -> {
                     busy = false;
                     if (stopped) return;
+                    if (generation != selectionGeneration) {
+                        ui.removeCallbacks(poll);
+                        ui.post(poll);
+                        return;
+                    }
                     if (error == null) {
                         lastTrain = result;
                         receivedAt = System.currentTimeMillis();
@@ -112,8 +126,9 @@ public final class CorporateEyeService extends Service {
     private final Runnable ageTick = new Runnable() {
         @Override public void run() {
             if (stopped) return;
+            if ("service".equals(mode)) applyServiceSelection(System.currentTimeMillis(), true);
             render();
-            ui.postDelayed(this, 1000);
+            if (!stopped) ui.postDelayed(this, 1000);
         }
     };
 
@@ -131,14 +146,35 @@ public final class CorporateEyeService extends Service {
             return START_NOT_STICKY;
         }
         if (intent != null) {
-            String candidate = intent.getStringExtra(EXTRA_TRAIN);
-            if (candidate != null && candidate.trim().toUpperCase(Locale.ROOT).matches("[A-Z0-9]{2,6}")) {
-                train = candidate.trim().toUpperCase(Locale.ROOT);
+            String requestedMode = intent.getStringExtra(EXTRA_MODE);
+            if ("service".equals(requestedMode)) {
+                String schedule = intent.getStringExtra(EXTRA_SCHEDULE);
+                String date = intent.getStringExtra(EXTRA_SERVICE_DATE);
+                try {
+                    servicePlan = new CorporateServicePlan(date, schedule);
+                    mode = "service";
+                    if (!applyServiceSelection(System.currentTimeMillis(), false)) {
+                        stopSelf();
+                        return START_NOT_STICKY;
+                    }
+                } catch (IllegalArgumentException badSchedule) {
+                    stopSelf();
+                    return START_NOT_STICKY;
+                }
+            } else {
+                mode = "manual";
+                servicePlan = null;
+                String candidate = intent.getStringExtra(EXTRA_TRAIN);
+                if (candidate != null && CorporateServicePlan.validTrain(candidate)) {
+                    train = candidate;
+                }
+                int requestedStop = intent.getIntExtra(EXTRA_STOP, stop);
+                if (requestedStop >= 413 && requestedStop <= 434) stop = requestedStop;
+                int requestedVia = intent.getIntExtra(EXTRA_TARGET_VIA, targetVia);
+                if (requestedVia == 1 || requestedVia == 2 || (requestedVia == 0
+                    && (stop == 413 || stop == 434))) targetVia = requestedVia;
+                if (stop == 413 || stop == 434) targetVia = 0;
             }
-            int requestedStop = intent.getIntExtra(EXTRA_STOP, stop);
-            if (requestedStop >= 413 && requestedStop <= 434) stop = requestedStop;
-            int requestedVia = intent.getIntExtra(EXTRA_TARGET_VIA, targetVia);
-            if (requestedVia == 1 || requestedVia == 2) targetVia = requestedVia;
         }
         if (!Settings.canDrawOverlays(this)) {
             stopSelf();
@@ -151,6 +187,7 @@ public final class CorporateEyeService extends Service {
         receivedAt = 0;
         departureAt = -1;
         blocked = false;
+        selectionGeneration++;
         ui.removeCallbacks(poll);
         ui.removeCallbacks(ageTick);
         ui.post(poll);
@@ -165,7 +202,8 @@ public final class CorporateEyeService extends Service {
             PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_view)
-            .setContentTitle("Miralín corporatiu · tren " + train)
+            .setContentTitle(("service".equals(mode) ? "El meu servei" : "Miralín corporatiu")
+                + " · tren " + train)
             .setContentText("Seguiment en segon pla · font oficial TMB")
             .setContentIntent(pending)
             .setOngoing(true)
@@ -187,9 +225,12 @@ public final class CorporateEyeService extends Service {
         bubble.addView(eye, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         eye.setOnClickListener(v -> {
-            Intent open = new Intent(this, MainActivity.class);
+            Intent open = "service".equals(mode)
+                ? new Intent(Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1"))
+                : new Intent(this, MainActivity.class);
             open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(open);
+            try { startActivity(open); } catch (Exception ignored) {}
         });
         eye.setOnTouchListener((view, event) -> {
             if (position == null || overlay == null) return false;
@@ -247,6 +288,47 @@ public final class CorporateEyeService extends Service {
             return;
         }
         render();
+    }
+
+    /**
+     * A single physical platform at either terminal can appear in either table.
+     * We use the only matching row; when both exist, keep the earlier published
+     * departure rather than silently guessing a direction.
+     */
+    private static CorporateTrainSelection.Train onlyDepartureAtTerminal(
+        CorporateBoardParser.Board board, String wantedTrain) {
+        CorporateTrainSelection.Train first = CorporateTrainSelection.find(board, wantedTrain, 1);
+        CorporateTrainSelection.Train second = CorporateTrainSelection.find(board, wantedTrain, 2);
+        if (first == null) return second;
+        if (second == null) return first;
+        // When direction is ambiguous, never invent an arrival/departure.
+        return null;
+    }
+
+    private boolean applyServiceSelection(long now, boolean refresh) {
+        if (servicePlan == null || !"service".equals(mode)) return true;
+        CorporateServicePlan.Selection selected = servicePlan.at(now);
+        if (selected == null) {
+            // A service is finished: do not continue monitoring its last train forever.
+            stopSelf();
+            return false;
+        }
+        boolean changed = !selected.train.equals(train) || selected.stop != stop || selected.via != targetVia;
+        if (!changed) return true;
+        train = selected.train;
+        stop = selected.stop;
+        targetVia = selected.via;
+        selectionGeneration++;
+        lastTrain = null;
+        receivedAt = 0;
+        departureAt = -1;
+        connection = "Canvi d'activitat · consultant TMB…";
+        render();
+        if (refresh && !busy && !blocked) {
+            ui.removeCallbacks(poll);
+            ui.post(poll);
+        }
+        return true;
     }
 
     private void setOverlayPosition(int x, int y) {
