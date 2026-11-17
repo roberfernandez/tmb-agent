@@ -61,6 +61,10 @@ const isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navi
 const isAndroid=/Android/i.test(ua)||platform==='Android';
 if(isIOS)$('androidOption').hidden=true;
 else if(isAndroid){$('iosOption').hidden=true;$('iosInstructions').hidden=true;}
+else{
+ $('androidOption').hidden=true;$('iosOption').hidden=true;
+ $('iosInstructions').textContent='L’ull flotant corporatiu i els avisos natius estan preparats per a Android. La versió Windows encara no està disponible.';
+}
 const nativePackage='cat.tmbagent.elmeuservei.motor';
 const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.5.0';
 const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.5.0';
