@@ -35,7 +35,7 @@ public final class CorporateEyeService extends Service {
 
     private static final String CHANNEL = "corporate_eye_active";
     private static final int NOTIFICATION = 9404;
-    private static final int REFRESH_MS = 20_000;
+    private static final int REFRESH_MS = 10_000;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService network = Executors.newSingleThreadExecutor();

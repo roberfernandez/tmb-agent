@@ -35,7 +35,7 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private static final int START_STOP = 413;
-    private static final int REFRESH_MS = 20_000;
+    private static final int REFRESH_MS = 10_000;
     private static final int BG = Color.rgb(9, 17, 28);
     private static final int PANEL = Color.rgb(19, 34, 52);
     private static final int TEXT = Color.rgb(241, 246, 252);
@@ -233,7 +233,7 @@ public final class MainActivity extends Activity {
 
         space(screen, 22);
         screen.addView(label("Dades mostrades tal com arriben de TMB, sense ajustar horaris. "
-            + "Refresc automàtic cada 20 segons mentre la pantalla és visible. "
+            + "Refresc automàtic cada 10 segons mentre la pantalla és visible. "
             + "Aplicació de prova independent, no oficial.", 12, MUTED, false));
     }
 
@@ -371,7 +371,7 @@ public final class MainActivity extends Activity {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
             else startService(intent);
             eyeStatus.setText("Ull activat · tren " + requested + " · via destí " + chosenVia
-                + " · SORTIDA TMB cada 20 s.");
+                + " · SORTIDA TMB cada 10 s.");
         } catch (Exception e) {
             eyeStatus.setText("No s'ha pogut activar l'ull. Revisa els permisos del dispositiu.");
         }

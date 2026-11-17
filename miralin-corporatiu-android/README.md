@@ -51,3 +51,9 @@ La GitHub Action del prototip publica un APK directe de prova. Les APK debug no 
 - `SORTIDA` no es una medición directa de llegada. Se indica con `~` en el ojo, sin afirmar segundos de exactitud y sin usar fórmulas ajenas a TMB.
 - Sin alteraciones del gráfico original `TrainEyeView` del frontal serie 9000.
 - La APK 0.3.1 tiene identificador `cat.tmbagent.miralincorporatiu.ull9000.sortida` y se instala aparte por incompatibilidad entre firmas efímeras de pruebas Android; se requerirá volver a iniciar sesión. La 0.3.0 permanece intacta.
+
+## Beta 0.3.2 · Consulta cada 10 segons
+- Consulta corporativa de la pantalla principal i del seguiment flotant cada **10 s**, substituint el refresc de 20 s de la beta 0.3.1.
+- La pantalla principal evita consultar per duplicat mentre hi ha un ull actiu. La compte enrere en el frontal 9000 continua actualitzant-se **cada segon**.
+- Cap canvi de disseny o del càlcul del temps de SORTIDA, ni de la font de dades: només TMB.
+- App independent `cat.tmbagent.miralincorporatiu.ull9000.sortida.rapid` per instal·lar-la sense afectar les anteriors APK de proves amb signatura Android debug. Cal introduir credencials i concedir els permisos de l'ull novament.
