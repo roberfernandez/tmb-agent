@@ -49,7 +49,7 @@ jobs:
           else
             gh release create "$tag" "$apk" --target "$GITHUB_SHA" \
               --title "Miralín corporatiu · v${version} (prova)" \
-              --notes "Beta corporativa 0.4.0: integració amb El meu servei per intent Android, seguiment automàtic del tren i estació segons horari, visor al tocar l'ull, compte enrere SORTIDA i dades TMB cada 10 s. Sense miralin.cat ni Render. Credencials locals xifrades. Els avisos del servei no estan integrats en aquesta beta." \
+              --notes "Beta 0.5.0: El meu servei es l'unica interfície. Motor Android sense icona ni pantalla independent; identificacio TMB en dialeg natiu segur, seguiment automatic i manual des de la PWA, visor sempre a El meu servei i avisos de trasllat/presa segons horari amb dades oficials SORTIDA. Consulta TMB cada 10 s. Avisos d'arribada real pendents de validacio." \
               --prerelease
           fi
       - uses: actions/upload-artifact@v4

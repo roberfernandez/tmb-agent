@@ -67,3 +67,13 @@ La GitHub Action del prototip publica un APK directe de prova. Les APK debug no 
 - També admet `mode=manual&train=406&stop=413&via=2` amb validació de paràmetres.
 - Les peticions corporatives continuen sent només HTTPS directe a TMB cada 10 segons. El comptador SORTIDA actualitza cada segon. Cap credencial ni token es transmet en intents o URL.
 - **Limitacions:** no es porta encara el motor d'avisos de l'APK clàssica; continua sent una beta de seguiment. La URL del visor requereix la mateixa PWA/navegador on es va desar el servei. No s'ha provat encara en un telèfon físic després de la integració.
+
+## Beta 0.5.0 · Motor Android invisible per a «El meu servei»
+- L'APK **ja no té icona de llançador** ni una pantalla pròpia de gestió. El menú, la interpretació, l'ull manual/automàtic, els avisos i el visor són de la PWA «El meu servei».
+- L'activitat `ServiceBridgeActivity` només actua com a intermediari intern per gestionar permisos Android i mostrar, a petició de la PWA, el diàleg segur **Identificació TMB**. La validació es fa directament a TMB i les credencials es desen en Android Keystore, sense inserir-les en URLs, intents ni localStorage.
+- `miralincorp://login`, `miralincorp://watch`, `miralincorp://stop` i `miralincorp://alerts?enabled=1&margin=5` són les úniques accions externes. Cap icona o pantalla Miralín corporatiu visible com a app independent.
+- Tant en mode manual com automàtic, **tocar l'ull sempre obre el visor d'El meu servei**. Les notificacions també hi porten. La PWA ha d'estar instal·lada amb el navegador que té l'horari guardat.
+- Avisos locals en segon pla del servei: trasllats i preses segons l'horari, amb `SORTIDA TMB` estimada quan estigui disponible. Es poden activar/desactivar i canviar el marge des de la miniapp. Aquests avisos no afirmen tenir l'arribada exacta del tren.
+- Disseny de l'ull idèntic al frontal sèrie 9000, lectura corporativa cada 10 segons, compte enrere cada segon.
+- APK beta independent `cat.tmbagent.elmeuservei.motor`, instal·lada sense ZIP. Les betes anteriors es poden conservar per comparació. Sense distribució signada estable encara.
+- **Límits abans de distribució:** la correspondència completa dels avisos intel·ligents de la versió antiga (arribades, enllaços i retorns amb dades dinàmiques) necessita dades i validació; la beta 0.5.0 només programa avisos de trasllats/preses. No s'ha verificat en mòbil físic.
