@@ -15,7 +15,7 @@ test('El meu servei only offers one corporate Android engine, not a separate Mir
  assert.match(page,/id="corporateIdentity"/);
  assert.doesNotMatch(page,/id="androidEyeSource"/);
  assert.doesNotMatch(page,/selectedAndroidSource/);
- assert.match(page,/Miralín corporatiu/);
+ assert.match(page,/Identifica't amb TMB/);
 });
 
 test('all eye actions use the hidden corporate package and app-local installation fallback',()=>{
