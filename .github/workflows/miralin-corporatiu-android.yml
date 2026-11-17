@@ -49,7 +49,7 @@ jobs:
           else
             gh release create "$tag" "$apk" --target "$GITHUB_SHA" \
               --title "Miralín corporatiu · v${version} (prova)" \
-              --notes "Beta 0.5.0: El meu servei es l'unica interfície. Motor Android sense icona ni pantalla independent; identificacio TMB en dialeg natiu segur, seguiment automatic i manual des de la PWA, visor sempre a El meu servei i avisos de trasllat/presa segons horari amb dades oficials SORTIDA. Consulta TMB cada 10 s. Avisos d'arribada real pendents de validacio." \
+              --notes "Beta ${version}: identificacio TMB local i persistent, seguiment manual/automatic, actualitzacio cada 10 s. En automatic, projeccio de 0, 1 o 2 voltes de 77 minuts sobre SORTIDA oficial en temps real. En tocar l'ull, visor flotant natiu compacte amb la imatge del servei, scroll i fila ressaltada, sense obrir Chrome ni El meu servei. SORTIDA no es una hora d'arribada confirmada; avisos reals pendents de validacio." \
               --prerelease
           fi
       - uses: actions/upload-artifact@v4
