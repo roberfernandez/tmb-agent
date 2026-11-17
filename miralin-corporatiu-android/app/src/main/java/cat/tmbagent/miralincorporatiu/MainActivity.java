@@ -2,6 +2,12 @@ package cat.tmbagent.miralincorporatiu;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -51,6 +57,8 @@ public final class MainActivity extends Activity {
     private CredentialVault.Login activeLogin;
     private EditText username;
     private EditText password;
+    private EditText trainInput;
+    private TextView eyeStatus;
     private Spinner station;
     private TextView status;
     private TextView updatedAt;
@@ -65,7 +73,7 @@ public final class MainActivity extends Activity {
     private final Runnable autoRefresh = new Runnable() {
         @Override public void run() {
             if (!visible) return;
-            if (running && activeLogin != null) fetch(false);
+            if (running && activeLogin != null && !CorporateEyeService.isActive) fetch(false);
             handler.postDelayed(this, REFRESH_MS);
         }
     };
@@ -158,6 +166,36 @@ public final class MainActivity extends Activity {
         });
         actions.addView(update, new LinearLayout.LayoutParams(0, dp(52), 1));
         screen.addView(actions);
+        space(screen, 12);
+
+        screen.addView(label("ULL FLOTANT · SEGUIMENT DE TREN", 18, ACCENT, true));
+        screen.addView(label("Escull un tren de la taula o escriu-ne el número. "
+            + "T. ant. és la separació amb el tren anterior, no el temps d'arribada.", 12, MUTED, false));
+        trainInput = new EditText(this);
+        trainInput.setSingleLine(true);
+        trainInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        trainInput.setText(getSharedPreferences("ui", MODE_PRIVATE).getString("train", "406"));
+        trainInput.setHint("Tren: 406, 401, P09…");
+        trainInput.setTextColor(TEXT);
+        trainInput.setHintTextColor(MUTED);
+        screen.addView(trainInput);
+        LinearLayout eyeActions = new LinearLayout(this);
+        eyeActions.setOrientation(LinearLayout.HORIZONTAL);
+        Button startEye = new Button(this);
+        startEye.setText("Activa l'ull");
+        startEye.setOnClickListener(v -> startCorporateEye());
+        eyeActions.addView(startEye, new LinearLayout.LayoutParams(0, dp(52), 1));
+        Button stopEye = new Button(this);
+        stopEye.setText("Atura l'ull");
+        stopEye.setOnClickListener(v -> {
+            stopService(new Intent(this, CorporateEyeService.class));
+            eyeStatus.setText("Seguiment aturat.");
+        });
+        eyeActions.addView(stopEye, new LinearLayout.LayoutParams(0, dp(52), 1));
+        screen.addView(eyeActions);
+        eyeStatus = label("L'ull segueix un tren amb dades exclusives del Miralín corporatiu.", 12, MUTED, false);
+        screen.addView(eyeStatus);
+        space(screen, 12);
 
         Button forget = new Button(this);
         forget.setText("Esborra les credencials desades");
@@ -271,6 +309,7 @@ public final class MainActivity extends Activity {
     }
 
     private void forgetCredentials() {
+        stopService(new Intent(this, CorporateEyeService.class));
         running = false;
         handler.removeCallbacks(autoRefresh);
         io.execute(() -> {
@@ -286,6 +325,42 @@ public final class MainActivity extends Activity {
                 status.setText("Credencials esborrades. Cal tornar a iniciar sessió.");
             });
         });
+    }
+
+    private void startCorporateEye() {
+        if (activeLogin == null || !running) {
+            eyeStatus.setText("Connecta amb el teu usuari corporatiu abans d'activar l'ull.");
+            return;
+        }
+        String requested = trainInput.getText().toString().trim().toUpperCase(Locale.ROOT);
+        if (!requested.matches("[A-Z0-9]{2,6}")) {
+            eyeStatus.setText("Número de tren incorrecte. Escriu, per exemple, 406 o P09.");
+            return;
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            eyeStatus.setText("Permet mostrar l'ull sobre altres aplicacions i torna a prémer Activa l'ull.");
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 33
+            && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            eyeStatus.setText("Concedeix el permís de notificacions i torna a prémer Activa l'ull.");
+            requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, 101);
+            return;
+        }
+        int chosenStop = START_STOP + station.getSelectedItemPosition();
+        getSharedPreferences("ui", MODE_PRIVATE).edit().putString("train", requested).apply();
+        Intent intent = new Intent(this, CorporateEyeService.class);
+        intent.putExtra(CorporateEyeService.EXTRA_TRAIN, requested);
+        intent.putExtra(CorporateEyeService.EXTRA_STOP, chosenStop);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
+            else startService(intent);
+            eyeStatus.setText("Ull activat · tren " + requested + " · refresc cada 20 s.");
+        } catch (Exception e) {
+            eyeStatus.setText("No s'ha pogut activar l'ull. Revisa els permisos del dispositiu.");
+        }
     }
 
     private void renderTables() {
@@ -327,12 +402,20 @@ public final class MainActivity extends Activity {
         int columns = track.headers.size();
         for (List<String> row : track.rows) columns = Math.max(columns, row.size());
         if (!track.headers.isEmpty()) addCells(table, track.headers, columns, true);
-        for (List<String> row : track.rows) addCells(table, row, columns, false);
+        for (List<String> row : track.rows) {
+            TableRow entry = addCells(table, row, columns, false);
+            if (!row.isEmpty() && row.get(0).matches("[A-Za-z0-9]{2,6}")) {
+                entry.setOnClickListener(v -> {
+                    trainInput.setText(row.get(0));
+                    eyeStatus.setText("Tren " + row.get(0) + " seleccionat. Prem Activa l'ull.");
+                });
+            }
+        }
         horizontal.addView(table);
         section.addView(horizontal);
     }
 
-    private void addCells(TableLayout table, List<String> cells, int columns, boolean header) {
+    private TableRow addCells(TableLayout table, List<String> cells, int columns, boolean header) {
         TableRow row = new TableRow(this);
         row.setPadding(0, dp(3), 0, dp(3));
         if (header) row.setBackgroundColor(Color.rgb(32, 55, 76));
@@ -343,6 +426,7 @@ public final class MainActivity extends Activity {
             row.addView(cell, new TableRow.LayoutParams(dp(120), TableRow.LayoutParams.WRAP_CONTENT));
         }
         table.addView(row);
+        return row;
     }
 
     private TextView label(String value, int sp, int color, boolean strong) {
