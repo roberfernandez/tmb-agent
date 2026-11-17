@@ -414,7 +414,7 @@ $('startServiceEye').onclick=async()=>{
   if(isAndroid){
    // Copy the service image and row geometry directly to the Android helper.
    // No data goes to Render or any other intermediary.
-   await attachNativeViewerData(query);
+   if(state.photoData)await attachNativeViewerData(query);
    if(state.photoPending||schedule!==serviceScheduleParam()||photo!==state.photoData)return;
    openAndroidEye(query);
   }else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString();
