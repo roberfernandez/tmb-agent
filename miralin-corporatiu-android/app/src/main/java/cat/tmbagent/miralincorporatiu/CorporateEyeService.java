@@ -5,6 +5,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.SharedPreferences;
+import android.net.Uri;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.graphics.PixelFormat;
@@ -20,6 +22,8 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -37,6 +41,8 @@ public final class CorporateEyeService extends Service {
     static volatile boolean isActive;
 
     private static final String CHANNEL = "corporate_eye_active";
+    private static final String ALERTS_CHANNEL = "corporate_service_alerts";
+    private static final String VIEWER = "https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1";
     private static final int NOTIFICATION = 9404;
     private static final int REFRESH_MS = 10_000;
 
@@ -54,6 +60,11 @@ public final class CorporateEyeService extends Service {
     private String mode = "manual";
     private CorporateServicePlan servicePlan;
     private int selectionGeneration;
+    private boolean alertsEnabled;
+    private int alertMargin = 5;
+    private String alertPlanIdentity = "";
+    private Set<String> sentAlerts = new HashSet<>();
+    private int nextAlertId = 9600;
     private long departureAt = -1;
     private CorporateTrainSelection.Train lastTrain;
     private long receivedAt;
@@ -127,6 +138,7 @@ public final class CorporateEyeService extends Service {
         @Override public void run() {
             if (stopped) return;
             if ("service".equals(mode)) applyServiceSelection(System.currentTimeMillis(), true);
+            tickServiceAlerts(System.currentTimeMillis());
             render();
             if (!stopped) ui.postDelayed(this, 1000);
         }
@@ -137,12 +149,18 @@ public final class CorporateEyeService extends Service {
         windows = (WindowManager) getSystemService(WINDOW_SERVICE);
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel(
-            CHANNEL, "Ull Miralín corporatiu", NotificationManager.IMPORTANCE_LOW));
+            CHANNEL, "El meu servei · seguiment", NotificationManager.IMPORTANCE_LOW));
+        manager.createNotificationChannel(new NotificationChannel(
+            ALERTS_CHANNEL, "El meu servei · avisos", NotificationManager.IMPORTANCE_HIGH));
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && "STOP".equals(intent.getAction())) {
             stopSelf();
+            return START_NOT_STICKY;
+        }
+        if (intent != null && "UPDATE_ALERTS".equals(intent.getAction()) && isActive) {
+            configureAlerts();
             return START_NOT_STICKY;
         }
         if (intent != null) {
@@ -180,6 +198,7 @@ public final class CorporateEyeService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        configureAlerts();
         startForegroundNotification();
         showOverlay();
         isActive = true;
@@ -196,10 +215,7 @@ public final class CorporateEyeService extends Service {
     }
 
     private void startForegroundNotification() {
-        Intent activity = new Intent(this, MainActivity.class);
-        activity.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pending = PendingIntent.getActivity(this, 0, activity,
-            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pending = viewerPendingIntent();
         Notification notification = new Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentTitle(("service".equals(mode) ? "El meu servei" : "Miralín corporatiu")
@@ -225,11 +241,8 @@ public final class CorporateEyeService extends Service {
         bubble.addView(eye, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         eye.setOnClickListener(v -> {
-            Intent open = "service".equals(mode)
-                ? new Intent(Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1"))
-                : new Intent(this, MainActivity.class);
-            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(VIEWER));
+            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try { startActivity(open); } catch (Exception ignored) {}
         });
         eye.setOnTouchListener((view, event) -> {
@@ -295,6 +308,64 @@ public final class CorporateEyeService extends Service {
      * We use the only matching row; when both exist, keep the earlier published
      * departure rather than silently guessing a direction.
      */
+    private PendingIntent viewerPendingIntent() {
+        Intent viewer = new Intent(Intent.ACTION_VIEW, Uri.parse(VIEWER));
+        viewer.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return PendingIntent.getActivity(this, 110, viewer,
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    private void configureAlerts() {
+        SharedPreferences settings = getSharedPreferences("corporate-alerts-v1", MODE_PRIVATE);
+        alertsEnabled = settings.getBoolean("enabled", false);
+        alertMargin = Math.max(1, Math.min(120, settings.getInt("margin", 5)));
+        String key = servicePlan == null ? "" : servicePlan.identity();
+        if (!key.equals(alertPlanIdentity)) {
+            alertPlanIdentity = key;
+            String previous = settings.getString("planIdentity", "");
+            if (key.equals(previous))
+                sentAlerts = new HashSet<>(settings.getStringSet("sent", new HashSet<>()));
+            else {
+                sentAlerts.clear();
+                settings.edit().putString("planIdentity", key).remove("sent").apply();
+            }
+        }
+    }
+
+    private void tickServiceAlerts(long now) {
+        if (!alertsEnabled || servicePlan == null || !"service".equals(mode)) return;
+        for (CorporateServicePlan.Notice notice : servicePlan.noticesAt(now, alertMargin)) {
+            if (sentAlerts.contains(notice.key)) continue;
+            String content = notice.body;
+            // The separate live source is the published SORTIDA, not measured arrival.
+            if (notice.key.startsWith("take-") && departureAt > now && lastTrain != null) {
+                String countdown = OfficialDepartureCountdown.display(departureAt, now);
+                if (!"--".equals(countdown))
+                    content += " · SORTIDA TMB " + countdown;
+            }
+            if (postServiceNotification(notice.title, content)) {
+                sentAlerts.add(notice.key);
+                getSharedPreferences("corporate-alerts-v1", MODE_PRIVATE).edit()
+                    .putStringSet("sent", new HashSet<>(sentAlerts)).apply();
+            }
+        }
+    }
+
+    private boolean postServiceNotification(String title, String body) {
+        try {
+            Notification notification = new Notification.Builder(this, ALERTS_CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new Notification.BigTextStyle().bigText(body))
+                .setContentIntent(viewerPendingIntent())
+                .setAutoCancel(true)
+                .build();
+            getSystemService(NotificationManager.class).notify(nextAlertId++, notification);
+            return true;
+        } catch (Exception ignored) { return false; }
+    }
+
     private static CorporateTrainSelection.Train onlyDepartureAtTerminal(
         CorporateBoardParser.Board board, String wantedTrain) {
         CorporateTrainSelection.Train first = CorporateTrainSelection.find(board, wantedTrain, 1);
