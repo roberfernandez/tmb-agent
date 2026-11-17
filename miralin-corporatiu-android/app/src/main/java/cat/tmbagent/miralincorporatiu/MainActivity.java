@@ -70,6 +70,10 @@ public final class MainActivity extends Activity {
     private boolean running;
     private boolean busy;
     private boolean visible;
+    private Intent pendingExternalEye;
+    private boolean overlayPermissionAsked;
+    private static final int REQUEST_EXTERNAL_OVERLAY = 310;
+    private static final int REQUEST_EXTERNAL_NOTIFICATIONS = 311;
 
     private final Runnable autoRefresh = new Runnable() {
         @Override public void run() {
@@ -96,6 +100,120 @@ public final class MainActivity extends Activity {
             status.setText("No s'han pogut recuperar les credencials xifrades. Torna-les a introduir.");
             running = false;
             activeLogin = null;
+        }
+        handleCorporateLink(getIntent());
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleCorporateLink(intent);
+    }
+
+    /**
+     * El meu servei sends schedule and station IDs only. Credentials are
+     * obtained exclusively from this app's encrypted Android Keystore vault.
+     */
+    private void handleCorporateLink(Intent incoming) {
+        Uri link = incoming == null ? null : incoming.getData();
+        if (link == null || !"miralincorp".equals(link.getScheme())) return;
+        if ("stop".equals(link.getHost())) {
+            pendingExternalEye = null;
+            stopService(new Intent(this, CorporateEyeService.class));
+            eyeStatus.setText("Seguiment corporatiu aturat des d'El meu servei.");
+            finish();
+            return;
+        }
+        if (!"watch".equals(link.getHost())) return;
+        try {
+            String mode = link.getQueryParameter("mode");
+            Intent request = new Intent(this, CorporateEyeService.class);
+            if ("service".equals(mode)) {
+                String date = link.getQueryParameter("date");
+                String schedule = link.getQueryParameter("schedule");
+                // Validate everything before allowing a browser deep link to start a service.
+                if (schedule == null || schedule.length() > 16000)
+                    throw new IllegalArgumentException("Horari massa llarg o buit.");
+                CorporateServicePlan plan = new CorporateServicePlan(date, schedule);
+                if (plan.at(System.currentTimeMillis()) == null)
+                    throw new IllegalArgumentException("Aquest servei ja ha acabat o encara no és aplicable.");
+                request.putExtra(CorporateEyeService.EXTRA_MODE, "service");
+                request.putExtra(CorporateEyeService.EXTRA_SERVICE_DATE, date);
+                request.putExtra(CorporateEyeService.EXTRA_SCHEDULE, schedule);
+                eyeStatus.setText("El meu servei · seguiment automàtic des del Miralín oficial.");
+            } else if ("manual".equals(mode)) {
+                String train = link.getQueryParameter("train"), stopText = link.getQueryParameter("stop");
+                if (!CorporateServicePlan.validTrain(train)
+                    || !CorporateServicePlan.validStop(stopText))
+                    throw new IllegalArgumentException("Tren o estació de seguiment no vàlids.");
+                int stopNumber = Integer.parseInt(stopText);
+                String viaText = link.getQueryParameter("via");
+                int via = stopNumber == 413 || stopNumber == 434 ? 0
+                    : CorporateServicePlan.validVia(viaText) ? Integer.parseInt(viaText) : -1;
+                if (via < 0) throw new IllegalArgumentException("Selecciona una via de destinació.");
+                request.putExtra(CorporateEyeService.EXTRA_MODE, "manual");
+                request.putExtra(CorporateEyeService.EXTRA_TRAIN, train);
+                request.putExtra(CorporateEyeService.EXTRA_STOP, stopNumber);
+                request.putExtra(CorporateEyeService.EXTRA_TARGET_VIA, via);
+                station.setSelection(stopNumber - START_STOP);
+                trainInput.setText(train);
+                if (via == 1 || via == 2) targetVia.setSelection(via - 1);
+                eyeStatus.setText("Seguiment manual corporatiu del tren " + train + ".");
+            } else {
+                throw new IllegalArgumentException("Mode de seguiment no vàlid.");
+            }
+            pendingExternalEye = request;
+            launchPendingExternalEye();
+        } catch (Exception badLink) {
+            pendingExternalEye = null;
+            eyeStatus.setText("No s'ha pogut aplicar El meu servei: " + badLink.getMessage());
+        }
+    }
+
+    private void launchPendingExternalEye() {
+        if (pendingExternalEye == null) return;
+        if (activeLogin == null || !running) {
+            eyeStatus.setText("Per vincular El meu servei, connecta primer amb les credencials TMB.");
+            return;
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            eyeStatus.setText("Permet l'ull flotant per activar El meu servei.");
+            if (!overlayPermissionAsked) {
+                overlayPermissionAsked = true;
+                startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName())), REQUEST_EXTERNAL_OVERLAY);
+            }
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 33
+            && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_EXTERNAL_NOTIFICATIONS);
+            return;
+        }
+        Intent launch = pendingExternalEye;
+        try {
+            startForegroundService(launch);
+            pendingExternalEye = null;
+            finish();
+        } catch (Exception failed) {
+            eyeStatus.setText("No s'ha pogut iniciar el seguiment. Comprova els permisos Android.");
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_EXTERNAL_OVERLAY) {
+            overlayPermissionAsked = false;
+            if (Settings.canDrawOverlays(this)) launchPendingExternalEye();
+            else eyeStatus.setText("Cal donar permís de superposició per seguir el servei.");
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == REQUEST_EXTERNAL_NOTIFICATIONS) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) launchPendingExternalEye();
+            else eyeStatus.setText("Cal permetre les notificacions del servei en primer pla.");
         }
     }
 
@@ -308,6 +426,11 @@ public final class MainActivity extends Activity {
                     lastReadAt = capturedAt;
                     status.setText("Connectat directament al Miralín corporatiu de TMB.");
                     renderTables();
+                }
+                // Complete a pending El meu servei handoff after first authorised login.
+                if (pendingExternalEye != null) {
+                    launchPendingExternalEye();
+                    return;
                 }
                 // The session has now been authorised: begin the visible-only polling loop.
                 if (visible) {
