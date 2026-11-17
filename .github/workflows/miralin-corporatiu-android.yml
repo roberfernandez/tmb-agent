@@ -49,7 +49,7 @@ jobs:
           else
             gh release create "$tag" "$apk" --target "$GITHUB_SHA" \
               --title "Miralín corporatiu · v${version} (prova)" \
-              --notes "Beta corporativa: ull de tren serie 9000 amb el mateix disseny que Miralín Tren Ull, font HTML TMB sense miralin.cat ni Render. Refresc 20 s. ETA encara no disponible a partir del cartell HTML. Aplicació independent amb credencials locals xifrades." \
+              --notes "Beta corporativa 0.3.1: mateix ull frontal sèrie 9000 i compte enrere aproximat a la SORTIDA del tren, estació i via seleccionats, llegida directament del HTML TMB (20 s). Cap consulta a miralin.cat o Render. No és temps d'arribada exacte. Credencials locals xifrades." \
               --prerelease
           fi
       - uses: actions/upload-artifact@v4
