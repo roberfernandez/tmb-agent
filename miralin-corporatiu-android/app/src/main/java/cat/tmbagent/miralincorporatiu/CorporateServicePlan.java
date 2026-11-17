@@ -78,6 +78,58 @@ final class CorporateServicePlan {
 
     static boolean validVia(String value) { return "1".equals(value) || "2".equals(value); }
 
+    static final class Notice {
+        final String key, title, body;
+        Notice(String key, String title, String body) {
+            this.key = key; this.title = title; this.body = body;
+        }
+    }
+
+    /** Scheduled transfer and pickup reminders; no claim of measured train arrival. */
+    List<Notice> noticesAt(long nowMillis, int marginMinutes) {
+        List<Notice> due = new ArrayList<>();
+        int margin = Math.max(1, Math.min(120, marginMinutes));
+        for (int i = 0; i < segments.size(); i++) {
+            Segment row = segments.get(i);
+            if (!row.driving() && !"TRA".equals(row.type)) continue;
+            long start = minuteMillis(row.start);
+            if (nowMillis < start - margin * 60_000L || nowMillis >= start + 60_000L) continue;
+            String fromName = stationName(row.from), toName = stationName(row.to);
+            if (row.driving()) due.add(new Notice("take-" + i,
+                "Presa del tren " + row.train,
+                fromName + " · via " + row.via + " · hora prevista " + formatMinute(row.start)));
+            else due.add(new Notice("transfer-" + i,
+                "Trasllat del servei",
+                fromName + " → " + toName + " · inici " + formatMinute(row.start)));
+        }
+        return due;
+    }
+
+    private static String formatMinute(int minutes) {
+        return String.format(Locale.ROOT, "%02d:%02d", (minutes / 60) % 24, minutes % 60);
+    }
+
+    private static String stationName(String code) {
+        final String[] names = {"La Pau","Besòs","Besòs Mar","El Maresme · Fòrum",
+            "Selva de Mar","Poblenou","Llacuna","Bogatell","Ciutadella · Vila Olímpica",
+            "Barceloneta","Jaume I","Urquinaona","Passeig de Gràcia","Girona",
+            "Verdaguer","Joanic","Alfons X","Guinardó · Hospital de Sant Pau",
+            "Maragall","Llucmajor","Via Júlia","Trinitat Nova"};
+        if (!validStop(code)) return code;
+        return names[Integer.parseInt(code) - FIRST_STOP];
+    }
+
+    String identity() {
+        StringBuilder data = new StringBuilder(date.toString());
+        for (Segment row : segments) {
+            data.append('|').append(row.start).append(',').append(row.end).append(',')
+                .append(row.type).append(',').append(row.from).append(',')
+                .append(row.to).append(',').append(row.train).append(',')
+                .append(row.via).append(',').append(row.out);
+        }
+        return Integer.toHexString(data.toString().hashCode());
+    }
+
     private long minuteMillis(int minute) {
         return date.atStartOfDay(ZONE).plusMinutes(minute).toInstant().toEpochMilli();
     }
