@@ -24,4 +24,17 @@ public final class CorporateTrainSelectionTest {
         assertEquals("Via 1", CorporateTrainSelection.find(board, "416").track);
         assertNull(CorporateTrainSelection.find(board, "999"));
     }
+
+    @Test public void sameTrainHasDifferentDepartureInEachViaBoard() {
+        CorporateBoardParser.Track via1 = new CorporateBoardParser.Track(1, true,
+            Collections.emptyList(), Arrays.asList(
+                Arrays.asList("406", "10:57", "03:52", "Maragall", "Via 2")));
+        CorporateBoardParser.Track via2 = new CorporateBoardParser.Track(2, true,
+            Collections.emptyList(), Arrays.asList(
+                Arrays.asList("406", "10:39", "03:52", "Maragall", "Via 2")));
+        CorporateBoardParser.Board board = new CorporateBoardParser.Board(via1, via2);
+        assertEquals("10:57", CorporateTrainSelection.find(board, "406", 1).departure);
+        assertEquals("10:39", CorporateTrainSelection.find(board, "406", 2).departure);
+        assertNull(CorporateTrainSelection.find(board, "999", 2));
+    }
 }
