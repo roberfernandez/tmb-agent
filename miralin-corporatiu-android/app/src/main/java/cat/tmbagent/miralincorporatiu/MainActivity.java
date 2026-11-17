@@ -58,6 +58,7 @@ public final class MainActivity extends Activity {
     private EditText username;
     private EditText password;
     private EditText trainInput;
+    private Spinner targetVia;
     private TextView eyeStatus;
     private Spinner station;
     private TextView status;
@@ -179,6 +180,15 @@ public final class MainActivity extends Activity {
         trainInput.setTextColor(TEXT);
         trainInput.setHintTextColor(MUTED);
         screen.addView(trainInput);
+        screen.addView(label("VIA DE DESTÍ · per a la columna SORTIDA", 12, MUTED, false));
+        targetVia = new Spinner(this);
+        targetVia.setAdapter(new ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_dropdown_item, new String[] {"Via 1", "Via 2"}));
+        int savedVia = getSharedPreferences("ui", MODE_PRIVATE).getInt("targetVia", 1);
+        targetVia.setSelection(savedVia == 2 ? 1 : 0);
+        screen.addView(targetVia);
+        screen.addView(label("SORTIDA és la sortida prevista a l'estació escollida. "
+            + "L'ull en mostra un compte enrere aproximat, no una arribada exacta.", 12, MUTED, false));
         LinearLayout eyeActions = new LinearLayout(this);
         eyeActions.setOrientation(LinearLayout.HORIZONTAL);
         Button startEye = new Button(this);
@@ -350,14 +360,18 @@ public final class MainActivity extends Activity {
             return;
         }
         int chosenStop = START_STOP + station.getSelectedItemPosition();
-        getSharedPreferences("ui", MODE_PRIVATE).edit().putString("train", requested).apply();
+        int chosenVia = targetVia.getSelectedItemPosition() + 1;
+        getSharedPreferences("ui", MODE_PRIVATE).edit().putString("train", requested)
+            .putInt("targetVia", chosenVia).apply();
         Intent intent = new Intent(this, CorporateEyeService.class);
         intent.putExtra(CorporateEyeService.EXTRA_TRAIN, requested);
         intent.putExtra(CorporateEyeService.EXTRA_STOP, chosenStop);
+        intent.putExtra(CorporateEyeService.EXTRA_TARGET_VIA, chosenVia);
         try {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
             else startService(intent);
-            eyeStatus.setText("Ull activat · tren " + requested + " · refresc cada 20 s.");
+            eyeStatus.setText("Ull activat · tren " + requested + " · via destí " + chosenVia
+                + " · SORTIDA TMB cada 20 s.");
         } catch (Exception e) {
             eyeStatus.setText("No s'ha pogut activar l'ull. Revisa els permisos del dispositiu.");
         }
@@ -407,7 +421,9 @@ public final class MainActivity extends Activity {
             if (!row.isEmpty() && row.get(0).matches("[A-Za-z0-9]{2,6}")) {
                 entry.setOnClickListener(v -> {
                     trainInput.setText(row.get(0));
-                    eyeStatus.setText("Tren " + row.get(0) + " seleccionat. Prem Activa l'ull.");
+                    targetVia.setSelection(track.number == 2 ? 1 : 0);
+                    eyeStatus.setText("Tren " + row.get(0) + " · via destí " + track.number
+                        + " seleccionats. Prem Activa l'ull.");
                 });
             }
         }
