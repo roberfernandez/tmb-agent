@@ -7,7 +7,7 @@
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .viewer-shell{height:100%;display:flex;flex-direction:column;min-height:0}.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.viewer-head h2{margin:0}.viewer-status{margin:8px 0 10px;flex:none}#viewerPhotoHome{min-height:0;flex:1;display:flex}#viewerPhotoHome #photoViewport{width:100%;height:100%;max-width:none;max-height:none;margin:0}.viewer-timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.viewer-timeline .journey-row{grid-template-columns:88px minmax(0,1fr);padding:10px}#viewerPhotoHome[hidden],.viewer-timeline[hidden]{display:none}@media(max-width:480px){#serviceViewer{width:100vw;height:88dvh;max-height:780px;border-radius:0;padding:14px}}
 </style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.24.11</span></header><h1>El meu servei</h1>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.24.12</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
@@ -32,6 +32,7 @@
 </section>
 <section class="card">
  <h2>Segueix el servei</h2><p>El seguiment automàtic segueix el tren que toca segons l’horari del servei.</p><p id="serviceTrainPreview" class="service-current" aria-live="polite"></p>
+ <div id="androidEyeSourceGroup" hidden><label for="androidEyeSource">Origen de les dades del seguiment Android</label><select id="androidEyeSource"><option value="classic">Miralín Tren Ull · versió anterior</option><option value="corporate">Miralín corporatiu TMB · cada 10 s</option></select><p id="androidEyeSourceNote" class="muted" aria-live="polite"></p></div>
  <div class="row"><button id="startServiceEye" class="primary"><span aria-hidden="true">👁</span> Activa el seguiment automàtic</button><button id="stopServiceEye" hidden>Atura</button></div>
  <p id="serviceEyeStatus" role="status" class="muted" hidden></p>
  <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-tren-ull-v0.14.26/Miralin-Tren-Ull-v0.14.26.apk" target="_blank" rel="noopener">Android · baixa l’APK 0.14.26</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
@@ -60,11 +61,52 @@ const isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navi
 const isAndroid=/Android/i.test(ua)||platform==='Android';
 if(isIOS)$('androidOption').hidden=true;
 else if(isAndroid){$('iosOption').hidden=true;$('iosInstructions').hidden=true;}
-const androidOpenedKey='tmb-servei-android-app-opened-v0.14.26';let androidAppOpened=localStorage.getItem(androidOpenedKey)==='true';
-function refreshAndroidDownload(){if(isAndroid)$('androidOption').hidden=androidAppOpened}
-function rememberAndroidLaunch(params){const mark=()=>{if(document.visibilityState==='hidden'){androidAppOpened=true;localStorage.setItem(androidOpenedKey,'true');if(params?.get('mode')==='service')localStorage.setItem(nativeServiceKey,params.get('schedule')||'');refreshAndroidDownload();refreshServiceFollowControls()}};document.addEventListener('visibilitychange',mark);window.addEventListener('pagehide',mark);setTimeout(()=>{document.removeEventListener('visibilitychange',mark);window.removeEventListener('pagehide',mark)},6000)}
-function openAndroidEye(params){rememberAndroidLaunch(params);location.href='intent://watch?'+params.toString()+'#Intent;scheme=tmbservei;package=com.tmbagent.traineye;end'}
-refreshAndroidDownload();
+const androidOpenedKey='tmb-servei-android-app-opened-v0.14.26';
+const corporateOpenedKey='tmb-servei-corporate-app-opened-v0.4.0';
+const androidSourceKey='tmb-servei-android-eye-source-v1';
+const activeAndroidSourceKey='tmb-servei-android-active-source-v1';
+const corporateApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.4.0-beta/Miralin-Corporatiu-v0.4.0-beta.apk';
+const classicApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-tren-ull-v0.14.46-manual-beta/Miralin-Tren-Ull-v0.14.46-manual-beta.apk';
+const selectedAndroidSource=()=>localStorage.getItem(androidSourceKey)==='corporate'?'corporate':'classic';
+const openedKeyFor=source=>source==='corporate'?corporateOpenedKey:androidOpenedKey;
+function refreshAndroidDownload(){
+ if(!isAndroid)return;
+ const source=selectedAndroidSource(),corporate=source==='corporate';
+ $('androidEyeSourceGroup').hidden=false;
+ $('androidEyeSource').value=source;
+ $('androidEyeSourceNote').textContent=corporate
+  ?'L’ull corporatiu utilitza exclusivament les dades TMB. Aquesta beta encara no incorpora els avisos del servei; per rebre avisos continua disponible l’ull anterior.'
+  :'L’ull anterior continua disponible amb les seves funcions d’avisos. Pots provar el corporatiu sense perdre el servei desat.';
+ $('androidOption').href=corporate?corporateApkUrl:classicApkUrl;
+ $('androidOption').textContent=corporate?'Android · instal·la l’ull corporatiu v0.4.0':'Android · baixa l’APK de l’ull anterior';
+ $('androidOption').hidden=localStorage.getItem(openedKeyFor(source))==='true';
+ $('enable').disabled=corporate;
+ if(corporate)$('alarmStatus').textContent='La beta de l’ull corporatiu encara no envia avisos del servei. Per fer servir els avisos, selecciona l’ull anterior.';
+ else $('alarmStatus').textContent=enabled?'Avisos configurats. Activa o actualitza el seguiment per aplicar-los al servei.':'Avisos desactivats.';
+}
+function rememberAndroidLaunch(params,source){
+ const mark=()=>{if(document.visibilityState==='hidden'){
+  localStorage.setItem(openedKeyFor(source),'true');
+  localStorage.setItem(activeAndroidSourceKey,source);
+  if(params?.get('mode')==='service')localStorage.setItem(nativeServiceKey,params.get('schedule')||'');
+  refreshAndroidDownload();refreshServiceFollowControls();
+ }};
+ document.addEventListener('visibilitychange',mark);
+ window.addEventListener('pagehide',mark);
+ setTimeout(()=>{document.removeEventListener('visibilitychange',mark);window.removeEventListener('pagehide',mark)},6000);
+}
+function openAndroidEye(params){
+ const source=selectedAndroidSource();
+ rememberAndroidLaunch(params,source);
+ if(source==='corporate')location.href='intent://watch?'+params.toString()+'#Intent;scheme=miralincorp;package=cat.tmbagent.miralincorporatiu.servei;end';
+ else location.href='intent://watch?'+params.toString()+'#Intent;scheme=tmbservei;package=com.tmbagent.traineye;end';
+}
+if(isAndroid){
+ $('androidEyeSource').onchange=event=>{
+  localStorage.setItem(androidSourceKey,event.target.value==='corporate'?'corporate':'classic');
+  refreshAndroidDownload();refreshServiceFollowControls();
+ };
+}
 
 let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,photoPending:false,manualRowIndex:null,manualSince:null};
 const nativeServiceKey='tmb-servei-native-service-v1';
@@ -148,6 +190,7 @@ async function stopLegacyServiceAlerts(){
 }
 async function syncServiceAlerts(stop=false){
  if(!stop&&state.photoPending)throw Error('Interpreta la imatge del servei abans d’aplicar els avisos.');
+ if(isAndroid&&localStorage.getItem('tmb-servei-android-eye-source-v1')==='corporate')throw Error('Els avisos encara no estan disponibles a l’ull corporatiu. Selecciona l’ull anterior.');
  if(!isAndroid)return syncWebServiceAlerts(stop);
  if(!stop&&!rows.length)throw Error('Carrega i interpreta el servei abans d’activar-ne els avisos.');
  await stopLegacyServiceAlerts();
@@ -177,6 +220,7 @@ $('enable').onclick=async()=>{
 };
 $('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
 $('alarmStatus').textContent=enabled?(isAndroid?'Avisos configurats. Activa o actualitza el seguiment per aplicar-los al servei.':'Avisos activats; comprovant la programació…'):'Avisos desactivats.';
+refreshAndroidDownload();
 if(enabled&&!isAndroid&&!state.photoPending)setTimeout(()=>syncServiceAlerts().then(result=>{$('alarmStatus').textContent=result.native?(result.pending?'Actualitza el seguiment per aplicar els avisos al servei nou.':'Avisos configurats al mòbil · '+state.margin+' min. S’emeten amb el seguiment automàtic actiu i la pantalla apagada.'):'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats. '+result.events+' avisos programats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut restaurar els avisos: '+e.message;remoteAlertsActive=false}),800);
 $('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.photoPending=false;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();if(enabled)scheduleAlertSync();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render()}catch(e){$('error').textContent=e.message}};
 $('reset').onclick=()=>{state.date=new Date().toISOString().slice(0,10);state.text='';state.photoPending=false;state.taken=[];state.location=null;state.photoData=null;state.photoRows=null;state.photoSize=null;state.manualRowIndex=null;state.manualSince=null;manualRowIndex=null;manualSince=0;ocrRowBounds=null;photoSize=null;photoRowsReady=false;lastPhotoRow=null;$('photoPreview').removeAttribute('src');$('photoViewport').hidden=true;$('activePhotoRow').style.display='none';fired.clear();if(enabled){void syncServiceAlerts(true).catch(()=>{});enabled=false;remoteAlertsActive=false;localStorage.removeItem('tmb-servei-alerts');$('enable').textContent='Activa els avisos';$('alarmStatus').textContent='Avisos desactivats.'}persist();load()};
@@ -281,7 +325,9 @@ function showFollowMode(mode){
  showServiceEyeError('');
 }
 function refreshServiceFollowControls(){
- const dirty=isAndroid&&followMode==='service'&&localStorage.getItem(nativeServiceKey)!==serviceScheduleParam();
+ const source=localStorage.getItem('tmb-servei-android-eye-source-v1')==='corporate'?'corporate':'classic';
+ const activeSource=localStorage.getItem('tmb-servei-android-active-source-v1')||'classic';
+ const dirty=isAndroid&&followMode==='service'&&(localStorage.getItem(nativeServiceKey)!==serviceScheduleParam()||activeSource!==source);
  $('startServiceEye').hidden=followMode==='service'&&!dirty;
  $('startServiceEye').innerHTML='<span aria-hidden="true">👁</span> '+(dirty?'Actualitza el seguiment':'Activa el seguiment automàtic');
  $('stopServiceEye').hidden=followMode!=='service';
@@ -319,7 +365,13 @@ function prepareNativeServiceImage(){
   image.src=source;
  });
 }
-async function stopNativeEye(){if(isAndroid){location.href='tmbservei://stop';await new Promise(r=>setTimeout(r,450))}else if(isIOS){location.href='tmbservei-ios://stop';await new Promise(r=>setTimeout(r,450))}}
+async function stopNativeEye(){
+ if(isAndroid){
+  const source=localStorage.getItem(activeAndroidSourceKey)||selectedAndroidSource();
+  location.href=source==='corporate'?'miralincorp://stop':'tmbservei://stop';
+  await new Promise(r=>setTimeout(r,450));
+ }else if(isIOS){location.href='tmbservei-ios://stop';await new Promise(r=>setTimeout(r,450))}
+}
 $('startServiceEye').onclick=async()=>{
  if(state.photoPending||serviceLaunchBusy)return;
  if(!rows.some(r=>r.type==='CON')){showServiceEyeError('Carrega un servei amb trams de conducció.');return}
@@ -330,14 +382,18 @@ $('startServiceEye').onclick=async()=>{
  try{
   if(!await stopTrainPushWatch())throw Error('No s’ha pogut aturar el seguiment manual.');
   if(isAndroid&&enabled)await stopLegacyServiceAlerts();
-  const image=isAndroid?await prepareNativeServiceImage():'';
+  const corporate=isAndroid&&localStorage.getItem('tmb-servei-android-eye-source-v1')==='corporate';
+  const previousSource=localStorage.getItem('tmb-servei-android-active-source-v1');
+  if(isAndroid&&previousSource&&previousSource!==(corporate?'corporate':'classic'))await stopNativeEye();
+  const image=isAndroid&&!corporate?await prepareNativeServiceImage():'';
   if(state.photoPending||schedule!==serviceScheduleParam()||photo!==state.photoData)return;
   const query=new URLSearchParams({mode:'service',date:state.date,schedule,alerts:enabled?'1':'0',margin:String(state.margin)});
   if(isAndroid){
-   const bounds=serviceRowBoundsParam();
+   const bounds=corporate?'':serviceRowBoundsParam();
    if(image)query.set('image',image);
    if(bounds)query.set('rowBounds',bounds);
-   if(enabled){remoteAlertsActive=true;localStorage.setItem('tmb-servei-alerts','true')}
+   if(enabled&&!corporate){remoteAlertsActive=true;localStorage.setItem('tmb-servei-alerts','true')}
+   if(corporate)query.set('alerts','0'); // Not yet implemented in corporate APK.
    openAndroidEye(query);
   }else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString();
   manualRowIndex=null;manualSince=0;state.manualRowIndex=null;state.manualSince=null;persist();showFollowMode('service');render();
@@ -463,7 +519,9 @@ async function startOrChangeTrainWatch(replacing=false){
   }
   if(isAndroid){
    $('trainWatchStatus').textContent=(replacing?'Actualitzant l’ull per al tren ':'Iniciant l’ull per al tren ')+train+' a '+stations[stop]+(via?' · via '+via:'')+'.';
-   openAndroidEye(params);
+   const previousSource=localStorage.getItem('tmb-servei-android-active-source-v1');
+    if(previousSource&&previousSource!==selectedAndroidSource())await stopNativeEye();
+    openAndroidEye(params);
    return;
   }
   await activateTrainWatch(false);
