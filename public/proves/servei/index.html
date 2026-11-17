@@ -35,7 +35,7 @@
  <div id="corporateIdentity" hidden><div class="row"><button id="tmbIdentify" type="button">Identifica't amb TMB</button><span id="corporateIdentityStatus" class="muted" role="status">Identificació corporativa pendent.</span></div><p class="muted"><small>Les credencials s'introdueixen en un diàleg segur d'Android i només es desen xifrades al dispositiu. No s'envien a la miniapp.</small></p></div>
  <div class="row"><button id="startServiceEye" class="primary"><span aria-hidden="true">👁</span> Activa el seguiment automàtic</button><button id="stopServiceEye" hidden>Atura</button></div>
  <p id="serviceEyeStatus" role="status" class="muted" hidden></p>
- <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.5.0-beta/Miralin-Corporatiu-v0.5.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
+ <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.6.0-beta/Miralin-Corporatiu-v0.6.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
  <p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
 </section>
 <section class="card" id="manualTrainCard">
@@ -66,15 +66,15 @@ else{
  $('iosInstructions').textContent='L’ull flotant corporatiu i els avisos natius estan preparats per a Android. La versió Windows encara no està disponible.';
 }
 const nativePackage='cat.tmbagent.elmeuservei.motor';
-const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.5.0';
-const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.5.0';
-const nativeApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.5.0-beta/Miralin-Corporatiu-v0.5.0-beta.apk';
+const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.6.0';
+const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.6.0';
+const nativeApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.6.0-beta/Miralin-Corporatiu-v0.6.0-beta.apk';
 function refreshAndroidDownload(){
  if(!isAndroid)return;
  $('corporateIdentity').hidden=false;
  const installed=localStorage.getItem(nativeInstalledKey)==='true';
  $('androidOption').href=nativeApkUrl;
- $('androidOption').textContent='Android · instal·la el motor de seguiment';
+ $('androidOption').textContent='Android · instal·la el motor v0.6';
  $('androidOption').hidden=installed;
  $('corporateIdentityStatus').textContent=localStorage.getItem(nativeAuthKey)==='true'
   ?'Identificació TMB verificada al dispositiu.'
@@ -111,10 +111,10 @@ if(isAndroid){
 let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,photoPending:false,manualRowIndex:null,manualSince:null};
 const nativeServiceKey='tmb-servei-native-service-v1';
 const followModeKey='tmb-servei-follow-mode-v1';let followMode=localStorage.getItem(followModeKey)||'';
-if(isAndroid&&localStorage.getItem('tmb-servei-corporate-migration-v1')!=='true'){
+if(isAndroid&&localStorage.getItem('tmb-servei-corporate-migration-v0.6.0')!=='true'){
  // Old eye state does not imply the new corporate worker is running.
  followMode='';localStorage.removeItem(followModeKey);localStorage.removeItem(nativeServiceKey);
- localStorage.setItem('tmb-servei-corporate-migration-v1','true');
+ localStorage.setItem('tmb-servei-corporate-migration-v0.6.0','true');
 }
 const nativeQuery=new URLSearchParams(location.search);
 if(isAndroid&&nativeQuery.has('installNative')){
