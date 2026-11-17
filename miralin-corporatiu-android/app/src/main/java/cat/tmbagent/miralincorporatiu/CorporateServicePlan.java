@@ -34,11 +34,13 @@ final class CorporateServicePlan {
         final int stop;
         final int via;
         final boolean driving;
-        Selection(String train, int stop, int via, boolean driving) {
+        final long takeoverAt;
+        Selection(String train, int stop, int via, boolean driving, long takeoverAt) {
             this.train = train;
             this.stop = stop;
             this.via = via;
             this.driving = driving;
+            this.takeoverAt = takeoverAt;
         }
     }
 
@@ -119,6 +121,21 @@ final class CorporateServicePlan {
         return names[Integer.parseInt(code) - FIRST_STOP];
     }
 
+    /** Rows are kept in the same order as the original uploaded service image. */
+    List<Segment> viewerSegments() { return java.util.Collections.unmodifiableList(segments); }
+
+    /** Active row for the compact photo viewer, falling back to the next row before duty. */
+    int viewerIndex(long nowMillis) {
+        int next = -1;
+        for (int i = 0; i < segments.size(); i++) {
+            Segment row = segments.get(i);
+            long start = minuteMillis(row.start), end = minuteMillis(row.end);
+            if (start <= nowMillis && nowMillis < end) return i;
+            if (next == -1 && start > nowMillis) next = i;
+        }
+        return next;
+    }
+
     String identity() {
         StringBuilder data = new StringBuilder(date.toString());
         for (Segment row : segments) {
@@ -163,6 +180,6 @@ final class CorporateServicePlan {
         // "select whichever of the two corporate tables contains the train".
         int via = stop == FIRST_STOP || stop == LAST_STOP ? 0
             : Integer.parseInt(driving && validVia(chosen.out) ? chosen.out : chosen.via);
-        return new Selection(chosen.train, stop, via, driving);
+        return new Selection(chosen.train, stop, via, driving, minuteMillis(chosen.start));
     }
 }
