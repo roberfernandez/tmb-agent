@@ -23,3 +23,15 @@ Cada persona ha de tenir permís per consultar les dades amb el seu compte; s'ha
 `gradle -p miralin-corporatiu-android :app:testDebugUnitTest :app:assembleDebug`
 
 La GitHub Action del prototip publica un APK directe de prova. Les APK debug no tenen signatura estable entre compilacions: les actualitzacions futures podrien requerir desinstal·lar i tornar a instal·lar, cosa que esborraria les credencials del dispositiu. Caldrà una signatura privada estable abans d'un desplegament general.
+
+## Beta 0.2.0 · Ull flotant corporatiu
+- Nova app independent «Miralín Corp Ull», identificador `cat.tmbagent.miralincorporatiu.ull`, per poder conviure amb la v0.1.1 i amb «Miralín Tren Ull». Això comporta introduir-hi les credencials una sola vegada a la nova app.
+- Toca una fila de tren o escriu-ne el número (p. ex. 406 / P09) i prem «Activa l'ull».
+- Permisos de superposició i notificacions: seguiment de primer pla Android amb una notificació persistent, consulta oficial cada 20 s fins que es premi × o «Atura l'ull».
+- Mostra tren, estació, via, temps respecte del tren precedent (`T.ANT.`) i segons transcorreguts des de l'última lectura oficial. **No** presenta `T.ANT.` com una ETA a la parada; ni interpreta `SORTIDA` com a arribada.
+- El servei només llegeix el HTML corporatiu de l'estació triada, i usa les credencials xifrades localment. Cap petició a miralin.cat, Render, TMBAgent ni cap servidor intermedi.
+- La beta 0.2.0 només inclou seguiment manual d'un tren. El traspàs automàtic del servei de TMBAgent, els avisos i els temps de pas/arribada no s'hi han incorporat encara.
+- Canviar d'estació a la pantalla principal no canvia el seguiment flotant fins a tornar a prémer «Activa l'ull».
+- Els errors d'autenticació aturen les noves consultes del servei. Les fallades temporals mostren la informació antiga diferenciada. La font és un web corporatiu no documentat i pot canviar.
+
+**Important:** aquesta beta 0.2.0 utilitza un identificador d'app diferent de la 0.1.1 per evitar conflictes de signatura debug; les credencials locals no es transfereixen entre APK.
