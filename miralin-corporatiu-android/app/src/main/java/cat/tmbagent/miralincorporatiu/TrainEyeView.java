@@ -36,6 +36,7 @@ final class TrainEyeView extends View {
     private String stationLabel = "";
     private String countdown = "--";
     private String headway = "--";
+    private int projectedLaps;
 
     TrainEyeView(Context context) {
         super(context);
@@ -45,6 +46,15 @@ final class TrainEyeView extends View {
     void setCountdown(String value) {
         value = displayTime(value);
         if (!countdown.equals(value)) { countdown = value; updateDescription(); invalidate(); }
+    }
+
+    void setLaps(int laps) {
+        laps = Math.max(0, Math.min(2, laps));
+        if (projectedLaps != laps) {
+            projectedLaps = laps;
+            updateDescription();
+            invalidate();
+        }
     }
 
     void setHeadway(String value) {
@@ -70,7 +80,8 @@ final class TrainEyeView extends View {
 
     private void updateDescription() {
         setContentDescription("Tren " + train + " · " + station + " · via " + track
-            + ". Temps amb el tren anterior: " + headway + ". Arribada: " + countdown
+            + ". Temps amb el tren anterior: " + headway + ". Sortida estimada: " + countdown
+            + (projectedLaps > 0 ? " (projecció de " + projectedLaps + " volta o voltes de 77 minuts)" : "")
             + ". Actualització: " + age + ". Toca per obrir el visor; la creu atura el seguiment.");
     }
 
@@ -128,6 +139,7 @@ final class TrainEyeView extends View {
         text.setColor(WHITE);
         drawMetric(canvas, headway, 87f, 43.7f, 17f, 46f);
         drawMetric(canvas, countdown, 139f, 40.5f, 19.5f, 46f);
+        if (projectedLaps > 0) drawMetric(canvas, "+"+projectedLaps+"×77′", 139f, 54f, 8.5f, 46f);
         canvas.restoreToCount(save);
     }
 
