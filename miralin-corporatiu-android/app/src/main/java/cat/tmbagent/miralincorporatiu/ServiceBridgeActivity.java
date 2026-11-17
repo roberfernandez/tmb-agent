@@ -97,6 +97,25 @@ public final class ServiceBridgeActivity extends Activity {
             } else {
                 throw new IllegalArgumentException("Mode de seguiment desconegut.");
             }
+            // The viewer is fully local: the original service image and row positions
+            // are transferred to the native motor, never uploaded to any server.
+            String image = data.getQueryParameter("image");
+            String bounds = data.getQueryParameter("rowBounds");
+            if (image != null && image.length() <= 220000 && image.matches("[A-Za-z0-9+/=]+"))
+                watch.putExtra(CorporateEyeService.EXTRA_SERVICE_IMAGE, image);
+            if (bounds != null && bounds.length() <= 12000)
+                watch.putExtra(CorporateEyeService.EXTRA_SERVICE_ROW_BOUNDS, bounds);
+            if ("manual".equals(mode)) {
+                String viewerDate = data.getQueryParameter("viewerDate");
+                String viewerSchedule = data.getQueryParameter("viewerSchedule");
+                if (viewerDate != null && viewerSchedule != null && viewerSchedule.length() <= 16000) {
+                    try {
+                        new CorporateServicePlan(viewerDate, viewerSchedule);
+                        watch.putExtra(CorporateEyeService.EXTRA_VIEWER_DATE, viewerDate);
+                        watch.putExtra(CorporateEyeService.EXTRA_VIEWER_SCHEDULE, viewerSchedule);
+                    } catch (Exception ignored) { /* Eye tracking still works without a service sheet. */ }
+                }
+            }
             pendingWatch = watch;
             continueWatch();
         } catch (Exception error) {
