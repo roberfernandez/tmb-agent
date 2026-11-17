@@ -54,18 +54,7 @@ public final class ServiceBridgeActivity extends Activity {
             return;
         }
         if ("alerts".equals(host)) {
-            String enabled = data.getQueryParameter("enabled");
-            String margin = data.getQueryParameter("margin");
-            android.content.SharedPreferences.Editor preferences =
-                getSharedPreferences("corporate-alerts-v1", MODE_PRIVATE).edit();
-            if ("1".equals(enabled) || "0".equals(enabled))
-                preferences.putBoolean("enabled", "1".equals(enabled));
-            if (margin != null) {
-                try {
-                    preferences.putInt("margin", Math.max(1, Math.min(120, Integer.parseInt(margin))));
-                } catch (NumberFormatException ignored) {}
-            }
-            preferences.apply();
+            saveAlertOptions(data);
             if (CorporateEyeService.isActive) {
                 Intent change = new Intent(this, CorporateEyeService.class).setAction("UPDATE_ALERTS");
                 try {
@@ -79,6 +68,7 @@ public final class ServiceBridgeActivity extends Activity {
         if (!"watch".equals(host)) { finish(); return; }
 
         try {
+            saveAlertOptions(data);
             String mode = data.getQueryParameter("mode");
             Intent watch = new Intent(this, CorporateEyeService.class);
             if ("service".equals(mode)) {
@@ -112,6 +102,22 @@ public final class ServiceBridgeActivity extends Activity {
         } catch (Exception error) {
             showError("El meu servei", error.getMessage());
         }
+    }
+
+    private void saveAlertOptions(Uri data) {
+        String enabled = data.getQueryParameter("alerts");
+        if (enabled == null) enabled = data.getQueryParameter("enabled");
+        String margin = data.getQueryParameter("margin");
+        android.content.SharedPreferences.Editor preferences =
+            getSharedPreferences("corporate-alerts-v1", MODE_PRIVATE).edit();
+        if ("1".equals(enabled) || "0".equals(enabled))
+            preferences.putBoolean("enabled", "1".equals(enabled));
+        if (margin != null) {
+            try {
+                preferences.putInt("margin", Math.max(1, Math.min(120, Integer.parseInt(margin))));
+            } catch (NumberFormatException ignored) {}
+        }
+        preferences.apply();
     }
 
     private void continueWatch() {
@@ -220,6 +226,10 @@ public final class ServiceBridgeActivity extends Activity {
                         else {
                             Toast.makeText(this, "Identificació TMB verificada per a El meu servei.",
                                 Toast.LENGTH_LONG).show();
+                            Intent back = new Intent(Intent.ACTION_VIEW,
+                                Uri.parse(VIEWER + "?nativeReady=1"));
+                            back.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            try { startActivity(back); } catch (Exception ignored) {}
                             finish();
                         }
                     });
