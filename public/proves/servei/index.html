@@ -375,12 +375,25 @@ function prepareNativeServiceImage(){
     canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
     return canvas.toDataURL('image/jpeg',quality).split(',')[1]||'';
    };
-   let data=encode(960,.58);
-   if(data.length>180000)data=encode(720,.46);
-   resolve(data.length<=220000?data:'');
+   let data=encode(900,.57);
+   if(data.length>140000)data=encode(720,.48);
+   resolve(data.length<=155000?data:'');
   };
   image.src=source;
  });
+}
+async function attachNativeViewerData(params,includeSchedule=false){
+ if(includeSchedule&&rows.length&&!state.photoPending){
+  params.set('viewerDate',state.date);
+  params.set('viewerSchedule',serviceScheduleParam());
+ }
+ if(state.photoPending)return;
+ const image=await prepareNativeServiceImage();
+ if(image){
+  params.set('image',image);
+  const bounds=serviceRowBoundsParam();
+  if(bounds)params.set('rowBounds',bounds);
+ }
 }
 async function stopNativeEye(){
  if(isAndroid){
@@ -399,7 +412,10 @@ $('startServiceEye').onclick=async()=>{
   if(state.photoPending||schedule!==serviceScheduleParam()||photo!==state.photoData)return;
   const query=new URLSearchParams({mode:'service',date:state.date,schedule,alerts:enabled?'1':'0',margin:String(state.margin)});
   if(isAndroid){
-   // El meu servei owns the photo/settings; the native motor receives only validated schedule.
+   // Copy the service image and row geometry directly to the Android helper.
+   // No data goes to Render or any other intermediary.
+   await attachNativeViewerData(query);
+   if(state.photoPending||schedule!==serviceScheduleParam()||photo!==state.photoData)return;
    openAndroidEye(query);
   }else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString();
   manualRowIndex=null;manualSince=0;state.manualRowIndex=null;state.manualSince=null;persist();showFollowMode('service');render();
@@ -525,7 +541,8 @@ async function startOrChangeTrainWatch(replacing=false){
   }
   if(isAndroid){
    $('trainWatchStatus').textContent=(replacing?'Actualitzant l’ull per al tren ':'Iniciant l’ull per al tren ')+train+' a '+stations[stop]+(via?' · via '+via:'')+'.';
-    openAndroidEye(params);
+   await attachNativeViewerData(params,true);
+   openAndroidEye(params);
    return;
   }
   await activateTrainWatch(false);
