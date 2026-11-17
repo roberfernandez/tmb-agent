@@ -114,7 +114,9 @@ if(isAndroid&&localStorage.getItem('tmb-servei-corporate-migration-v1')!=='true'
 }
 const nativeQuery=new URLSearchParams(location.search);
 if(isAndroid&&nativeQuery.has('installNative')){
+ // Intent fallback: no native handler answered. Never claim tracking is active.
  localStorage.removeItem(nativeInstalledKey);
+ followMode='';localStorage.removeItem(followModeKey);localStorage.removeItem(nativeServiceKey);
  $('androidOption').hidden=false;
  $('corporateIdentityStatus').textContent='Cal instal·lar el motor Android per continuar.';
 }
