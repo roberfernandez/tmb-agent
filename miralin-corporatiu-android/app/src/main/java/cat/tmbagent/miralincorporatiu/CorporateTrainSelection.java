@@ -34,6 +34,14 @@ final class CorporateTrainSelection {
         return onFirst != null ? onFirst : findOnTrack(board.via2, sought);
     }
 
+    /** Selected stop's direction/platform. A train may occur on BOTH boards at different times. */
+    static Train find(CorporateBoardParser.Board board, String selectedId, int targetVia) {
+        if (board == null || selectedId == null || (targetVia != 1 && targetVia != 2)) return null;
+        String sought = selectedId.trim().toUpperCase(Locale.ROOT);
+        if (sought.isEmpty()) return null;
+        return findOnTrack(targetVia == 1 ? board.via1 : board.via2, sought);
+    }
+
     private static Train findOnTrack(CorporateBoardParser.Track track, String sought) {
         if (track == null || !track.present) return null;
         for (List<String> cells : track.rows) {
