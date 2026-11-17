@@ -205,13 +205,11 @@ async function stopLegacyServiceAlerts(){
 }
 async function syncServiceAlerts(stop=false){
  if(!stop&&state.photoPending)throw Error('Interpreta la imatge del servei abans d’aplicar els avisos.');
- if(isAndroid&&localStorage.getItem('tmb-servei-android-eye-source-v1')==='corporate')throw Error('Els avisos encara no estan disponibles a l’ull corporatiu. Selecciona l’ull anterior.');
  if(!isAndroid)return syncWebServiceAlerts(stop);
  if(!stop&&!rows.length)throw Error('Carrega i interpreta el servei abans d’activar-ne els avisos.');
- await stopLegacyServiceAlerts();
  const pending=followMode==='service'&&localStorage.getItem(nativeServiceKey)!==serviceScheduleParam();
- const params=new URLSearchParams({alerts:!stop&&!pending?'1':'0',margin:String(state.margin)});
- location.href='intent://alerts?'+params.toString()+'#Intent;scheme=tmbservei;package=com.tmbagent.traineye;end';
+ const params=new URLSearchParams({enabled:!stop&&!pending?'1':'0',margin:String(state.margin)});
+ nativeIntent('alerts',params);
  remoteAlertsActive=!stop;localStorage.setItem('tmb-servei-alerts',String(!stop));
  return {events:buildServiceAlertEvents().length,native:true,pending};
 }
@@ -234,7 +232,7 @@ $('enable').onclick=async()=>{
  finally{button.disabled=false}
 };
 $('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
-$('alarmStatus').textContent=enabled?(isAndroid?'Avisos configurats. Activa o actualitza el seguiment per aplicar-los al servei.':'Avisos activats; comprovant la programació…'):'Avisos desactivats.';
+$('alarmStatus').textContent=enabled?(isAndroid?'Avisos programats des d’El meu servei. El motor Android notificarà trasllats i preses amb l’horari carregat.':'Avisos activats; comprovant la programació…'):'Avisos desactivats.';
 refreshAndroidDownload();
 if(enabled&&!isAndroid&&!state.photoPending)setTimeout(()=>syncServiceAlerts().then(result=>{$('alarmStatus').textContent=result.native?(result.pending?'Actualitza el seguiment per aplicar els avisos al servei nou.':'Avisos configurats al mòbil · '+state.margin+' min. S’emeten amb el seguiment automàtic actiu i la pantalla apagada.'):'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats. '+result.events+' avisos programats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut restaurar els avisos: '+e.message;remoteAlertsActive=false}),800);
 $('save').onclick=()=>{try{if(ocrDraft&&!$('reviewOCR').checked)throw Error('Revisa totes les files i marca la confirmació abans de desar.');let parsed=parse($('editor').value);if(!/^\d{4}-\d{2}-\d{2}$/.test($('date').value))throw Error('Tria una data.');state.date=$('date').value;state.text=$('editor').value;state.photoPending=false;state.taken=[];state.location=null;rows=parsed;photoRowsReady=Boolean(ocrRowBounds&&ocrRowBounds.length===parsed.length);fired.clear();persist();if(enabled)scheduleAlertSync();$('error').textContent='Servei validat i desat.';ocrDraft=false;$('reviewLabel').hidden=true;render()}catch(e){$('error').textContent=e.message}};
@@ -340,9 +338,7 @@ function showFollowMode(mode){
  showServiceEyeError('');
 }
 function refreshServiceFollowControls(){
- const source=localStorage.getItem('tmb-servei-android-eye-source-v1')==='corporate'?'corporate':'classic';
- const activeSource=localStorage.getItem('tmb-servei-android-active-source-v1')||'classic';
- const dirty=isAndroid&&followMode==='service'&&(localStorage.getItem(nativeServiceKey)!==serviceScheduleParam()||activeSource!==source);
+ const dirty=isAndroid&&followMode==='service'&&localStorage.getItem(nativeServiceKey)!==serviceScheduleParam();
  $('startServiceEye').hidden=followMode==='service'&&!dirty;
  $('startServiceEye').innerHTML='<span aria-hidden="true">👁</span> '+(dirty?'Actualitza el seguiment':'Activa el seguiment automàtic');
  $('stopServiceEye').hidden=followMode!=='service';
@@ -382,8 +378,7 @@ function prepareNativeServiceImage(){
 }
 async function stopNativeEye(){
  if(isAndroid){
-  const source=localStorage.getItem(activeAndroidSourceKey)||selectedAndroidSource();
-  location.href=source==='corporate'?'miralincorp://stop':'tmbservei://stop';
+  nativeIntent('stop');
   await new Promise(r=>setTimeout(r,450));
  }else if(isIOS){location.href='tmbservei-ios://stop';await new Promise(r=>setTimeout(r,450))}
 }
@@ -392,23 +387,13 @@ $('startServiceEye').onclick=async()=>{
  if(!rows.some(r=>r.type==='CON')){showServiceEyeError('Carrega un servei amb trams de conducció.');return}
  const schedule=serviceScheduleParam();
  const photo=state.photoData;
- serviceLaunchBusy=true;
- refreshServiceFollowControls();
+ serviceLaunchBusy=true;refreshServiceFollowControls();
  try{
   if(!await stopTrainPushWatch())throw Error('No s’ha pogut aturar el seguiment manual.');
-  if(isAndroid&&enabled)await stopLegacyServiceAlerts();
-  const corporate=isAndroid&&localStorage.getItem('tmb-servei-android-eye-source-v1')==='corporate';
-  const previousSource=localStorage.getItem('tmb-servei-android-active-source-v1');
-  if(isAndroid&&previousSource&&previousSource!==(corporate?'corporate':'classic'))await stopNativeEye();
-  const image=isAndroid&&!corporate?await prepareNativeServiceImage():'';
   if(state.photoPending||schedule!==serviceScheduleParam()||photo!==state.photoData)return;
   const query=new URLSearchParams({mode:'service',date:state.date,schedule,alerts:enabled?'1':'0',margin:String(state.margin)});
   if(isAndroid){
-   const bounds=corporate?'':serviceRowBoundsParam();
-   if(image)query.set('image',image);
-   if(bounds)query.set('rowBounds',bounds);
-   if(enabled&&!corporate){remoteAlertsActive=true;localStorage.setItem('tmb-servei-alerts','true')}
-   if(corporate)query.set('alerts','0'); // Not yet implemented in corporate APK.
+   // El meu servei owns the photo/settings; the native motor receives only validated schedule.
    openAndroidEye(query);
   }else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString();
   manualRowIndex=null;manualSince=0;state.manualRowIndex=null;state.manualSince=null;persist();showFollowMode('service');render();
@@ -475,7 +460,7 @@ async function activateTrainWatch(stop=false){
 async function stopTrainPushWatch(){
  const status=$('trainWatchStatus');
  try{
-  if(isAndroid){await stopLegacyServiceAlerts();status.textContent='Seguiment gestionat al mòbil.';return true;}
+  if(isAndroid){status.textContent='Seguiment gestionat des d’El meu servei.';return true;}
   if(!('serviceWorker'in navigator)||!('PushManager'in window)){status.textContent='No hi ha avisos push actius en aquest dispositiu.';return true;}
   const registration=await navigator.serviceWorker.getRegistration('./');
   const subscription=await registration?.pushManager.getSubscription();
@@ -534,8 +519,6 @@ async function startOrChangeTrainWatch(replacing=false){
   }
   if(isAndroid){
    $('trainWatchStatus').textContent=(replacing?'Actualitzant l’ull per al tren ':'Iniciant l’ull per al tren ')+train+' a '+stations[stop]+(via?' · via '+via:'')+'.';
-   const previousSource=localStorage.getItem('tmb-servei-android-active-source-v1');
-    if(previousSource&&previousSource!==selectedAndroidSource())await stopNativeEye();
     openAndroidEye(params);
    return;
   }
