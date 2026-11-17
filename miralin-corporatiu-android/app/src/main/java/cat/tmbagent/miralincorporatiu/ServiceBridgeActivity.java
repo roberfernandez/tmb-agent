@@ -229,7 +229,7 @@ public final class ServiceBridgeActivity extends Activity {
                             Intent back = new Intent(Intent.ACTION_VIEW,
                                 Uri.parse(VIEWER + "?nativeReady=1"));
                             back.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            try { startActivity(back); } catch (Exception ignored) {}
+                            try { startActivity(back); } catch (Exception launchError) {}
                             finish();
                         }
                     });
