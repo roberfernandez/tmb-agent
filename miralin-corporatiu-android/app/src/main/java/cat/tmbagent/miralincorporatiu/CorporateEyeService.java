@@ -7,9 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
-import android.graphics.Color;
 import android.graphics.PixelFormat;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -19,9 +17,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.FrameLayout;
 
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -45,11 +41,9 @@ public final class CorporateEyeService extends Service {
     private final CorporateMiralinClient client = new CorporateMiralinClient();
 
     private WindowManager windows;
-    private LinearLayout overlay;
+    private View overlay;
+    private TrainEyeView eye;
     private WindowManager.LayoutParams position;
-    private TextView title;
-    private TextView details;
-    private TextView freshness;
     private String train = "406";
     private int stop = 413;
     private CorporateTrainSelection.Train lastTrain;
@@ -174,27 +168,17 @@ public final class CorporateEyeService extends Service {
             render();
             return;
         }
-        overlay = new LinearLayout(this);
-        overlay.setOrientation(LinearLayout.HORIZONTAL);
-        overlay.setGravity(Gravity.CENTER_VERTICAL);
-        overlay.setPadding(dp(12), dp(8), dp(4), dp(8));
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.rgb(9, 17, 28));
-        background.setCornerRadius(dp(16));
-        background.setStroke(dp(1), Color.rgb(246, 205, 44));
-        overlay.setBackground(background);
-
-        LinearLayout data = new LinearLayout(this);
-        data.setOrientation(LinearLayout.VERTICAL);
-        data.setPadding(0, 0, dp(6), 0);
-        overlay.addView(data, new LinearLayout.LayoutParams(0, -2, 1));
-        title = makeText(17, Color.rgb(246, 205, 44), true);
-        details = makeText(14, Color.WHITE, true);
-        freshness = makeText(11, Color.rgb(181, 194, 206), false);
-        data.addView(title);
-        data.addView(details);
-        data.addView(freshness);
-        data.setOnTouchListener((v, event) -> {
+        FrameLayout bubble = new FrameLayout(this);
+        eye = new TrainEyeView(this);
+        bubble.addView(eye, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        eye.setOnClickListener(v -> {
+            Intent open = new Intent(this, MainActivity.class);
+            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(open);
+        });
+        eye.setOnTouchListener((view, event) -> {
+            if (position == null || overlay == null) return false;
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     touchX = event.getRawX();
@@ -206,10 +190,9 @@ public final class CorporateEyeService extends Service {
                 case MotionEvent.ACTION_MOVE:
                     int dx = Math.round(event.getRawX() - touchX);
                     int dy = Math.round(event.getRawY() - touchY);
-                    if (Math.abs(dx) > dp(8) || Math.abs(dy) > dp(8)) dragging = true;
+                    if (!dragging && (Math.abs(dx) > dp(9) || Math.abs(dy) > dp(9))) dragging = true;
                     if (dragging) {
-                        position.x = Math.max(0, originX + dx);
-                        position.y = Math.max(0, originY + dy);
+                        setOverlayPosition(originX + dx, originY + dy);
                         try { windows.updateViewLayout(overlay, position); } catch (Exception ignored) {}
                     }
                     return true;
@@ -217,64 +200,72 @@ public final class CorporateEyeService extends Service {
                     if (dragging) {
                         getSharedPreferences("eye", MODE_PRIVATE).edit()
                             .putInt("x", position.x).putInt("y", position.y).apply();
+                    } else if (eye != null && eye.isCloseHit(event.getX(), event.getY())) {
+                        stopSelf();
                     } else {
-                        Intent open = new Intent(CorporateEyeService.this, MainActivity.class);
-                        open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                        startActivity(open);
+                        view.performClick();
                     }
+                    dragging = false;
                     return true;
-                default: return true;
+                case MotionEvent.ACTION_CANCEL:
+                    dragging = false;
+                    return true;
+                default:
+                    return true;
             }
         });
-
-        Button close = new Button(this);
-        close.setText("×");
-        close.setTextColor(Color.WHITE);
-        close.setTextSize(20);
-        close.setPadding(0, 0, 0, 0);
-        close.setMinWidth(0);
-        close.setMinimumWidth(0);
-        close.setOnClickListener(v -> stopSelf());
-        overlay.addView(close, new LinearLayout.LayoutParams(dp(42), dp(54)));
-
-        int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
-        position = new WindowManager.LayoutParams(dp(335), -2,
+        overlay = bubble;
+        position = new WindowManager.LayoutParams(
+            dp(TrainEyeView.WIDTH_DP), dp(TrainEyeView.HEIGHT_DP),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            flags, PixelFormat.TRANSLUCENT);
-        position.gravity = Gravity.TOP | Gravity.START;
-        position.x = getSharedPreferences("eye", MODE_PRIVATE).getInt("x", dp(14));
-        position.y = getSharedPreferences("eye", MODE_PRIVATE).getInt("y", dp(150));
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT);
+        position.gravity = Gravity.TOP | Gravity.LEFT;
+        setOverlayPosition(
+            getSharedPreferences("eye", MODE_PRIVATE).getInt("x", dp(12)),
+            getSharedPreferences("eye", MODE_PRIVATE).getInt("y", dp(38)));
         try {
             windows.addView(overlay, position);
         } catch (Exception e) {
             overlay = null;
+            eye = null;
             stopSelf();
             return;
         }
         render();
     }
 
-    private void render() {
-        if (title == null || details == null || freshness == null) return;
-        title.setText("L4 · Tren " + train + (lastTrain == null ? "" : " · " + lastTrain.station));
-        if (lastTrain == null) {
-            details.setText(receivedAt == 0 ? "Esperant primera lectura…" : "No consta a la taula");
-        } else {
-            details.setText(lastTrain.track + " · T. ant. " + lastTrain.previousTrainGap);
-        }
-        long ageSeconds = receivedAt == 0 ? -1 : Math.max(0, (System.currentTimeMillis() - receivedAt) / 1000);
-        freshness.setText(connection + (ageSeconds < 0 ? "" : " · fa " + ageSeconds + " s"));
+    private void setOverlayPosition(int x, int y) {
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        position.x = Math.max(0, Math.min(metrics.widthPixels - position.width, x));
+        position.y = Math.max(0, Math.min(metrics.heightPixels - position.height, y));
     }
 
-    private TextView makeText(int sp, int color, boolean bold) {
-        TextView view = new TextView(this);
-        view.setTextSize(sp);
-        view.setTextColor(color);
-        view.setSingleLine(true);
-        view.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        if (bold) view.setTypeface(null, android.graphics.Typeface.BOLD);
-        return view;
+    private void render() {
+        if (eye == null) return;
+        long ageSeconds = receivedAt == 0 ? -1 : Math.max(0, (System.currentTimeMillis() - receivedAt) / 1000);
+        String age = ageSeconds < 0 ? "—" : ageSeconds < 60 ? ageSeconds + "s" : (ageSeconds / 60) + "m";
+        String stationText = lastTrain == null ? (receivedAt == 0 ? "Connectant…" : "Sense dades") : lastTrain.station;
+        String trackText = lastTrain == null ? "—" : lastTrain.track.replaceFirst("(?i)^via\\s*", "").trim();
+        String headway = lastTrain == null ? "--" : formatHeadway(lastTrain.previousTrainGap);
+        if (blocked) stationText = "Desconn.";
+        eye.setStatus(train, stationText, trackText, age);
+        eye.setHeadway(headway);
+        // A corporate station departure is not necessarily an arrival ETA.
+        // Never invent a countdown from the scheduled SORTIDA column.
+        eye.setCountdown("--");
+    }
+
+    private static String formatHeadway(String original) {
+        if (original == null || original.trim().isEmpty()) return "--";
+        String value = original.trim();
+        if (!value.matches("[0-9]{1,3}:[0-9]{2}")) return value;
+        String[] parts = value.split(":");
+        try {
+            return Integer.parseInt(parts[0]) + "'" + parts[1] + "''";
+        } catch (NumberFormatException e) {
+            return value;
+        }
     }
 
     private int dp(int value) {
@@ -290,6 +281,7 @@ public final class CorporateEyeService extends Service {
         if (overlay != null) {
             try { windows.removeView(overlay); } catch (Exception ignored) {}
             overlay = null;
+            eye = null;
         }
         super.onDestroy();
     }
