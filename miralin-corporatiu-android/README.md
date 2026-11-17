@@ -42,3 +42,12 @@ La GitHub Action del prototip publica un APK directe de prova. Les APK debug no 
 - La font continua essent **exclusivament** el HTML corporatiu de TMB, consultat cada 20 segons. Camp `T.ANT.` mostrat amb la notació de minuts/segons com al panell original.
 - `ETA` queda en **--**, no es pot confondre `SORTIDA` (hora de sortida a l'estació seleccionada) amb una estimació d'arribada. No s'ha incorporat encara el seguiment automàtic del servei ni els avisos del client antic: no existeixen dades compatibles demostrades per fer-ho de manera fiable amb aquest HTML.
 - Identificador independent `cat.tmbagent.miralincorporatiu.ull9000`: convivència amb la 0.1.1 i 0.2.0 i amb l'ull anterior, però cal introduir de nou les credencials en instal·lar aquesta beta.
+
+## Beta 0.3.1 · Cuenta atrás de SORTIDA en el mismo ojo
+- Al seleccionar un tren en cualquier fila, también se selecciona la **tabla de vía 1 o vía 2**. Puede elegirse la vía de destino manualmente.
+- Para cada consulta, busca **tren + estación seleccionada + vía de destino**. El mismo tren puede figurar con horas distintas en ambas tablas; no se usa la primera aparición indiscriminadamente.
+- Lee `Hora` de la fila como `SORTIDA` oficial (HH:mm), la compara con la hora local `Europe/Madrid` y muestra una cuenta atrás **aproximada** que disminuye cada segundo (`~2′45″`). Se sincroniza con la tabla oficial en cada lectura (20 s). Los cambios reales de hora de TMB actualizan el contador.
+- Los pasos próximos a medianoche se interpretan correctamente. Se descartan horas inválidas, vencidas o excesivamente lejanas; no se extrapola un horario del día siguiente porque sí.
+- `SORTIDA` no es una medición directa de llegada. Se indica con `~` en el ojo, sin afirmar segundos de exactitud y sin usar fórmulas ajenas a TMB.
+- Sin alteraciones del gráfico original `TrainEyeView` del frontal serie 9000.
+- La APK 0.3.1 tiene identificador `cat.tmbagent.miralincorporatiu.ull9000.sortida` y se instala aparte por incompatibilidad entre firmas efímeras de pruebas Android; se requerirá volver a iniciar sesión. La 0.3.0 permanece intacta.
