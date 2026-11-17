@@ -38,6 +38,10 @@ public final class CorporateEyeService extends Service {
     static final String EXTRA_MODE = "mode";
     static final String EXTRA_SERVICE_DATE = "serviceDate";
     static final String EXTRA_SCHEDULE = "schedule";
+    static final String EXTRA_VIEWER_DATE = "viewerDate";
+    static final String EXTRA_VIEWER_SCHEDULE = "viewerSchedule";
+    static final String EXTRA_SERVICE_IMAGE = "serviceImage";
+    static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
     static volatile boolean isActive;
 
     private static final String CHANNEL = "corporate_eye_active";
@@ -59,6 +63,11 @@ public final class CorporateEyeService extends Service {
     private int targetVia = 1;
     private String mode = "manual";
     private CorporateServicePlan servicePlan;
+    private CorporateServicePlan viewerPlan;
+    private CorporateServiceViewer viewer;
+    private String serviceImage = "";
+    private String serviceRowBounds = "";
+    private long takeoverAt = -1;
     private int selectionGeneration;
     private boolean alertsEnabled;
     private int alertMargin = 5;
@@ -139,6 +148,7 @@ public final class CorporateEyeService extends Service {
             if (stopped) return;
             if ("service".equals(mode)) applyServiceSelection(System.currentTimeMillis(), true);
             tickServiceAlerts(System.currentTimeMillis());
+            if (viewer != null) viewer.refresh(System.currentTimeMillis());
             render();
             if (!stopped) ui.postDelayed(this, 1000);
         }
@@ -170,6 +180,7 @@ public final class CorporateEyeService extends Service {
                 String date = intent.getStringExtra(EXTRA_SERVICE_DATE);
                 try {
                     servicePlan = new CorporateServicePlan(date, schedule);
+                    viewerPlan = servicePlan;
                     mode = "service";
                     if (!applyServiceSelection(System.currentTimeMillis(), false)) {
                         stopSelf();
@@ -182,6 +193,14 @@ public final class CorporateEyeService extends Service {
             } else {
                 mode = "manual";
                 servicePlan = null;
+                takeoverAt = -1;
+                viewerPlan = null;
+                String viewerDate = intent.getStringExtra(EXTRA_VIEWER_DATE);
+                String viewerSchedule = intent.getStringExtra(EXTRA_VIEWER_SCHEDULE);
+                if (viewerDate != null && viewerSchedule != null) {
+                    try { viewerPlan = new CorporateServicePlan(viewerDate, viewerSchedule); }
+                    catch (IllegalArgumentException ignored) {}
+                }
                 String candidate = intent.getStringExtra(EXTRA_TRAIN);
                 if (candidate != null && CorporateServicePlan.validTrain(candidate)) {
                     train = candidate;
@@ -194,6 +213,11 @@ public final class CorporateEyeService extends Service {
                 if (stop == 413 || stop == 434) targetVia = 0;
             }
         }
+        if (intent != null) {
+            serviceImage = intent.getStringExtra(EXTRA_SERVICE_IMAGE);
+            serviceRowBounds = intent.getStringExtra(EXTRA_SERVICE_ROW_BOUNDS);
+        }
+        if (viewer != null) { viewer.close(); viewer = null; }
         if (!Settings.canDrawOverlays(this)) {
             stopSelf();
             return START_NOT_STICKY;
@@ -240,11 +264,7 @@ public final class CorporateEyeService extends Service {
         eye = new TrainEyeView(this);
         bubble.addView(eye, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        eye.setOnClickListener(v -> {
-            Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(VIEWER));
-            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try { startActivity(open); } catch (Exception ignored) {}
-        });
+        eye.setOnClickListener(v -> openServiceViewer());
         eye.setOnTouchListener((view, event) -> {
             if (position == null || overlay == null) return false;
             switch (event.getActionMasked()) {
@@ -308,6 +328,13 @@ public final class CorporateEyeService extends Service {
      * We use the only matching row; when both exist, keep the earlier published
      * departure rather than silently guessing a direction.
      */
+    private void openServiceViewer() {
+        if (viewer != null && viewer.isShowing()) return;
+        viewer = new CorporateServiceViewer(this, windows, viewerPlan,
+            serviceImage, serviceRowBounds, () -> viewer = null);
+        viewer.show();
+    }
+
     private PendingIntent viewerPendingIntent() {
         Intent viewer = new Intent(Intent.ACTION_VIEW, Uri.parse(VIEWER));
         viewer.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -384,7 +411,10 @@ public final class CorporateEyeService extends Service {
             stopSelf();
             return false;
         }
-        boolean changed = !selected.train.equals(train) || selected.stop != stop || selected.via != targetVia;
+        long nextTakeover = selected.driving ? -1 : selected.takeoverAt;
+        boolean changed = !selected.train.equals(train) || selected.stop != stop
+            || selected.via != targetVia || nextTakeover != takeoverAt;
+        takeoverAt = nextTakeover;
         if (!changed) return true;
         train = selected.train;
         stop = selected.stop;
@@ -420,9 +450,14 @@ public final class CorporateEyeService extends Service {
         eye.setHeadway(headway);
         // SORTIDA is the official station departure, not a guaranteed arrival.
         // The tilde in the countdown marks this published-minute approximation.
+        long now = System.currentTimeMillis();
+        CorporateProjection.Result projection = "service".equals(mode)
+            ? CorporateProjection.project(departureAt, now, takeoverAt)
+            : new CorporateProjection.Result(departureAt, 0);
         eye.setCountdown(ageSeconds <= 60
-            ? OfficialDepartureCountdown.display(departureAt, System.currentTimeMillis())
+            ? OfficialDepartureCountdown.display(projection.timeMs, now)
             : "--");
+        eye.setLaps(ageSeconds <= 60 ? projection.laps : 0);
     }
 
     private static String formatHeadway(String original) {
@@ -447,6 +482,7 @@ public final class CorporateEyeService extends Service {
         ui.removeCallbacks(poll);
         ui.removeCallbacks(ageTick);
         network.shutdownNow();
+        if (viewer != null) { viewer.close(); viewer = null; }
         if (overlay != null) {
             try { windows.removeView(overlay); } catch (Exception ignored) {}
             overlay = null;
