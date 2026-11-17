@@ -57,3 +57,13 @@ La GitHub Action del prototip publica un APK directe de prova. Les APK debug no 
 - La pantalla principal evita consultar per duplicat mentre hi ha un ull actiu. La compte enrere en el frontal 9000 continua actualitzant-se **cada segon**.
 - Cap canvi de disseny o del càlcul del temps de SORTIDA, ni de la font de dades: només TMB.
 - App independent `cat.tmbagent.miralincorporatiu.ull9000.sortida.rapid` per instal·lar-la sense afectar les anteriors APK de proves amb signatura Android debug. Cal introduir credencials i concedir els permisos de l'ull novament.
+
+## Beta 0.4.0 · Integració nativa amb «El meu servei»
+- APK independent `cat.tmbagent.miralincorporatiu.servei`. Cal introduir una vegada les credencials corporatives i autoritzar la superposició.
+- A partir d'un toc explícit de l'usuari a la PWA, el deep link `miralincorp://watch?mode=service&date=YYYY-MM-DD&schedule=...` transfereix el mateix horari de 8 camps que ja transmetia la PWA a l'ull anterior. `miralincorp://stop` atura el seguiment. El servei no abandona el dispositiu.
+- En mode automàtic, el seguiment del tren es decideix localment cada segon: a l'espera/trasllat segueix el següent tren a l'estació de presa i a Conducció el tren actual cap a l'estació de destinació. El canvi d'activitat i de via es fa sense dependre que Chrome estigui obert.
+- A La Pau i Trinitat Nova accepta qualsevol de les dues taules quan només una conté el tren. En altres estacions respecta la via prevista del servei; mai confon direccions si apareix el tren a totes dues taules.
+- El toc del frontal sèrie 9000 obre `El meu servei` amb el visor desplegat. La creu tanca l'ull sense canviar el servei desat al navegador.
+- També admet `mode=manual&train=406&stop=413&via=2` amb validació de paràmetres.
+- Les peticions corporatives continuen sent només HTTPS directe a TMB cada 10 segons. El comptador SORTIDA actualitza cada segon. Cap credencial ni token es transmet en intents o URL.
+- **Limitacions:** no es porta encara el motor d'avisos de l'APK clàssica; continua sent una beta de seguiment. La URL del visor requereix la mateixa PWA/navegador on es va desar el servei. No s'ha provat encara en un telèfon físic després de la integració.
