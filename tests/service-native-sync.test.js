@@ -44,10 +44,11 @@ test('native alerts do not require browser push and pause on an unapplied servic
  const {ctx,values}=context();values.set('native',ctx.serviceScheduleParam());
  const start=page.indexOf('async function syncServiceAlerts(stop=false)');
  vm.runInContext(page.slice(start,page.indexOf('let alertSyncTimer',start)),ctx);
+ ctx.nativeIntent=(host,params)=>{ctx.location.href='intent://'+host+'?'+params.toString()};
  let result=await ctx.syncServiceAlerts(false);
- assert.equal(result.native,true);assert.match(ctx.location.href,/alerts=1/);
+ assert.equal(result.native,true);assert.match(ctx.location.href,/enabled=1/);
  values.set('native','old service');result=await ctx.syncServiceAlerts(false);
- assert.equal(result.pending,true);assert.match(ctx.location.href,/alerts=0/);
+ assert.equal(result.pending,true);assert.match(ctx.location.href,/enabled=0/);
 });
 
 test('legacy migration stops both web watches once and then works without Render',async()=>{
