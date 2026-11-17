@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 public final class CorporateEyeService extends Service {
     static final String EXTRA_TRAIN = "train";
     static final String EXTRA_STOP = "stop";
+    static final String EXTRA_TARGET_VIA = "targetVia";
     static volatile boolean isActive;
 
     private static final String CHANNEL = "corporate_eye_active";
@@ -46,6 +47,8 @@ public final class CorporateEyeService extends Service {
     private WindowManager.LayoutParams position;
     private String train = "406";
     private int stop = 413;
+    private int targetVia = 1;
+    private long departureAt = -1;
     private CorporateTrainSelection.Train lastTrain;
     private long receivedAt;
     private String connection = "Connectant al Miralín corporatiu…";
@@ -62,18 +65,22 @@ public final class CorporateEyeService extends Service {
             busy = true;
             final String requested = train;
             final int requestedStop = stop;
+            final int requestedVia = targetVia;
             network.execute(() -> {
                 CorporateTrainSelection.Train found = null;
+                CorporateTrainSelection.Train matchingDeparture = null;
                 Exception failure = null;
                 try {
                     CredentialVault.Login login = new CredentialVault(CorporateEyeService.this).load();
                     if (login == null) throw new SecurityException("Cal iniciar sessió a l'aplicació.");
                     CorporateBoardParser.Board board = client.fetch(login.username, login.password, requestedStop);
                     found = CorporateTrainSelection.find(board, requested);
+                    matchingDeparture = CorporateTrainSelection.find(board, requested, requestedVia);
                 } catch (Exception e) {
                     failure = e;
                 }
                 final CorporateTrainSelection.Train result = found;
+                final CorporateTrainSelection.Train departure = matchingDeparture;
                 final Exception error = failure;
                 ui.post(() -> {
                     busy = false;
@@ -81,7 +88,11 @@ public final class CorporateEyeService extends Service {
                     if (error == null) {
                         lastTrain = result;
                         receivedAt = System.currentTimeMillis();
-                        connection = result == null ? "Tren no localitzat a la taula consultada" : "Lectura oficial rebuda";
+                        departureAt = departure == null ? -1
+                            : OfficialDepartureCountdown.departureEpochMs(departure.departure, receivedAt);
+                        connection = result == null ? "Tren no localitzat a la taula consultada"
+                            : departure == null ? "No consta SORTIDA per aquesta via"
+                            : "Lectura oficial rebuda";
                     } else {
                         connection = error instanceof CorporateMiralinClient.AccessDenied
                             || error instanceof CorporateMiralinClient.AuthenticationRedirect
@@ -126,6 +137,8 @@ public final class CorporateEyeService extends Service {
             }
             int requestedStop = intent.getIntExtra(EXTRA_STOP, stop);
             if (requestedStop >= 413 && requestedStop <= 434) stop = requestedStop;
+            int requestedVia = intent.getIntExtra(EXTRA_TARGET_VIA, targetVia);
+            if (requestedVia == 1 || requestedVia == 2) targetVia = requestedVia;
         }
         if (!Settings.canDrawOverlays(this)) {
             stopSelf();
@@ -136,6 +149,7 @@ public final class CorporateEyeService extends Service {
         isActive = true;
         lastTrain = null;
         receivedAt = 0;
+        departureAt = -1;
         blocked = false;
         ui.removeCallbacks(poll);
         ui.removeCallbacks(ageTick);
@@ -251,9 +265,11 @@ public final class CorporateEyeService extends Service {
         if (blocked) stationText = "Desconn.";
         eye.setStatus(train, stationText, trackText, age);
         eye.setHeadway(headway);
-        // A corporate station departure is not necessarily an arrival ETA.
-        // Never invent a countdown from the scheduled SORTIDA column.
-        eye.setCountdown("--");
+        // SORTIDA is the official station departure, not a guaranteed arrival.
+        // The tilde in the countdown marks this published-minute approximation.
+        eye.setCountdown(ageSeconds <= 60
+            ? OfficialDepartureCountdown.display(departureAt, System.currentTimeMillis())
+            : "--");
     }
 
     private static String formatHeadway(String original) {
