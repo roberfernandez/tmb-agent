@@ -111,7 +111,7 @@ final class CorporateServicePlan {
         return String.format(Locale.ROOT, "%02d:%02d", (minutes / 60) % 24, minutes % 60);
     }
 
-    private static String stationName(String code) {
+    static String stationName(String code) {
         final String[] names = {"La Pau","Besòs","Besòs Mar","El Maresme · Fòrum",
             "Selva de Mar","Poblenou","Llacuna","Bogatell","Ciutadella · Vila Olímpica",
             "Barceloneta","Jaume I","Urquinaona","Passeig de Gràcia","Girona",
