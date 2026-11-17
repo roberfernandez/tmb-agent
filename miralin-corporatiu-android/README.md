@@ -35,3 +35,10 @@ La GitHub Action del prototip publica un APK directe de prova. Les APK debug no 
 - Els errors d'autenticació aturen les noves consultes del servei. Les fallades temporals mostren la informació antiga diferenciada. La font és un web corporatiu no documentat i pot canviar.
 
 **Important:** aquesta beta 0.2.0 utilitza un identificador d'app diferent de la 0.1.1 per evitar conflictes de signatura debug; les credencials locals no es transfereixen entre APK.
+
+## Beta 0.3.0 · Frontal de tren sèrie 9000, mateix ull de la versió anterior
+- S'ha copiat **literalment** el dibuix Android `TrainEyeView` de l'APK «Miralín Tren Ull» (versió 0.14.46) i el fitxer d'imatge original `train_front_9000.png`. Mateixes proporcions 176 × 68 dp, colors, fonts, dues files de dades, posició i activació de la × petita integrada.
+- Es reutilitza el mateix comportament d'arrossegament i tocar per obrir l'app, i es guarda la ubicació del panell.
+- La font continua essent **exclusivament** el HTML corporatiu de TMB, consultat cada 20 segons. Camp `T.ANT.` mostrat amb la notació de minuts/segons com al panell original.
+- `ETA` queda en **--**, no es pot confondre `SORTIDA` (hora de sortida a l'estació seleccionada) amb una estimació d'arribada. No s'ha incorporat encara el seguiment automàtic del servei ni els avisos del client antic: no existeixen dades compatibles demostrades per fer-ho de manera fiable amb aquest HTML.
+- Identificador independent `cat.tmbagent.miralincorporatiu.ull9000`: convivència amb la 0.1.1 i 0.2.0 i amb l'ull anterior, però cal introduir de nou les credencials en instal·lar aquesta beta.
