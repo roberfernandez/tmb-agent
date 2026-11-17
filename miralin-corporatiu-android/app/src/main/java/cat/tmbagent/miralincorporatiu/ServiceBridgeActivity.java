@@ -137,7 +137,7 @@ public final class ServiceBridgeActivity extends Activity {
                 .setTitle("Permís per a l'ull flotant")
                 .setMessage("Permet que El meu servei mostri l'ull per sobre d'altres aplicacions.")
                 .setNegativeButton("Cancel·la", (dialog, which) -> finish())
-                .setPositiveButton("Obre els permisos", (dialog, which) -> {
+                .setPositiveButton("Obrir", (dialog, which) -> {
                     startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:" + getPackageName())), OVERLAY_PERMISSION);
                 }).setOnCancelListener(dialog -> finish()).show();
