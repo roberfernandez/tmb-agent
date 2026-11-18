@@ -496,6 +496,7 @@ async function syncNativeEyeState(){
   localStorage.setItem(nativeStatusSeenKey,'true');
   localStorage.setItem(nativeInstalledKey,'true');
   if(status.active===false){
+   nativeDuty=null;
    if(followMode){
     showFollowMode('');
     localStorage.removeItem(nativeServiceKey);
@@ -503,11 +504,25 @@ async function syncNativeEyeState(){
    }
   }else{
    localStorage.setItem(nativeAuthKey,'true');
-   if(followMode!==status.mode){
+   const previousMode=followMode;
+   if(previousMode!==status.mode){
     showFollowMode(status.mode);
     if(status.mode!=='service')localStorage.removeItem(nativeServiceKey);
-    render();
    }
+   const validServiceDuty=status.mode==='service'
+    &&status.plan===serviceScheduleKey()
+    &&Number.isInteger(status.row)&&status.row>=0&&status.row<rows.length
+    &&Number.isInteger(status.pickup)&&status.pickup>=0&&status.pickup<rows.length
+    &&typeof status.waiting==='boolean';
+   const changed=validServiceDuty&&(!nativeDuty||nativeDuty.row!==status.row
+    ||nativeDuty.pickup!==status.pickup||nativeDuty.waiting!==status.waiting
+    ||nativeDuty.plan!==status.plan);
+   nativeDuty=validServiceDuty?{
+    plan:status.plan,row:status.row,pickup:status.pickup,
+    waiting:status.waiting,source:status.source||'corporate',at:Date.now()
+   }:null;
+   if(validServiceDuty)localStorage.setItem(nativeServiceKey,serviceScheduleParam());
+   if(changed||previousMode!==status.mode)render();
   }
   refreshAndroidDownload();
  }catch(error){
