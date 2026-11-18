@@ -109,7 +109,7 @@ public final class ServiceBridgeActivity extends Activity {
                 String date = data.getQueryParameter("date");
                 String schedule = data.getQueryParameter("schedule");
                 CorporateServicePlan plan = new CorporateServicePlan(date, schedule);
-                if (plan.at(System.currentTimeMillis()) == null)
+                if (new CorporateDutyTracker(plan).at(System.currentTimeMillis()) == null)
                     throw new IllegalArgumentException("Aquest servei ja no és vigent.");
                 watch.putExtra(CorporateEyeService.EXTRA_MODE, "service");
                 watch.putExtra(CorporateEyeService.EXTRA_SERVICE_DATE, date);
