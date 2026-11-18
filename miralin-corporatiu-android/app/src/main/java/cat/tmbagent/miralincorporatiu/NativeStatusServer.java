@@ -34,12 +34,10 @@ final class NativeStatusServer {
             worker.execute(() -> {
                 while (!Thread.currentThread().isInterrupted()) {
                     try {
-                        Socket socket;
-                        synchronized (this) {
-                            if (server == null || server.isClosed()) return;
-                            socket = server.accept();
-                        }
-                        try (Socket client = socket) { handle(client); }
+                        ServerSocket listening;
+                        synchronized (this) { listening = server; }
+                        if (listening == null || listening.isClosed()) return;
+                        try (Socket client = listening.accept()) { handle(client); }
                     } catch (IOException closed) {
                         return;
                     } catch (Exception ignored) {
