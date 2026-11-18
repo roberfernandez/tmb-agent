@@ -474,6 +474,14 @@ final class ServiceAlerts {
         return options;
     }
 
+    long predictedArrival(String stop, String via, String train, long now) {
+        if (stop == null || via == null || train == null) return 0;
+        for (Arrival candidate : arrivals(stop, via, now)) {
+            if (train.equals(candidate.train) && candidate.at > now) return candidate.at;
+        }
+        return 0;
+    }
+
     private Board fresh(String stop, long now) {
         Board board = boards.get(stop); return board != null && now - board.received < 60000 && now >= board.received ? board : null;
     }
