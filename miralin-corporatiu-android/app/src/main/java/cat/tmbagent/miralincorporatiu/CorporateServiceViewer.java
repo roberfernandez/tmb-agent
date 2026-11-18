@@ -56,7 +56,7 @@ final class CorporateServiceViewer {
     boolean isShowing() { return root != null; }
     private int dp(float value) { return (int) (value * context.getResources().getDisplayMetrics().density + .5f); }
 
-    void show() {
+    void show(int realRow) {
         if (root != null) return;
         FrameLayout surface = new FrameLayout(context);
         surface.setBackgroundColor(0x99000000);
@@ -123,7 +123,7 @@ final class CorporateServiceViewer {
         try {
             windows.addView(surface, params);
             surface.requestFocus();
-            refresh(System.currentTimeMillis());
+            refresh(System.currentTimeMillis(), realRow);
         } catch (Exception error) {
             root = null;
             scroll = null;
@@ -132,9 +132,11 @@ final class CorporateServiceViewer {
         }
     }
 
-    void refresh(long now) {
+    void refresh(long now, int realRow) {
         if (root == null) return;
-        int next = plan == null ? -1 : plan.viewerIndex(now);
+        // realRow overrides the timetable only during native automatic follow.
+        // Manual follow keeps the original planned row highlighting.
+        int next = realRow >= 0 ? realRow : plan == null ? -1 : plan.viewerIndex(now);
         if (next == activeIndex) return;
         activeIndex = next;
         if (photo != null) {
