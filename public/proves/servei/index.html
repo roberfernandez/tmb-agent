@@ -1,7 +1,7 @@
 <!doctype html><html lang="ca"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080f1c"><meta name="robots" content="noindex,nofollow"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="TMB Agent"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="../../assets/icons/tmb-agent-192.png"><link rel="manifest" href="../../manifest.webmanifest"><title>El meu servei · Proves</title>
 <style>*{box-sizing:border-box}body{margin:0;background:#080f1c;color:#eef3fa;font:16px system-ui,sans-serif}main{max-width:760px;margin:auto;padding:20px 16px 50px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:30px}a{color:#f4d000}h1{font-size:27px;margin:6px 0}h2{font-size:18px;margin:0 0 14px}p{line-height:1.5}.muted,small{color:#a9b8cb}.tag{font-size:12px;letter-spacing:1px;color:#f4d000}.card{background:#111e30;border:1px solid #28394e;border-radius:18px;padding:20px;margin:14px 0}.hero{border-top:4px solid #f4d000}.time{font-size:44px;font-weight:750;letter-spacing:-2px}.train{display:inline-block;background:#f4d000;color:#101720;padding:5px 12px;border-radius:8px;font-weight:800}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spread{justify-content:space-between}button,input,select,textarea{font:inherit;border-radius:9px;border:1px solid #41516a;padding:11px;background:#182940;color:#fff;max-width:100%}button{cursor:pointer}button.primary{background:#f4d000;color:#111;border:0;font-weight:700}.stop-active{background:#ad303b;color:#fff;border-color:#ad303b;font-weight:750}button:disabled{opacity:.5}label{display:block;margin:12px 0 5px;font-size:14px}select,textarea{width:100%}textarea{min-height:210px;font-family:monospace;font-size:13px}details summary{cursor:pointer;font-weight:650}.item{border-left:3px solid #334963;padding:10px 12px;margin:12px 0}.item.active{border-color:#f4d000;background:#1c2c40}.item.done{opacity:.55}.journey-row{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:start;padding:6px 8px;margin:3px 0;border-left:2px solid #334963;border-radius:8px;background:#0e1a2a;font-size:13px;line-height:1.25}.journey-row.active{border-color:#f4d000;background:#1c2c40}.journey-row.done{opacity:.55}.journey-time{white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700;color:#dce5ef}.journey-detail{min-width:0}.journey-detail strong{font-size:13px}.journey-detail small{display:block;margin-top:2px;font-size:11px;line-height:1.25}.notice{padding:12px;background:#273020;border-radius:10px;font-size:14px}#toast{position:fixed;bottom:20px;left:5%;width:90%;padding:18px;background:#f4d000;color:#111;border-radius:12px;display:none;z-index:10}.service-card .photo-viewport{margin-top:14px}.compact{margin-top:14px}.compact>summary{padding:8px 0}.platform-choice{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.platform-link{display:block;text-align:center;text-decoration:none;padding:12px;border:1px solid #41516a;border-radius:10px;background:#182940;color:#fff;font-weight:700}.platform-link.primary{background:#f4d000;color:#111;border:0}.platform-link[hidden]{display:none}.photo-viewport{max-height:360px;overflow:auto;border-radius:10px;background:#080f1c;overscroll-behavior:auto;scroll-behavior:smooth;margin:12px 0}.photo-stage{position:relative;width:100%}.photo-stage img{display:block;width:100%;height:auto;max-width:none;max-height:none;object-fit:fill;border-radius:0}.photo-overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.photo-overlay rect{fill:#f4d000;fill-opacity:.28;stroke:#f4d000;stroke-width:5;vector-effect:non-scaling-stroke}@media(max-width:480px){.platform-choice{grid-template-columns:1fr}}input[type=date]{width:170px}button:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:3px}@media(max-width:420px){.time{font-size:38px}.card{padding:16px}}
 
-#photoViewport{width:100%;max-width:720px;height:min(65vh,680px);max-height:none;aspect-ratio:auto;overflow:auto;margin:14px auto;background:#080f1c;overscroll-behavior:auto}.photo-stage{position:relative;width:100%;height:auto;aspect-ratio:auto}.photo-stage img{position:relative;inset:auto;display:block;width:100%;height:auto;max-width:none;object-fit:contain}.photo-overlay{pointer-events:auto}#activePhotoRow{pointer-events:none}.photo-overlay .photo-row-hit{fill:transparent;stroke:transparent;pointer-events:all;cursor:pointer}.photo-overlay .photo-row-hit:focus{stroke:#fff;stroke-width:4;vector-effect:non-scaling-stroke}#serviceNow{margin:8px 0;font-weight:650}.service-current{color:#f4d000}.service-manual{color:#a9b8cb;font-size:13px}.file-picker{position:relative;display:inline-flex;align-items:center;overflow:hidden;margin:0;padding:11px 14px;border:1px solid #41516a;border-radius:9px;cursor:pointer;font:inherit;line-height:1.2}.file-picker:focus-within{outline:3px solid #fff;outline-offset:3px}.file-picker[hidden]{display:none!important}.file-picker.primary{background:#f4d000;color:#111;border:0;font-weight:700}.file-picker.secondary{background:#182940;color:#fff}.file-picker:focus-visible{outline:3px solid #fff;outline-offset:3px}.file-input{position:absolute;inset:0;width:100%;height:100%;padding:0;margin:0;opacity:0;border:0;cursor:pointer;z-index:1}
+#nativeStatusRecovery[hidden]{display:none}#photoViewport{width:100%;max-width:720px;height:min(65vh,680px);max-height:none;aspect-ratio:auto;overflow:auto;margin:14px auto;background:#080f1c;overscroll-behavior:auto}.photo-stage{position:relative;width:100%;height:auto;aspect-ratio:auto}.photo-stage img{position:relative;inset:auto;display:block;width:100%;height:auto;max-width:none;object-fit:contain}.photo-overlay{pointer-events:auto}#activePhotoRow{pointer-events:none}.photo-overlay .photo-row-hit{fill:transparent;stroke:transparent;pointer-events:all;cursor:pointer}.photo-overlay .photo-row-hit:focus{stroke:#fff;stroke-width:4;vector-effect:non-scaling-stroke}#serviceNow{margin:8px 0;font-weight:650}.service-current{color:#f4d000}.service-manual{color:#a9b8cb;font-size:13px}.file-picker{position:relative;display:inline-flex;align-items:center;overflow:hidden;margin:0;padding:11px 14px;border:1px solid #41516a;border-radius:9px;cursor:pointer;font:inherit;line-height:1.2}.file-picker:focus-within{outline:3px solid #fff;outline-offset:3px}.file-picker[hidden]{display:none!important}.file-picker.primary{background:#f4d000;color:#111;border:0;font-weight:700}.file-picker.secondary{background:#182940;color:#fff}.file-picker:focus-visible{outline:3px solid #fff;outline-offset:3px}.file-input{position:absolute;inset:0;width:100%;height:100%;padding:0;margin:0;opacity:0;border:0;cursor:pointer;z-index:1}
 .minute-stepper{display:flex;align-items:center;gap:8px;margin-top:6px}.minute-stepper button{width:44px;height:44px;padding:0;font-size:18px;font-weight:800}.minute-stepper input{width:76px;text-align:center;font-variant-numeric:tabular-nums}.minute-stepper span{color:#a9b8cb}
 #serviceViewer{width:min(760px,100vw);height:min(80dvh,780px);max-width:none;max-height:none;margin:auto;padding:16px;background:#111e30;color:#eef3fa;border:1px solid #41516a;border-radius:18px;box-shadow:0 20px 70px #000b;overflow:hidden}
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
@@ -35,7 +35,8 @@
  <div id="corporateIdentity" hidden><div class="row"><button id="tmbIdentify" type="button">Identifica't amb TMB</button><span id="corporateIdentityStatus" class="muted" role="status">Identificació corporativa pendent.</span></div><p class="muted"><small>Les credencials s'introdueixen en un diàleg segur d'Android i només es desen xifrades al dispositiu. No s'envien a la miniapp.</small></p></div>
  <div class="row"><button id="startServiceEye" class="primary"><span aria-hidden="true">👁</span> Activa el seguiment automàtic</button><button id="stopServiceEye" class="stop-active" hidden>Atura</button></div>
  <p id="serviceEyeStatus" role="status" class="muted" hidden></p>
- <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.7.0-beta/Miralin-Corporatiu-v0.7.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
+ <div id="nativeStatusRecovery" hidden><p class="muted">No es pot confirmar si l’ull continua actiu. Comprova l’estat directament amb Android.</p><button id="nativeStatusCheck" type="button">Comprova l’estat</button></div>
+ <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.8.0-beta/Miralin-Corporatiu-v0.8.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
  <p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
 </section>
 <section class="card" id="manualTrainCard">
@@ -66,15 +67,15 @@ else{
  $('iosInstructions').textContent='L’ull flotant corporatiu i els avisos natius estan preparats per a Android. La versió Windows encara no està disponible.';
 }
 const nativePackage='cat.tmbagent.elmeuservei.motor';
-const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.7.0';
-const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.7.0';
+const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.8.0';
+const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.8.0';
 const nativeApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.7.0-beta/Miralin-Corporatiu-v0.7.0-beta.apk';
 function refreshAndroidDownload(){
  if(!isAndroid)return;
  $('corporateIdentity').hidden=false;
  const installed=localStorage.getItem(nativeInstalledKey)==='true';
  $('androidOption').href=nativeApkUrl;
- $('androidOption').textContent='Android · instal·la el motor v0.7';
+ $('androidOption').textContent='Android · instal·la el motor v0.8';
  $('androidOption').hidden=installed;
  $('corporateIdentityStatus').textContent=localStorage.getItem(nativeAuthKey)==='true'
   ?'Identificació TMB verificada al dispositiu.'
@@ -113,10 +114,11 @@ if(isAndroid){
 let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,photoPending:false,manualRowIndex:null,manualSince:null};
 const nativeServiceKey='tmb-servei-native-service-v1';
 const followModeKey='tmb-servei-follow-mode-v1';let followMode=localStorage.getItem(followModeKey)||'';
-const nativeStatusSeenKey='tmb-servei-native-status-seen-v0.7.0';
+const nativeStatusSeenKey='tmb-servei-native-status-seen-v0.8.0';
+const nativeStatusNonceKey='tmb-servei-native-status-nonce-v1';
 const nativeStatusUrl='http://127.0.0.1:18764/status';
 let nativeStatusChecking=false,nativeStatusErrors=0,nativeStatusGraceUntil=0;
-if(isAndroid&&localStorage.getItem('tmb-servei-corporate-migration-v0.7.0')!=='true'){
+if(isAndroid&&localStorage.getItem('tmb-servei-corporate-migration-v0.8.0')!=='true'){
  // Old eye state does not imply the new corporate worker is running.
  followMode='';localStorage.removeItem(followModeKey);localStorage.removeItem(nativeServiceKey);
  localStorage.setItem('tmb-servei-corporate-migration-v0.7.0','true');
@@ -133,8 +135,21 @@ if(isAndroid&&nativeQuery.has('nativeReady')){
  localStorage.setItem(nativeInstalledKey,'true');
  localStorage.setItem(nativeAuthKey,'true');
 }
-if(nativeQuery.has('installNative')||nativeQuery.has('nativeReady')){
+if(isAndroid&&nativeQuery.has('nativeState')){
+ const value=nativeQuery.get('nativeState'),nonce=nativeQuery.get('nonce');
+ if(nonce&&nonce===localStorage.getItem(nativeStatusNonceKey)&&['off','service','manual'].includes(value)){
+  followMode=value==='off'?'':value;
+  if(followMode)localStorage.setItem(followModeKey,followMode);
+  else localStorage.removeItem(followModeKey);
+  if(followMode!=='service')localStorage.removeItem(nativeServiceKey);
+  localStorage.setItem(nativeInstalledKey,'true');
+  nativeStatusErrors=0;
+ }
+ localStorage.removeItem(nativeStatusNonceKey);
+}
+if(nativeQuery.has('installNative')||nativeQuery.has('nativeReady')||nativeQuery.has('nativeState')){
  nativeQuery.delete('installNative');nativeQuery.delete('nativeReady');
+ nativeQuery.delete('nativeState');nativeQuery.delete('nonce');
  history.replaceState(history.state,'',location.pathname+(nativeQuery.toString()?'?'+nativeQuery.toString():'')+location.hash);
 }
 let rows=[],manualRowIndex=null,manualSince=0,enabled=localStorage.getItem('tmb-servei-alerts')==='true',remoteAlertsActive=localStorage.getItem('tmb-servei-alerts')==='true',audioCtx=null;
@@ -370,6 +385,14 @@ function serviceScheduleParam(){return rows.map(r=>[r.a,r.b,r.type,r.from,r.to,r
  * leave the phone. When the floating X stops the Android Service, the endpoint
  * disappears; two consecutive failed probes then clear stale UI state.
  */
+function requestNativeEyeState(){
+ const nonce=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,13);
+ localStorage.setItem(nativeStatusNonceKey,nonce);
+ nativeStatusErrors=0;
+ $('nativeStatusRecovery').hidden=true;
+ nativeIntent('status',new URLSearchParams({nonce}));
+}
+$('nativeStatusCheck').onclick=requestNativeEyeState;
 async function syncNativeEyeState(){
  if(!isAndroid||document.hidden||nativeStatusChecking)return;
  // Do not request Chrome's local-loopback permission before the motor is installed or used.
@@ -384,6 +407,7 @@ async function syncNativeEyeState(){
   // The motor answers "off" after the floating X, rather than disappearing.
   // Confirmed inactivity clears Atura even without a previous successful check.
   nativeStatusErrors=0;
+  $('nativeStatusRecovery').hidden=true;
   localStorage.setItem(nativeStatusSeenKey,'true');
   localStorage.setItem(nativeInstalledKey,'true');
   if(status.active===false){
@@ -403,13 +427,10 @@ async function syncNativeEyeState(){
   refreshAndroidDownload();
  }catch(error){
   if(Date.now()<nativeStatusGraceUntil)return;
-  // Do not equate a blocked local-network permission with a stopped service
-  // unless this same browser has successfully reached its local status bridge.
-  if(localStorage.getItem(nativeStatusSeenKey)==='true'&&++nativeStatusErrors>=2&&followMode){
-   showFollowMode('');
-   localStorage.removeItem(nativeServiceKey);
-   render();
-  }
+  // Loss of the local connection is NOT proof that tracking ended.
+  // Offer a deliberate native status check rather than inventing "off".
+  if(followMode&&++nativeStatusErrors>=2)$('nativeStatusRecovery').hidden=false;
+  else if(!followMode)$('nativeStatusRecovery').hidden=true;
  }finally{nativeStatusChecking=false}
 }
 if(isAndroid){
