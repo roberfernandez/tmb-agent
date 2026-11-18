@@ -9,8 +9,11 @@ const end=page.indexOf('function render(){',begin);
 assert.ok(begin>=0 && end>begin,'Live duty calculation is present');
 
 const rows=[
+ {a:1126,b:1146,type:'TRA',from:'413',to:'422',train:'',i:0},
+ {a:1146,b:1226,type:'EST',from:'422',to:'422',train:'',i:1},
+ {a:1226,b:1298,type:'CON',from:'422',to:'434',train:'414',via:'2',out:'RET',i:2},
  {a:1298,b:1409,type:'EST',from:'434',to:'434',train:'',i:3},
- {a:1409,b:1469,type:'CON',from:'434',to:'413',train:'405',via:'2',start:'23:29',i:4},
+ {a:1409,b:1469,type:'CON',from:'434',to:'413',train:'405',via:'2',start:'23:29',out:'RET',i:4},
  {a:1469,b:1490,type:'EST',from:'413',to:'413',train:'',i:5}
 ];
 
