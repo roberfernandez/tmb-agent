@@ -64,6 +64,7 @@ test('manual confirmation sends only row and matching plan key to native motor',
   $:id=>({dataset:{index:4}}),
   Date:class extends Date{static now(){return now}},
   stations:{434:'Trinitat Nova'},
+  URLSearchParams,
   nativeIntent:(host,params)=>{sent={host,params}},
   persist:()=>{},render:()=>{}
  });
