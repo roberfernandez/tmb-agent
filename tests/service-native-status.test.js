@@ -10,7 +10,7 @@ assert.ok(statusStart>=0&&statusEnd>statusStart,'native status helper is present
 const statusSource=page.slice(statusStart,statusEnd);
 
 function statusHarness({response,followMode='service',seen=false}={}){
- const data=new Map(),changes=[];
+ const data=new Map(),changes=[],elements=new Map();
  if(seen)data.set('seen','true');
  const ctx={
   isAndroid:true,
@@ -25,12 +25,13 @@ function statusHarness({response,followMode='service',seen=false}={}){
    removeItem:k=>data.delete(k)
   },
   Date,AbortSignal,
+  $:key=>{if(!elements.has(key))elements.set(key,{hidden:true});return elements.get(key)},
   fetch:async()=>{if(response instanceof Error)throw response;return {ok:true,json:async()=>response};},
   showFollowMode:mode=>{ctx.followMode=mode;changes.push(mode)},
   render:()=>{},refreshAndroidDownload:()=>{}
  };
  vm.runInContext(statusSource,vm.createContext(ctx));
- return {ctx,data,changes};
+ return {ctx,data,changes,elements};
 }
 
 test('a running corporate manual eye replaces stale automatic UI state',async()=>{
@@ -44,21 +45,34 @@ test('a running corporate manual eye replaces stale automatic UI state',async()=
  assert.equal(data.has('schedule'),false);
 });
 
-test('closing floating X clears obsolete Atura buttons after two failed local checks',async()=>{
- const {ctx,changes}=statusHarness({response:new Error('ERR_CONNECTION_REFUSED'),seen:true,followMode:'manual'});
- await ctx.syncNativeEyeState();
- assert.equal(ctx.followMode,'manual','one transient failure must not report stopped');
+test('closing the floating X clears Atura from an explicit OFF response on the first successful check',async()=>{
+ const {ctx,data,changes,elements}=statusHarness({response:{active:false,mode:'off'},seen:false,followMode:'manual'});
+ data.set('schedule','old');
  await ctx.syncNativeEyeState();
  assert.equal(ctx.followMode,'');
  assert.deepEqual(changes,['']);
+ assert.equal(data.get('seen'),'true');
+ assert.equal(data.has('schedule'),false);
+ assert.equal(elements.get('nativeStatusRecovery').hidden,true);
 });
 
-test('blocked loopback access never falsely concludes that eye is stopped',async()=>{
- const {ctx,changes}=statusHarness({response:new Error('Access to local network denied'),seen:false});
+test('loopback failure does not invent a stopped eye, but offers verified native fallback',async()=>{
+ const {ctx,changes,elements}=statusHarness({response:new Error('ERR_CONNECTION_REFUSED'),seen:false});
+ await ctx.syncNativeEyeState();
+ assert.equal(ctx.followMode,'service');
+ await ctx.syncNativeEyeState();
+ assert.equal(ctx.followMode,'service');
+ assert.deepEqual(changes,[]);
+ assert.equal(elements.get('nativeStatusRecovery').hidden,false);
+});
+
+test('even after a prior check a blocked loopback never reports fake OFF',async()=>{
+ const {ctx,changes,elements}=statusHarness({response:new Error('Access to local network denied'),seen:true});
  await ctx.syncNativeEyeState();
  await ctx.syncNativeEyeState();
  assert.equal(ctx.followMode,'service');
  assert.deepEqual(changes,[]);
+ assert.equal(elements.get('nativeStatusRecovery').hidden,false);
 });
 
 test('manual Stop is never visible in automatic mode and manual Start is hidden',()=>{
