@@ -56,7 +56,7 @@ test('automatic follow transfers schedule, alerts and margin without credentials
  const start=page.indexOf("$('startServiceEye').onclick=async()=>{"),end=page.indexOf("$('stopServiceEye').onclick",start);
  assert.ok(start>0&&end>start);
  const elements=new Map();
- const ctx={isAndroid:true,isIOS:false,enabled:true,serviceLaunchBusy:false,alertSettingsDirty:false,
+ const ctx={isAndroid:true,isIOS:false,followMode:'',enabled:true,serviceLaunchBusy:false,alertSettingsDirty:false,
   rows:[{type:'CON',from:'434',to:'413',a:1409,b:1469,train:'405',via:'2',out:'RET'}],
   state:{photoPending:false,date:'2026-11-17',photoData:null,margin:5},
   $:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id)},
