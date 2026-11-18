@@ -381,6 +381,7 @@ async function syncNativeEyeState(){
   nativeStatusErrors=0;
   localStorage.setItem(nativeStatusSeenKey,'true');
   localStorage.setItem(nativeInstalledKey,'true');
+  localStorage.setItem(nativeAuthKey,'true');
   if(followMode!==status.mode){
    showFollowMode(status.mode);
    if(status.mode!=='service')localStorage.removeItem(nativeServiceKey);
