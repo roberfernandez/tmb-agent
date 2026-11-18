@@ -229,18 +229,42 @@ function activeServiceRow(now){
  if(live&&Number.isInteger(live.row)&&rows[live.row])return rows[live.row];
  return rows.find(r=>now>=when(r.a)&&now<when(r.b))||rows.find(r=>now<when(r.a))||null;
 }
-function render(){let now=Date.now();refreshServiceFollowControls();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now);$('serviceNow').innerHTML=state.photoPending?'':active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció manual · seguiment automàtic aturat</span>':''):rows.length?(followMode==='service'?'No hi ha cap tram actiu en aquesta franja.':'Tria una línia manualment o activa el seguiment automàtic.'):'Carrega una captura o foto del servei per començar.';let next=rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));let driving=active?.type==='CON'?active:null;
-$('next').innerHTML=driving?`<p class="tag">TRAM DE CONDUCCIÓ PREVIST</p><span class="train">${esc(driving.train)}</span><p>Deixa a ${esc(stations[driving.to])} · via ${esc(driving.out)}</p><div class="time">${esc(driving.end)}</div>`:next?`<div class="time">${esc(next.start)}</div><p><span class="train">${esc(next.train)}</span> · ${esc(stations[next.from])} · via ${esc(next.via)}</p><p class="muted">Horari previst · ${Math.ceil((when(next.a)-now)/60000)} min per a la presa</p>`:'<p>No queden preses pendents en aquesta jornada.</p>';
-$('taken').disabled=!next;$('taken').dataset.index=next?.i??'';
+function render(){let now=Date.now();refreshServiceFollowControls();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now),pending=pendingPickup(now);$('serviceNow').innerHTML=state.photoPending?'':active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció manual · seguiment automàtic aturat</span>':''):rows.length?(followMode==='service'?'No hi ha cap tram actiu en aquesta franja.':'Tria una línia manualment o activa el seguiment automàtic.'):'Carrega una captura o foto del servei per començar.';
+$('pickupPending').hidden=!pending;
+if(pending){
+ const elapsed=Math.max(0,Math.floor((now-when(pending.a))/60000));
+ $('pickupPendingText').textContent='Presa pendent del tren '+pending.train+' a '+stations[pending.from]
+  +' · hora prevista '+pending.start+' · en espera +'+elapsed+' min respecte de l’horari.';
+ $('confirmPickup').dataset.index=pending.i;
+}
+let next=pending||rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));
+let driving=active?.type==='CON'?active:null;
+$('next').innerHTML=driving?`<p class="tag">TRAM DE CONDUCCIÓ PREVIST</p><span class="train">${esc(driving.train)}</span><p>Deixa a ${esc(stations[driving.to])} · via ${esc(driving.out)}</p><div class="time">${esc(driving.end)}</div>`:next?`<div class="time">${esc(next.start)}</div><p><span class="train">${esc(next.train)}</span> · ${esc(stations[next.from])} · via ${esc(next.via)}</p><p class="muted">${pending?'Presa pendent des de les '+esc(next.start):'Horari previst · '+Math.ceil((when(next.a)-now)/60000)+' min per a la presa'}</p>`:'<p>No queden preses pendents en aquesta jornada.</p>';
+const nextConfirmable=next&&now>=when(next.a)-30*60000;
+$('taken').disabled=!nextConfirmable;$('taken').dataset.index=nextConfirmable?next.i:'';
 $('expected').textContent=active?('Segons el servei: '+(active.type==='TRA'?'en trasllat a '+stations[active.to]:active.type==='CON'?'a bord del '+active.train:stations[active.from])):'Fora de l’horari del servei.';
 $('confirmed').textContent=state.location?'Confirmat: '+state.location.label+' · '+new Date(state.location.time).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'})+' (no és localització contínua)':'Ubicació prevista, pendent de confirmació.';
-$('timeline').innerHTML=rows.map(r=>`<div class="journey-row ${active===r?'active':''} ${when(r.b)<now?'done':''}"><span class="journey-time">${esc(r.start)}–${esc(r.end)}</span><span class="journey-detail"><strong>${esc(desc(r))}</strong><small>${esc(stations[r.from])}${r.from!==r.to?' → '+esc(stations[r.to]):''}${r.type==='CON'?' · v'+esc(r.via)+' → '+esc(r.out):''}${state.taken.includes(r.i)?' · presa':''}</small></span></div>`).join('');updatePhotoHighlight(active);
+$('timeline').innerHTML=rows.map(r=>`<div class="journey-row ${active===r?'active':''} ${when(r.b)<now&&r!==active?'done':''}"><span class="journey-time">${esc(r.start)}–${esc(r.end)}</span><span class="journey-detail"><strong>${esc(desc(r))}</strong><small>${esc(stations[r.from])}${r.from!==r.to?' → '+esc(stations[r.to]):''}${r.type==='CON'?' · v'+esc(r.via)+' → '+esc(r.out):''}${state.taken.includes(r.i)?' · presa':''}</small></span></div>`).join('');updatePhotoHighlight(active);
 
 if(enabled&&!remoteAlertsActive&&!state.photoPending){for(const r of rows.filter(r=>r.type==='CON')){if(state.taken.includes(r.i))continue;const t=when(r.a),key=r.i+'presa';if(now>=t-state.margin*60000&&now<t&&!fired.has(key)){fired.add(key);notify('Horari previst: presa del '+r.train+' a '+stations[r.from]+' · '+r.start)}}}}
 function load(){try{rows=state.text?parse(state.text):[]}catch{rows=[]}manualRowIndex=Number.isInteger(state.manualRowIndex)?state.manualRowIndex:null;manualSince=Number(state.manualSince)||0;$('date').value=state.date;$('editor').value=state.text||'';$('margin').value=state.margin;if(state.photoPending){$('ocrStatus').textContent='Hi ha una imatge pendent d’interpretar. Torna a carregar-la per continuar.'}else if(state.photoData){$('photoPreview').src=state.photoData;const restoredImage=new Image();restoredImage.onload=()=>{ocrImage=restoredImage;$('readPhoto').disabled=false;$('rotatePhoto').disabled=false};restoredImage.src=state.photoData;$('photoViewport').hidden=false;$('photoProgress').hidden=false;$('photoPreview').hidden=false;ocrRowBounds=state.photoRows||null;photoSize=state.photoSize||null;photoRowsReady=Boolean(ocrRowBounds&&photoSize&&ocrRowBounds.length===rows.length);if(photoSize)$('photoOverlay').setAttribute('viewBox','0 0 '+photoSize.width+' '+photoSize.height);requestAnimationFrame(()=>{layoutPhotoOverlay();drawPhotoHitboxes()})}render()}
 for(let id of ['location'])$(id).innerHTML=Object.entries(stations).map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join('');
 $('confirm').onclick=()=>{state.location={label:stations[$('location').value],time:Date.now()};persist();render()};$('auto').onclick=()=>{state.location=null;persist();render()};
-$('taken').onclick=()=>{let r=rows.find(r=>r.i===Number($('taken').dataset.index));if(!r)return;state.taken.push(r.i);state.location={label:'A bord del '+r.train,time:Date.now()};persist();render()};
+function confirmPickupRow(index){
+ const row=rows.find(r=>r.i===Number(index));
+ if(!row||row.type!=='CON'||followMode!=='service'||state.photoPending)return;
+ const now=Date.now(),focus=currentDrivingFocus(now);
+ if(!focus||focus.i!==row.i||now<when(row.a)-30*60000)return;
+ if(!state.taken.includes(row.i))state.taken.push(row.i);
+ state.location={label:'A bord del '+row.train,time:now};
+ persist();
+ // The user confirms the boarding locally. The native motor must validate
+ // the same service key before switching its official tracking station.
+ if(isAndroid)nativeIntent('pickup',new URLSearchParams({row:String(row.i),plan:serviceScheduleKey()}));
+ render();
+}
+$('taken').onclick=()=>confirmPickupRow($('taken').dataset.index);
+$('confirmPickup').onclick=()=>confirmPickupRow($('confirmPickup').dataset.index);
 
 function buildServiceAlertEvents(){
  const now=Date.now(),events=[];
@@ -419,6 +443,7 @@ function showServiceEyeError(message){const status=$('serviceEyeStatus');status.
 function showFollowMode(mode){
  followMode=mode;
  if(mode!=='manual'){watchEditing=false;watchBeforeEdit=null}
+ if(mode!=='service')nativeDuty=null;
  if(mode)localStorage.setItem(followModeKey,mode);else localStorage.removeItem(followModeKey);
  refreshServiceFollowControls();
  refreshManualWatchControls();
