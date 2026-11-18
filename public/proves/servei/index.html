@@ -372,6 +372,8 @@ function serviceScheduleParam(){return rows.map(r=>[r.a,r.b,r.type,r.from,r.to,r
  */
 async function syncNativeEyeState(){
  if(!isAndroid||document.hidden||nativeStatusChecking)return;
+ // Do not request Chrome's local-loopback permission before the motor is installed or used.
+ if(!followMode&&localStorage.getItem(nativeInstalledKey)!=='true')return;
  nativeStatusChecking=true;
  try{
   const response=await fetch(nativeStatusUrl,{cache:'no-store',mode:'cors',targetAddressSpace:'loopback',signal:AbortSignal.timeout(2200)});
