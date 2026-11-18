@@ -369,7 +369,7 @@ public final class CorporateEyeService extends Service {
         if (viewer != null && viewer.isShowing()) return;
         viewer = new CorporateServiceViewer(this, windows, viewerPlan,
             serviceImage, serviceRowBounds, () -> viewer = null);
-        viewer.show();
+        viewer.show(currentViewerRow(System.currentTimeMillis()));
     }
 
     private PendingIntent viewerPendingIntent() {
