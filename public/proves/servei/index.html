@@ -171,7 +171,7 @@ function minutes(s){if(!/^\d{2}:[0-5]\d$/.test(s)||Number(s.slice(0,2))>47)throw
 function parse(text){let previous=-1;return text.trim().split('\n').filter(l=>l.trim()).map((l,i)=>{let [start,end,type,from,to,train='',via='',out='']=l.split('|').map(s=>s.trim());let a,b;try{a=minutes(start)}catch{throw Error('Fila '+(i+1)+': hora d’inici no reconeguda ('+(start||'buida')+').')}try{b=minutes(end)}catch{throw Error('Fila '+(i+1)+': hora final no reconeguda ('+(end||'buida')+').')}if(b<=a||a<previous)throw Error('Fila '+(i+1)+': horari solapat o final anterior a inici.');if(!['TRA','EST','CON'].includes(type)||!stations[from]||!stations[to])throw Error('Fila '+(i+1)+': tipus o estació no vàlids.');if(type==='CON'&&(!/^4\d{2}$/.test(train)||!['1','2'].includes(via)||!['1','2','RET'].includes(out)))throw Error('Fila '+(i+1)+': revisa tren i vies.');previous=b;return {start,end,type,from,to,train,via,out,a,b,i}})}
 function when(m){
  // Date from the validated service, not today's date: shifts may cross midnight.
- const parts=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(state.date||'');
+ const parts=/^(\d{4})-(\d{2})-(\d{2})$/.exec(state.date||'');
  if(parts)return new Date(+parts[1],+parts[2]-1,+parts[3],0,m).getTime();
  const today=new Date();return new Date(today.getFullYear(),today.getMonth(),today.getDate(),0,m).getTime();
 }
