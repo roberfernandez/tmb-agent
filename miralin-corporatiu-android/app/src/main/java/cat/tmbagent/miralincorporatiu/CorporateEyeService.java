@@ -478,11 +478,14 @@ public final class CorporateEyeService extends Service {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 
-    static String nativeStateJson() {
-        boolean active = isActive;
-        String currentMode = active && ("service".equals(activeMode) || "manual".equals(activeMode))
+    static String nativeMode() {
+        return isActive && ("service".equals(activeMode) || "manual".equals(activeMode))
             ? activeMode : "off";
-        return "{\"active\":" + active + ",\"mode\":\"" + currentMode + "\"}";
+    }
+
+    static String nativeStateJson() {
+        String currentMode = nativeMode();
+        return "{\"active\":" + !"off".equals(currentMode) + ",\"mode\":\"" + currentMode + "\"}";
     }
 
     @Override public void onDestroy() {
