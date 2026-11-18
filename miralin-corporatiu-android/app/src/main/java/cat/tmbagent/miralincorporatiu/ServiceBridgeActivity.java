@@ -63,6 +63,26 @@ public final class ServiceBridgeActivity extends Activity {
             finish();
             return;
         }
+        if ("pickup".equals(host)) {
+            // Explicit worker confirmation from the PWA. Only affect the
+            // currently running service if the uploaded plan key matches.
+            String key = data.getQueryParameter("plan");
+            String row = data.getQueryParameter("row");
+            if (CorporateEyeService.isActive && key != null
+                && key.matches("[0-9a-f]{1,8}") && row != null
+                && row.matches("[0-9]{1,3}")) {
+                int index = Integer.parseInt(row);
+                if (index < 140) {
+                    Intent confirm = new Intent(this, CorporateEyeService.class)
+                        .setAction(CorporateEyeService.ACTION_CONFIRM_PICKUP)
+                        .putExtra(CorporateEyeService.EXTRA_PICKUP_ROW, index)
+                        .putExtra(CorporateEyeService.EXTRA_PLAN_KEY, key);
+                    try { startService(confirm); } catch (Exception ignored) {}
+                }
+            }
+            finish();
+            return;
+        }
         if ("login".equals(host)) {
             promptLogin(false);
             return;
