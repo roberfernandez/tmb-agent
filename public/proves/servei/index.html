@@ -379,15 +379,26 @@ async function syncNativeEyeState(){
   const response=await fetch(nativeStatusUrl,{cache:'no-store',mode:'cors',targetAddressSpace:'loopback',signal:AbortSignal.timeout(2200)});
   if(!response.ok)throw Error('Motor sense resposta.');
   const status=await response.json();
-  if(status?.active!==true||!['service','manual'].includes(status.mode))throw Error('Seguiment inactiu.');
+  if(typeof status?.active!=='boolean')throw Error('Resposta del motor incorrecta.');
+  if(status.active===true&&!['service','manual'].includes(status.mode))throw Error('Mode del motor incorrecte.');
+  // The motor answers "off" after the floating X, rather than disappearing.
+  // Confirmed inactivity clears Atura even without a previous successful check.
   nativeStatusErrors=0;
   localStorage.setItem(nativeStatusSeenKey,'true');
   localStorage.setItem(nativeInstalledKey,'true');
-  localStorage.setItem(nativeAuthKey,'true');
-  if(followMode!==status.mode){
-   showFollowMode(status.mode);
-   if(status.mode!=='service')localStorage.removeItem(nativeServiceKey);
-   render();
+  if(status.active===false){
+   if(followMode){
+    showFollowMode('');
+    localStorage.removeItem(nativeServiceKey);
+    render();
+   }
+  }else{
+   localStorage.setItem(nativeAuthKey,'true');
+   if(followMode!==status.mode){
+    showFollowMode(status.mode);
+    if(status.mode!=='service')localStorage.removeItem(nativeServiceKey);
+    render();
+   }
   }
   refreshAndroidDownload();
  }catch(error){
