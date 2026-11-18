@@ -49,6 +49,20 @@ public final class ServiceBridgeActivity extends Activity {
             finish();
             return;
         }
+        if ("status".equals(host)) {
+            // User-requested fallback if Chrome cannot read Android loopback.
+            // Return only the active mode, never a schedule or credentials.
+            String nonce = data.getQueryParameter("nonce");
+            if (nonce != null && nonce.matches("[a-zA-Z0-9-]{5,64}")) {
+                String state = CorporateEyeService.nativeMode();
+                Intent back = new Intent(Intent.ACTION_VIEW,
+                    Uri.parse(VIEWER + "?nativeState=" + state + "&nonce=" + nonce));
+                back.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                try { startActivity(back); } catch (Exception ignored) {}
+            }
+            finish();
+            return;
+        }
         if ("login".equals(host)) {
             promptLogin(false);
             return;
