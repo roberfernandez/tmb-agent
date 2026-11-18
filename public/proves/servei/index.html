@@ -373,7 +373,7 @@ async function syncNativeEyeState(){
  if(!isAndroid||document.hidden||nativeStatusChecking)return;
  nativeStatusChecking=true;
  try{
-  const response=await fetch(nativeStatusUrl,{cache:'no-store',mode:'cors',signal:AbortSignal.timeout(2200)});
+  const response=await fetch(nativeStatusUrl,{cache:'no-store',mode:'cors',targetAddressSpace:'loopback',signal:AbortSignal.timeout(2200)});
   if(!response.ok)throw Error('Motor sense resposta.');
   const status=await response.json();
   if(status?.active!==true||!['service','manual'].includes(status.mode))throw Error('Seguiment inactiu.');
