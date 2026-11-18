@@ -42,8 +42,12 @@ public final class CorporateEyeService extends Service {
     static final String EXTRA_VIEWER_SCHEDULE = "viewerSchedule";
     static final String EXTRA_SERVICE_IMAGE = "serviceImage";
     static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
+    static final String ACTION_CONFIRM_PICKUP = "CONFIRM_PICKUP";
+    static final String EXTRA_PICKUP_ROW = "pickupRow";
+    static final String EXTRA_PLAN_KEY = "planKey";
     static volatile boolean isActive;
     private static volatile String activeMode = "off";
+    private static volatile String activeDutyJson = "";
 
     private static final String CHANNEL = "corporate_eye_active";
     private static final String ALERTS_CHANNEL = "corporate_service_alerts";
@@ -64,6 +68,7 @@ public final class CorporateEyeService extends Service {
     private int targetVia = 1;
     private volatile String mode = "manual";
     private CorporateServicePlan servicePlan;
+    private CorporateDutyTracker duty;
     private CorporateServicePlan viewerPlan;
     private CorporateServiceViewer viewer;
     private String serviceImage = "";
@@ -128,6 +133,18 @@ public final class CorporateEyeService extends Service {
                         connection = result == null ? "Tren no localitzat a la taula consultada"
                             : departure == null ? "No consta SORTIDA per aquesta via"
                             : "Lectura oficial rebuda";
+                        if ("service".equals(mode) && duty != null) {
+                            // This is the only auto-pickup signal. No clock-only
+                            // transition is allowed. Two fresh official readings
+                            // at the correct station are required.
+                            if (duty.observe(receivedAt, requested,
+                                    result == null ? "" : result.station,
+                                    result == null ? "" : result.track,
+                                    departure != null)) {
+                                applyServiceSelection(receivedAt, true);
+                            }
+                            publishDutyStatus(receivedAt);
+                        }
                     } else {
                         connection = error instanceof CorporateMiralinClient.AccessDenied
                             || error instanceof CorporateMiralinClient.AuthenticationRedirect
@@ -148,8 +165,10 @@ public final class CorporateEyeService extends Service {
         @Override public void run() {
             if (stopped) return;
             if ("service".equals(mode)) applyServiceSelection(System.currentTimeMillis(), true);
+            publishDutyStatus(System.currentTimeMillis());
             tickServiceAlerts(System.currentTimeMillis());
-            if (viewer != null) viewer.refresh(System.currentTimeMillis());
+            if (viewer != null) viewer.refresh(System.currentTimeMillis(),
+                currentViewerRow(System.currentTimeMillis()));
             render();
             if (!stopped) ui.postDelayed(this, 1000);
         }
@@ -166,6 +185,18 @@ public final class CorporateEyeService extends Service {
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_CONFIRM_PICKUP.equals(intent.getAction())) {
+            if (isActive && "service".equals(mode) && duty != null && servicePlan != null
+                && servicePlan.webKey().equals(intent.getStringExtra(EXTRA_PLAN_KEY))
+                && duty.confirmBoarded(System.currentTimeMillis(),
+                    intent.getIntExtra(EXTRA_PICKUP_ROW, -1))) {
+                applyServiceSelection(System.currentTimeMillis(), true);
+                publishDutyStatus(System.currentTimeMillis());
+                if (viewer != null) viewer.refresh(System.currentTimeMillis(),
+                    currentViewerRow(System.currentTimeMillis()));
+            }
+            return START_NOT_STICKY;
+        }
         if (intent != null && "STOP".equals(intent.getAction())) {
             stopSelf();
             return START_NOT_STICKY;
@@ -181,6 +212,7 @@ public final class CorporateEyeService extends Service {
                 String date = intent.getStringExtra(EXTRA_SERVICE_DATE);
                 try {
                     servicePlan = new CorporateServicePlan(date, schedule);
+                    duty = new CorporateDutyTracker(servicePlan);
                     viewerPlan = servicePlan;
                     mode = "service";
                     if (!applyServiceSelection(System.currentTimeMillis(), false)) {
@@ -194,6 +226,8 @@ public final class CorporateEyeService extends Service {
             } else {
                 mode = "manual";
                 servicePlan = null;
+                duty = null;
+                activeDutyJson = "";
                 takeoverAt = -1;
                 viewerPlan = null;
                 String viewerDate = intent.getStringExtra(EXTRA_VIEWER_DATE);
@@ -228,6 +262,7 @@ public final class CorporateEyeService extends Service {
         showOverlay();
         isActive = true;
         activeMode = mode;
+        publishDutyStatus(System.currentTimeMillis());
         lastTrain = null;
         receivedAt = 0;
         departureAt = -1;
@@ -407,7 +442,8 @@ public final class CorporateEyeService extends Service {
 
     private boolean applyServiceSelection(long now, boolean refresh) {
         if (servicePlan == null || !"service".equals(mode)) return true;
-        CorporateServicePlan.Selection selected = servicePlan.at(now);
+        CorporateDutyTracker.Snapshot snapshot = duty == null ? null : duty.at(now);
+        CorporateServicePlan.Selection selected = snapshot == null ? null : snapshot.selection;
         if (selected == null) {
             // A service is finished: do not continue monitoring its last train forever.
             stopSelf();
@@ -417,6 +453,7 @@ public final class CorporateEyeService extends Service {
         boolean changed = !selected.train.equals(train) || selected.stop != stop
             || selected.via != targetVia || nextTakeover != takeoverAt;
         takeoverAt = nextTakeover;
+        publishDutyStatus(now);
         if (!changed) return true;
         train = selected.train;
         stop = selected.stop;
@@ -432,6 +469,26 @@ public final class CorporateEyeService extends Service {
             ui.post(poll);
         }
         return true;
+    }
+
+    private int currentViewerRow(long now) {
+        CorporateDutyTracker.Snapshot snapshot =
+            "service".equals(mode) && duty != null ? duty.at(now) : null;
+        return snapshot == null ? -1 : snapshot.photoRow;
+    }
+
+    private void publishDutyStatus(long now) {
+        if (!"service".equals(mode) || servicePlan == null || duty == null) {
+            activeDutyJson = "";
+            return;
+        }
+        CorporateDutyTracker.Snapshot snapshot = duty.at(now);
+        activeDutyJson = snapshot == null ? "" :
+            ",\"plan\":\"" + servicePlan.webKey()
+            + "\",\"row\":" + snapshot.photoRow
+            + ",\"pickup\":" + snapshot.pickupRow
+            + ",\"waiting\":" + snapshot.waiting
+            + ",\"source\":\"" + snapshot.source + "\"";
     }
 
     private void setOverlayPosition(int x, int y) {
@@ -485,13 +542,16 @@ public final class CorporateEyeService extends Service {
 
     static String nativeStateJson() {
         String currentMode = nativeMode();
-        return "{\"active\":" + !"off".equals(currentMode) + ",\"mode\":\"" + currentMode + "\"}";
+        String details = "service".equals(currentMode) ? activeDutyJson : "";
+        return "{\"active\":" + !"off".equals(currentMode)
+            + ",\"mode\":\"" + currentMode + "\"" + details + "}";
     }
 
     @Override public void onDestroy() {
         stopped = true;
         isActive = false;
         activeMode = "off";
+        activeDutyJson = "";
         ui.removeCallbacks(poll);
         ui.removeCallbacks(ageTick);
         network.shutdownNow();
