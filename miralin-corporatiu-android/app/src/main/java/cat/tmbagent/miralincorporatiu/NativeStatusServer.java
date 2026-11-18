@@ -27,29 +27,32 @@ final class NativeStatusServer {
 
     NativeStatusServer(Supplier<String> status) { this.status = status; }
 
-    synchronized void start() {
-        if (server != null) return;
-        try {
-            server = new ServerSocket(PORT, 4, InetAddress.getByName("127.0.0.1"));
-            worker.execute(() -> {
-                while (!Thread.currentThread().isInterrupted()) {
-                    try {
-                        ServerSocket listening;
-                        synchronized (this) { listening = server; }
-                        if (listening == null || listening.isClosed()) return;
-                        try (Socket client = listening.accept()) { handle(client); }
-                    } catch (IOException closed) {
-                        return;
+    private volatile boolean closed;
+
+    void start() {
+        // Binding and accepting sockets must never block the Android main thread.
+        worker.execute(() -> {
+            try (ServerSocket listening = new ServerSocket(PORT, 4,
+                    InetAddress.getByName("127.0.0.1"))) {
+                synchronized (this) {
+                    if (closed) return;
+                    server = listening;
+                }
+                while (!closed && !Thread.currentThread().isInterrupted()) {
+                    try (Socket client = listening.accept()) {
+                        handle(client);
+                    } catch (IOException problem) {
+                        if (closed) return;
                     } catch (Exception ignored) {
-                        // One malformed loopback request must not kill the bridge.
+                        // A malformed request must not stop native tracking.
                     }
                 }
-            });
-        } catch (IOException unavailable) {
-            // The eye still works if Chrome cannot access loopback on this device.
-            server = null;
-            worker.shutdownNow();
-        }
+            } catch (IOException unavailable) {
+                // The eye itself continues when loopback is unavailable.
+            } finally {
+                synchronized (this) { server = null; }
+            }
+        });
     }
 
     private void handle(Socket client) throws IOException {
@@ -107,6 +110,7 @@ final class NativeStatusServer {
     }
 
     synchronized void close() {
+        closed = true;
         if (server != null) {
             try { server.close(); } catch (IOException ignored) {}
             server = null;
