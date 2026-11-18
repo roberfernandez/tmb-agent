@@ -363,6 +363,7 @@ function refreshServiceFollowControls(){
  const now=Date.now(),driving=rows.filter(r=>r.type==='CON'),current=driving.find(r=>when(r.a)<=now&&now<when(r.b))||driving.find(r=>when(r.a)>now)||driving.at(-1);
  $('serviceTrainPreview').textContent=current?('Tren previst: '+current.train+' · '+current.start+' · '+stations[current.from]+(dirty?' · servei nou pendent d’aplicar':'')):'';
 }
+function serviceScheduleParam(){return rows.map(r=>[r.a,r.b,r.type,r.from,r.to,r.train||'',r.via||'',r.out||''].join(',')).join(';')}
 /**
  * Chrome reads the native eye's actual status only while this page is visible.
  * The endpoint is loopback-only: no credentials, train data or personal schedule
@@ -405,7 +406,7 @@ if(isAndroid){
  setInterval(()=>{if(!document.hidden)void syncNativeEyeState()},2500);
  void syncNativeEyeState();
 }
-function serviceScheduleParam(){return rows.map(r=>[r.a,r.b,r.type,r.from,r.to,r.train||'',r.via||'',r.out||''].join(',')).join(';')}
+
 function serviceRowBoundsParam(){
  if(!Array.isArray(state.photoRows)||!state.photoSize?.width||!state.photoSize?.height)return '';
  return JSON.stringify(state.photoRows.map(b=>[b.x/state.photoSize.width,b.y/state.photoSize.height,b.width/state.photoSize.width,b.height/state.photoSize.height]));
