@@ -1,6 +1,7 @@
 <!doctype html><html lang="ca"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080f1c"><meta name="robots" content="noindex,nofollow"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="TMB Agent"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="../../assets/icons/tmb-agent-192.png"><link rel="manifest" href="../../manifest.webmanifest"><title>El meu servei · Proves</title>
 <style>*{box-sizing:border-box}body{margin:0;background:#080f1c;color:#eef3fa;font:16px system-ui,sans-serif}main{max-width:760px;margin:auto;padding:20px 16px 50px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:30px}a{color:#f4d000}h1{font-size:27px;margin:6px 0}h2{font-size:18px;margin:0 0 14px}p{line-height:1.5}.muted,small{color:#a9b8cb}.tag{font-size:12px;letter-spacing:1px;color:#f4d000}.card{background:#111e30;border:1px solid #28394e;border-radius:18px;padding:20px;margin:14px 0}.hero{border-top:4px solid #f4d000}.time{font-size:44px;font-weight:750;letter-spacing:-2px}.train{display:inline-block;background:#f4d000;color:#101720;padding:5px 12px;border-radius:8px;font-weight:800}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spread{justify-content:space-between}button,input,select,textarea{font:inherit;border-radius:9px;border:1px solid #41516a;padding:11px;background:#182940;color:#fff;max-width:100%}button{cursor:pointer}button.primary{background:#f4d000;color:#111;border:0;font-weight:700}.stop-active{background:#ad303b;color:#fff;border-color:#ad303b;font-weight:750}button:disabled{opacity:.5}label{display:block;margin:12px 0 5px;font-size:14px}select,textarea{width:100%}textarea{min-height:210px;font-family:monospace;font-size:13px}details summary{cursor:pointer;font-weight:650}.item{border-left:3px solid #334963;padding:10px 12px;margin:12px 0}.item.active{border-color:#f4d000;background:#1c2c40}.item.done{opacity:.55}.journey-row{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:start;padding:6px 8px;margin:3px 0;border-left:2px solid #334963;border-radius:8px;background:#0e1a2a;font-size:13px;line-height:1.25}.journey-row.active{border-color:#f4d000;background:#1c2c40}.journey-row.done{opacity:.55}.journey-time{white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700;color:#dce5ef}.journey-detail{min-width:0}.journey-detail strong{font-size:13px}.journey-detail small{display:block;margin-top:2px;font-size:11px;line-height:1.25}.notice{padding:12px;background:#273020;border-radius:10px;font-size:14px}#toast{position:fixed;bottom:20px;left:5%;width:90%;padding:18px;background:#f4d000;color:#111;border-radius:12px;display:none;z-index:10}.service-card .photo-viewport{margin-top:14px}.compact{margin-top:14px}.compact>summary{padding:8px 0}.platform-choice{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.platform-link{display:block;text-align:center;text-decoration:none;padding:12px;border:1px solid #41516a;border-radius:10px;background:#182940;color:#fff;font-weight:700}.platform-link.primary{background:#f4d000;color:#111;border:0}.platform-link[hidden]{display:none}.photo-viewport{max-height:360px;overflow:auto;border-radius:10px;background:#080f1c;overscroll-behavior:auto;scroll-behavior:smooth;margin:12px 0}.photo-stage{position:relative;width:100%}.photo-stage img{display:block;width:100%;height:auto;max-width:none;max-height:none;object-fit:fill;border-radius:0}.photo-overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.photo-overlay rect{fill:#f4d000;fill-opacity:.28;stroke:#f4d000;stroke-width:5;vector-effect:non-scaling-stroke}@media(max-width:480px){.platform-choice{grid-template-columns:1fr}}input[type=date]{width:170px}button:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:3px}@media(max-width:420px){.time{font-size:38px}.card{padding:16px}}
 
+#pickupPending[hidden]{display:none}.pickup-pending{border-left:3px solid #f4d000;padding:8px 14px;margin:12px 0;background:#1c2c40;border-radius:8px}.pickup-pending p{margin:6px 0 10px}
 #nativeStatusRecovery[hidden]{display:none}#photoViewport{width:100%;max-width:720px;height:min(65vh,680px);max-height:none;aspect-ratio:auto;overflow:auto;margin:14px auto;background:#080f1c;overscroll-behavior:auto}.photo-stage{position:relative;width:100%;height:auto;aspect-ratio:auto}.photo-stage img{position:relative;inset:auto;display:block;width:100%;height:auto;max-width:none;object-fit:contain}.photo-overlay{pointer-events:auto}#activePhotoRow{pointer-events:none}.photo-overlay .photo-row-hit{fill:transparent;stroke:transparent;pointer-events:all;cursor:pointer}.photo-overlay .photo-row-hit:focus{stroke:#fff;stroke-width:4;vector-effect:non-scaling-stroke}#serviceNow{margin:8px 0;font-weight:650}.service-current{color:#f4d000}.service-manual{color:#a9b8cb;font-size:13px}.file-picker{position:relative;display:inline-flex;align-items:center;overflow:hidden;margin:0;padding:11px 14px;border:1px solid #41516a;border-radius:9px;cursor:pointer;font:inherit;line-height:1.2}.file-picker:focus-within{outline:3px solid #fff;outline-offset:3px}.file-picker[hidden]{display:none!important}.file-picker.primary{background:#f4d000;color:#111;border:0;font-weight:700}.file-picker.secondary{background:#182940;color:#fff}.file-picker:focus-visible{outline:3px solid #fff;outline-offset:3px}.file-input{position:absolute;inset:0;width:100%;height:100%;padding:0;margin:0;opacity:0;border:0;cursor:pointer;z-index:1}
 .minute-stepper{display:flex;align-items:center;gap:8px;margin-top:6px}.minute-stepper button{width:44px;height:44px;padding:0;font-size:18px;font-weight:800}.minute-stepper input{width:76px;text-align:center;font-variant-numeric:tabular-nums}.minute-stepper span{color:#a9b8cb}
 #serviceViewer{width:min(760px,100vw);height:min(80dvh,780px);max-width:none;max-height:none;margin:auto;padding:16px;background:#111e30;color:#eef3fa;border:1px solid #41516a;border-radius:18px;box-shadow:0 20px 70px #000b;overflow:hidden}
@@ -35,6 +36,10 @@
  <div id="corporateIdentity" hidden><div class="row"><button id="tmbIdentify" type="button">Identifica't amb TMB</button><span id="corporateIdentityStatus" class="muted" role="status">Identificació corporativa pendent.</span></div><p class="muted"><small>Les credencials s'introdueixen en un diàleg segur d'Android i només es desen xifrades al dispositiu. No s'envien a la miniapp.</small></p></div>
  <div class="row"><button id="startServiceEye" class="primary"><span aria-hidden="true">👁</span> Activa el seguiment automàtic</button><button id="stopServiceEye" class="stop-active" hidden>Atura</button></div>
  <p id="serviceEyeStatus" role="status" class="muted" hidden></p>
+ <div id="pickupPending" class="pickup-pending" hidden>
+   <p id="pickupPendingText"></p>
+   <button id="confirmPickup" type="button" class="primary">He agafat el tren</button>
+ </div>
  <div id="nativeStatusRecovery" hidden><p class="muted">No es pot confirmar si l’ull continua actiu. Comprova l’estat directament amb Android.</p><button id="nativeStatusCheck" type="button">Comprova l’estat</button></div>
  <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.8.0-beta/Miralin-Corporatiu-v0.8.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
  <p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
@@ -118,6 +123,7 @@ const nativeStatusSeenKey='tmb-servei-native-status-seen-v0.8.0';
 const nativeStatusNonceKey='tmb-servei-native-status-nonce-v1';
 const nativeStatusUrl='http://127.0.0.1:18764/status';
 let nativeStatusChecking=false,nativeStatusErrors=0,nativeStatusGraceUntil=0;
+let nativeDuty=null;
 if(isAndroid&&localStorage.getItem('tmb-servei-corporate-migration-v0.8.0')!=='true'){
  // Old eye state does not imply the new corporate worker is running.
  followMode='';localStorage.removeItem(followModeKey);localStorage.removeItem(nativeServiceKey);
@@ -168,7 +174,61 @@ function desc(r){return r.type==='CON'?'Conducció · '+r.train:r.type==='TRA'?'
 function notify(text){$('toast').textContent=text;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',12000);sound();if(navigator.vibrate)navigator.vibrate([250,100,250]);if(document.hidden&&'Notification'in window&&Notification.permission==='granted'){try{new Notification('El meu servei · Horari previst',{body:text,tag:'service-'+Date.now()})}catch{}}}
 navigator.serviceWorker?.addEventListener('message',event=>{if(event.data?.type==='service-alert')notify(event.data.body||event.data.title||'Avís del servei')});
 function sound(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=740;g.gain.value=.12;o.start();o.stop(audioCtx.currentTime+.5)}catch{}}
-function activeServiceRow(now){if(state.photoPending)return null;if(manualRowIndex!==null){const chosen=rows.find(r=>r.i===manualRowIndex),next=followMode==='service'&&chosen&&rows.find(r=>r.i>chosen.i&&when(r.a)>manualSince);if(!chosen){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else if(next&&now>=when(next.a)){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}else return chosen}if(followMode!=='service')return null;return rows.find(r=>now>=when(r.a)&&now<when(r.b))||rows.find(r=>now<when(r.a))||null}
+/**
+ * Timetable stays unchanged. Only automatic real-activity row selection is held
+ * when the driver has not taken their train yet.
+ */
+function serviceScheduleKey(){
+ const key=state.date+'|'+serviceScheduleParam();
+ let hash=0;
+ for(let i=0;i<key.length;i++)hash=(Math.imul(hash,31)+key.charCodeAt(i))|0;
+ return (hash>>>0).toString(16);
+}
+function liveDuty(now){
+ return isAndroid&&followMode==='service'&&nativeDuty
+  &&nativeDuty.plan===serviceScheduleKey()&&now-nativeDuty.at<15000
+  ?nativeDuty:null;
+}
+function currentDrivingFocus(now){
+ const driving=rows.filter(r=>r.type==='CON');
+ let active=driving.find(r=>when(r.a)<=now&&now<when(r.b));
+ let future=driving.find(r=>when(r.a)>now);
+ let last=driving.filter(r=>when(r.a)<=now).at(-1);
+ return active||future||(last&&now<when(last.b)+90*60000?last:null);
+}
+function pickupStationRow(driving){
+ if(!driving)return null;
+ for(let i=driving.i-1;i>=0;i--){
+  const r=rows[i];
+  if(r.type==='EST'&&r.from===driving.from)return r;
+  if(r.type==='CON')break;
+ }
+ return rows[Math.max(0,driving.i-1)]||driving;
+}
+function pendingPickup(now){
+ if(followMode!=='service'||state.photoPending||manualRowIndex!==null)return null;
+ const focus=currentDrivingFocus(now);
+ if(!focus||now<when(focus.a)||state.taken.includes(focus.i))return null;
+ const live=liveDuty(now);
+ if(live&&live.pickup===focus.i&&!live.waiting)return null;
+ return focus;
+}
+function activeServiceRow(now){
+ if(state.photoPending)return null;
+ if(manualRowIndex!==null){
+  const chosen=rows.find(r=>r.i===manualRowIndex);
+  const next=followMode==='service'&&chosen&&rows.find(r=>r.i>chosen.i&&when(r.a)>manualSince);
+  if(!chosen){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}
+  else if(next&&now>=when(next.a)){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}
+  else return chosen;
+ }
+ if(followMode!=='service')return null;
+ const pending=pendingPickup(now);
+ if(pending)return pickupStationRow(pending);
+ const live=liveDuty(now);
+ if(live&&Number.isInteger(live.row)&&rows[live.row])return rows[live.row];
+ return rows.find(r=>now>=when(r.a)&&now<when(r.b))||rows.find(r=>now<when(r.a))||null;
+}
 function render(){let now=Date.now();refreshServiceFollowControls();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now);$('serviceNow').innerHTML=state.photoPending?'':active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció manual · seguiment automàtic aturat</span>':''):rows.length?(followMode==='service'?'No hi ha cap tram actiu en aquesta franja.':'Tria una línia manualment o activa el seguiment automàtic.'):'Carrega una captura o foto del servei per començar.';let next=rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));let driving=active?.type==='CON'?active:null;
 $('next').innerHTML=driving?`<p class="tag">TRAM DE CONDUCCIÓ PREVIST</p><span class="train">${esc(driving.train)}</span><p>Deixa a ${esc(stations[driving.to])} · via ${esc(driving.out)}</p><div class="time">${esc(driving.end)}</div>`:next?`<div class="time">${esc(next.start)}</div><p><span class="train">${esc(next.train)}</span> · ${esc(stations[next.from])} · via ${esc(next.via)}</p><p class="muted">Horari previst · ${Math.ceil((when(next.a)-now)/60000)} min per a la presa</p>`:'<p>No queden preses pendents en aquesta jornada.</p>';
 $('taken').disabled=!next;$('taken').dataset.index=next?.i??'';
