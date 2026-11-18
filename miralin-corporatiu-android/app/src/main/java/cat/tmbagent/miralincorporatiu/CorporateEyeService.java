@@ -43,6 +43,7 @@ public final class CorporateEyeService extends Service {
     static final String EXTRA_SERVICE_IMAGE = "serviceImage";
     static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
     static volatile boolean isActive;
+    private static volatile String activeMode = "off";
 
     private static final String CHANNEL = "corporate_eye_active";
     private static final String ALERTS_CHANNEL = "corporate_service_alerts";
@@ -53,7 +54,6 @@ public final class CorporateEyeService extends Service {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private final CorporateMiralinClient client = new CorporateMiralinClient();
-    private NativeStatusServer statusServer;
 
     private WindowManager windows;
     private View overlay;
@@ -158,8 +158,6 @@ public final class CorporateEyeService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         windows = (WindowManager) getSystemService(WINDOW_SERVICE);
-        statusServer = new NativeStatusServer(this::nativeStateJson);
-        statusServer.start();
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel(
             CHANNEL, "El meu servei · seguiment", NotificationManager.IMPORTANCE_LOW));
@@ -229,6 +227,7 @@ public final class CorporateEyeService extends Service {
         startForegroundNotification();
         showOverlay();
         isActive = true;
+        activeMode = mode;
         lastTrain = null;
         receivedAt = 0;
         departureAt = -1;
@@ -479,19 +478,17 @@ public final class CorporateEyeService extends Service {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 
-    private String nativeStateJson() {
-        // There is only one eye service; the browser must never infer mode from
-        // yesterday's localStorage after the X or system has stopped the service.
-        boolean active = isActive && !stopped;
-        String currentMode = active && "service".equals(mode) ? "service"
-            : active && "manual".equals(mode) ? "manual" : "off";
+    static String nativeStateJson() {
+        boolean active = isActive;
+        String currentMode = active && ("service".equals(activeMode) || "manual".equals(activeMode))
+            ? activeMode : "off";
         return "{\"active\":" + active + ",\"mode\":\"" + currentMode + "\"}";
     }
 
     @Override public void onDestroy() {
         stopped = true;
-        if (statusServer != null) { statusServer.close(); statusServer = null; }
         isActive = false;
+        activeMode = "off";
         ui.removeCallbacks(poll);
         ui.removeCallbacks(ageTick);
         network.shutdownNow();
