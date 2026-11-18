@@ -136,6 +136,32 @@ final class CorporateServicePlan {
         return next;
     }
 
+    /** Shared stable key used to prevent applying another uploaded day's live state. */
+    String webKey() {
+        StringBuilder raw = new StringBuilder(date.toString()).append('|');
+        for (int i = 0; i < segments.size(); i++) {
+            Segment r = segments.get(i);
+            if (i > 0) raw.append(';');
+            raw.append(r.start).append(',').append(r.end).append(',')
+                .append(r.type).append(',').append(r.from).append(',')
+                .append(r.to).append(',').append(r.train).append(',')
+                .append(r.via).append(',').append(r.out);
+        }
+        return Integer.toHexString(raw.toString().hashCode());
+    }
+
+    /** A selected driving row can still be awaiting pickup after its scheduled start. */
+    Selection selectionFor(int rowIndex, boolean driving) {
+        if (rowIndex < 0 || rowIndex >= segments.size()) return null;
+        Segment chosen = segments.get(rowIndex);
+        if (!chosen.driving()) return null;
+        int selectedStop = Integer.parseInt(driving ? chosen.to : chosen.from);
+        int selectedVia = selectedStop == FIRST_STOP || selectedStop == LAST_STOP ? 0
+            : Integer.parseInt(driving && validVia(chosen.out) ? chosen.out : chosen.via);
+        return new Selection(chosen.train, selectedStop, selectedVia, driving,
+            minuteMillis(chosen.start));
+    }
+
     String identity() {
         StringBuilder data = new StringBuilder(date.toString());
         for (Segment row : segments) {
@@ -147,7 +173,7 @@ final class CorporateServicePlan {
         return Integer.toHexString(data.toString().hashCode());
     }
 
-    private long minuteMillis(int minute) {
+    long minuteMillis(int minute) {
         return date.atStartOfDay(ZONE).plusMinutes(minute).toInstant().toEpochMilli();
     }
 
@@ -175,11 +201,6 @@ final class CorporateServicePlan {
         Segment chosen = activeDriving != null ? activeDriving : nextDriving;
         if (chosen == null) return null;
         boolean driving = chosen == activeDriving;
-        int stop = Integer.parseInt(driving ? chosen.to : chosen.from);
-        // At terminal stations a single physical platform is shared. 0 means
-        // "select whichever of the two corporate tables contains the train".
-        int via = stop == FIRST_STOP || stop == LAST_STOP ? 0
-            : Integer.parseInt(driving && validVia(chosen.out) ? chosen.out : chosen.via);
-        return new Selection(chosen.train, stop, via, driving, minuteMillis(chosen.start));
+        return selectionFor(segments.indexOf(chosen), driving);
     }
 }
