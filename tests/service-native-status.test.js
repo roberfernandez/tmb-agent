@@ -17,7 +17,7 @@ function statusHarness({response,followMode='service',seen=false}={}){
   document:{hidden:false},
   nativeStatusChecking:false,nativeStatusErrors:0,nativeStatusGraceUntil:0,
   nativeStatusUrl:'http://127.0.0.1:18764/status',
-  nativeStatusSeenKey:'seen',nativeInstalledKey:'installed',nativeServiceKey:'schedule',
+  nativeStatusSeenKey:'seen',nativeInstalledKey:'installed',nativeAuthKey:'auth',nativeServiceKey:'schedule',
   followMode,
   localStorage:{
    getItem:k=>data.get(k)??null,
