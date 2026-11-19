@@ -37,6 +37,7 @@ public final class CorporateEyeService extends Service {
     static final String EXTRA_TARGET_VIA = "targetVia";
     static final String EXTRA_MODE = "mode";
     static final String EXTRA_SERVICE_DATE = "serviceDate";
+    static final String EXTRA_PREVIEW_MODE = "previewMode";
     static final String EXTRA_SCHEDULE = "schedule";
     static final String EXTRA_VIEWER_DATE = "viewerDate";
     static final String EXTRA_VIEWER_SCHEDULE = "viewerSchedule";
@@ -70,6 +71,7 @@ public final class CorporateEyeService extends Service {
     private volatile String mode = "manual";
     private CorporateServicePlan servicePlan;
     private CorporateDutyTracker duty;
+    private boolean previewOnly;
     private CorporateServicePlan viewerPlan;
     private CorporateServiceViewer viewer;
     private String serviceImage = "";
@@ -218,7 +220,8 @@ public final class CorporateEyeService extends Service {
                 String date = intent.getStringExtra(EXTRA_SERVICE_DATE);
                 try {
                     servicePlan = new CorporateServicePlan(date, schedule);
-                    duty = new CorporateDutyTracker(servicePlan);
+                    previewOnly = intent.getBooleanExtra(EXTRA_PREVIEW_MODE, false);
+                    duty = new CorporateDutyTracker(servicePlan, previewOnly);
                     manualViewerRow = -1;
                     viewerPlan = servicePlan;
                     mode = "service";
@@ -234,6 +237,7 @@ public final class CorporateEyeService extends Service {
                 mode = "manual";
                 servicePlan = null;
                 duty = null;
+                previewOnly = false;
                 manualViewerRow = -1;
                 activeDutyJson = "";
                 takeoverAt = -1;
@@ -406,7 +410,7 @@ public final class CorporateEyeService extends Service {
     }
 
     private void tickServiceAlerts(long now) {
-        if (!alertsEnabled || servicePlan == null || !"service".equals(mode)) return;
+        if (previewOnly || !alertsEnabled || servicePlan == null || !"service".equals(mode)) return;
         for (CorporateServicePlan.Notice notice : servicePlan.noticesAt(now, alertMargin)) {
             if (sentAlerts.contains(notice.key)) continue;
             String content = notice.body;
@@ -513,6 +517,7 @@ public final class CorporateEyeService extends Service {
             + "\",\"row\":" + snapshot.photoRow
             + ",\"pickup\":" + snapshot.pickupRow
             + ",\"waiting\":" + snapshot.waiting
+            + ",\"preview\":" + snapshot.preview
             + ",\"source\":\"" + snapshot.source + "\"";
     }
 
