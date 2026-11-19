@@ -209,8 +209,9 @@ function activeServiceRow(now){
  if(state.photoPending)return null;
  if(manualRowIndex!==null){
   const liveSelection=liveDuty(now);
-  if(followMode==='service'&&liveSelection&&!liveSelection.waiting
-      &&liveSelection.row>manualRowIndex){
+  if(followMode==='service'&&liveSelection&&(
+      (!liveSelection.waiting&&liveSelection.row>manualRowIndex)
+      ||(now-manualSince>5000&&liveSelection.row!==manualRowIndex))){
    manualRowIndex=null;
    state.manualRowIndex=null;
    state.manualSince=null;
