@@ -8,7 +8,7 @@
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .viewer-shell{height:100%;display:flex;flex-direction:column;min-height:0}.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.viewer-head h2{margin:0}.viewer-status{margin:8px 0 10px;flex:none}#viewerPhotoHome{min-height:0;flex:1;display:flex}#viewerPhotoHome #photoViewport{width:100%;height:100%;max-width:none;max-height:none;margin:0}.viewer-timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.viewer-timeline .journey-row{grid-template-columns:88px minmax(0,1fr);padding:10px}#viewerPhotoHome[hidden],.viewer-timeline[hidden]{display:none}@media(max-width:480px){#serviceViewer{width:100vw;height:88dvh;max-height:780px;border-radius:0;padding:14px}}
 </style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.26.1</span></header><h1>El meu servei</h1>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.27.0</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
@@ -20,7 +20,6 @@
  <details class="compact" hidden><summary>Horari i recorregut</summary>
   <div class="row spread"><strong>Proper tram</strong><span id="clock"></span></div><div id="next"></div>
   <p id="expected" class="muted"></p><label for="location">Ubicació prevista</label><select id="location"></select><div class="row"><button id="confirm" class="primary">Confirma on soc</button><button id="auto">Restableix la ubicació prevista</button></div><p id="confirmed" aria-live="polite"></p>
-  <button id="taken" class="primary" style="margin-top:10px">He agafat el tren</button>
   <div id="timeline"></div>
   <details><summary>Text reconegut</summary><pre id="ocrRaw" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
   <label id="reviewLabel" hidden><input type="checkbox" id="reviewOCR"> He revisat la data i totes les files amb la imatge.</label>
@@ -37,7 +36,6 @@
  <p id="serviceEyeStatus" role="status" class="muted" hidden></p>
  <div id="pickupPending" class="pickup-pending" hidden>
    <p id="pickupPendingText"></p>
-   <button id="confirmPickup" type="button" class="primary">He agafat el tren</button>
  </div>
  <div id="nativeStatusRecovery" hidden><p class="muted">No es pot confirmar si l’ull continua actiu. Comprova l’estat directament amb Android.</p><button id="nativeStatusCheck" type="button">Comprova l’estat</button></div>
  <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.9.0-beta/Miralin-Corporatiu-v0.9.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
@@ -209,6 +207,16 @@ function pendingPickup(now){
 function activeServiceRow(now){
  if(state.photoPending)return null;
  if(manualRowIndex!==null){
+  const liveSelection=liveDuty(now);
+  if(followMode==='service'&&liveSelection&&!liveSelection.waiting
+      &&liveSelection.row>manualRowIndex){
+   manualRowIndex=null;
+   state.manualRowIndex=null;
+   state.manualSince=null;
+   persist();
+  }
+ }
+ if(manualRowIndex!==null){
   const chosen=rows.find(r=>r.i===manualRowIndex);
   const next=followMode==='service'&&chosen&&rows.find(r=>r.i>chosen.i&&when(r.a)>manualSince);
   if(!chosen){manualRowIndex=null;state.manualRowIndex=null;state.manualSince=null}
@@ -223,19 +231,16 @@ function activeServiceRow(now){
   &&!(live.waiting&&state.taken.includes(live.pickup)))return rows[live.row];
  return rows.find(r=>now>=when(r.a)&&now<when(r.b))||rows.find(r=>now<when(r.a))||null;
 }
-function render(){let now=Date.now();refreshServiceFollowControls();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now),pending=pendingPickup(now);$('serviceNow').innerHTML=state.photoPending?'':active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció manual · seguiment automàtic aturat</span>':''):rows.length?(followMode==='service'?'No hi ha cap tram actiu en aquesta franja.':'Tria una línia manualment o activa el seguiment automàtic.'):'Carrega una captura o foto del servei per començar.';
+function render(){let now=Date.now();refreshServiceFollowControls();$('clock').textContent=new Date(now).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});let active=activeServiceRow(now),pending=pendingPickup(now);$('serviceNow').innerHTML=state.photoPending?'':active?'<span class="service-current">'+esc(active.start)+'–'+esc(active.end)+' · '+esc(desc(active))+'</span><br>'+esc(stations[active.from])+(active.to!==active.from?' → '+esc(stations[active.to]):'')+(active.type==='CON'?' · via '+esc(active.via):'')+(manualRowIndex!==null?'<br><span class="service-manual">Selecció de fila · supervisió automàtica activa</span>':''):rows.length?(followMode==='service'?'No hi ha cap tram actiu en aquesta franja.':'Tria una línia manualment o activa el seguiment automàtic.'):'Carrega una captura o foto del servei per començar.';
 $('pickupPending').hidden=!pending;
 if(pending){
  const elapsed=Math.max(0,Math.floor((now-when(pending.a))/60000));
  $('pickupPendingText').textContent='Presa pendent del tren '+pending.train+' a '+stations[pending.from]
   +' · hora prevista '+pending.start+' · en espera +'+elapsed+' min respecte de l’horari.';
- $('confirmPickup').dataset.index=pending.i;
 }
 let next=pending||rows.find(r=>r.type==='CON'&&when(r.a)>now&&!state.taken.includes(r.i));
 let driving=active?.type==='CON'?active:null;
 $('next').innerHTML=driving?`<p class="tag">TRAM DE CONDUCCIÓ PREVIST</p><span class="train">${esc(driving.train)}</span><p>Deixa a ${esc(stations[driving.to])} · via ${esc(driving.out)}</p><div class="time">${esc(driving.end)}</div>`:next?`<div class="time">${esc(next.start)}</div><p><span class="train">${esc(next.train)}</span> · ${esc(stations[next.from])} · via ${esc(next.via)}</p><p class="muted">${pending?'Presa pendent des de les '+esc(next.start):'Horari previst · '+Math.ceil((when(next.a)-now)/60000)+' min per a la presa'}</p>`:'<p>No queden preses pendents en aquesta jornada.</p>';
-const nextConfirmable=next&&now>=when(next.a)-30*60000;
-$('taken').disabled=!nextConfirmable;$('taken').dataset.index=nextConfirmable?next.i:'';
 $('expected').textContent=active?('Segons el servei: '+(active.type==='TRA'?'en trasllat a '+stations[active.to]:active.type==='CON'?'a bord del '+active.train:stations[active.from])):'Fora de l’horari del servei.';
 $('confirmed').textContent=state.location?'Confirmat: '+state.location.label+' · '+new Date(state.location.time).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'})+' (no és localització contínua)':'Ubicació prevista, pendent de confirmació.';
 $('timeline').innerHTML=rows.map(r=>`<div class="journey-row ${active===r?'active':''} ${when(r.b)<now&&r!==active?'done':''}"><span class="journey-time">${esc(r.start)}–${esc(r.end)}</span><span class="journey-detail"><strong>${esc(desc(r))}</strong><small>${esc(stations[r.from])}${r.from!==r.to?' → '+esc(stations[r.to]):''}${r.type==='CON'?' · v'+esc(r.via)+' → '+esc(r.out):''}${state.taken.includes(r.i)?' · presa':''}</small></span></div>`).join('');updatePhotoHighlight(active);
@@ -244,22 +249,6 @@ if(enabled&&!remoteAlertsActive&&!state.photoPending){for(const r of rows.filter
 function load(){try{rows=state.text?parse(state.text):[]}catch{rows=[]}manualRowIndex=Number.isInteger(state.manualRowIndex)?state.manualRowIndex:null;manualSince=Number(state.manualSince)||0;$('date').value=state.date;$('editor').value=state.text||'';$('margin').value=state.margin;if(state.photoPending){$('ocrStatus').textContent='Hi ha una imatge pendent d’interpretar. Torna a carregar-la per continuar.'}else if(state.photoData){$('photoPreview').src=state.photoData;const restoredImage=new Image();restoredImage.onload=()=>{ocrImage=restoredImage;$('readPhoto').disabled=false;$('rotatePhoto').disabled=false};restoredImage.src=state.photoData;$('photoViewport').hidden=false;$('photoProgress').hidden=false;$('photoPreview').hidden=false;ocrRowBounds=state.photoRows||null;photoSize=state.photoSize||null;photoRowsReady=Boolean(ocrRowBounds&&photoSize&&ocrRowBounds.length===rows.length);if(photoSize)$('photoOverlay').setAttribute('viewBox','0 0 '+photoSize.width+' '+photoSize.height);requestAnimationFrame(()=>{layoutPhotoOverlay();drawPhotoHitboxes()})}render()}
 for(let id of ['location'])$(id).innerHTML=Object.entries(stations).map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join('');
 $('confirm').onclick=()=>{state.location={label:stations[$('location').value],time:Date.now()};persist();render()};$('auto').onclick=()=>{state.location=null;persist();render()};
-function confirmPickupRow(index){
- const row=rows.find(r=>r.i===Number(index));
- if(!row||row.type!=='CON'||followMode!=='service'||state.photoPending)return;
- const now=Date.now(),focus=currentDrivingFocus(now);
- if(!focus||focus.i!==row.i||now<when(row.a)-30*60000)return;
- if(!state.taken.includes(row.i))state.taken.push(row.i);
- state.location={label:'A bord del '+row.train,time:now};
- persist();
- // The user confirms the boarding locally. The native motor must validate
- // the same service key before switching its official tracking station.
- if(isAndroid)nativeIntent('pickup',new URLSearchParams({row:String(row.i),plan:serviceScheduleKey()}));
- render();
-}
-$('taken').onclick=()=>confirmPickupRow($('taken').dataset.index);
-$('confirmPickup').onclick=()=>confirmPickupRow($('confirmPickup').dataset.index);
-
 function buildServiceAlertEvents(){
  const now=Date.now(),events=[];
  for(const r of rows){
@@ -393,7 +382,27 @@ function updatePhotoHighlight(active){
  if($('serviceViewer').open){$('viewerStatus').textContent=(manualRowIndex===active.i?'Selecció manual · ':'Ara: ')+active.start+'–'+active.end+' · '+desc(active)+' · '+stations[active.from]+(active.to!==active.from?' → '+stations[active.to]:'');for(const line of $('viewerTimeline').children){const row=rows[Number(line.dataset.rowIndex)];line.classList.toggle('active',row===active);line.classList.toggle('done',when(row.b)<Date.now()&&row!==active)}if(lastPhotoRow!==active.i){if(ocrRowBounds?.[active.i]){const box=ocrRowBounds[active.i],scale=$('photoPreview').clientWidth/(photoSize?.width||$('photoPreview').naturalWidth||1);viewport.scrollTop=Math.max(0,box.y*scale-viewport.clientHeight*.38)}else if($('viewerTimeline').contains(document.activeElement)===false){$('viewerTimeline').querySelector('[data-row-index=\"'+active.i+'\"]')?.scrollIntoView({block:'center',behavior:'smooth'})}}}
  lastPhotoRow=active.i;
 }
-function selectServiceRow(index){if(followMode==='service'){showFollowMode('');stopNativeEye()}manualRowIndex=Number(index);manualSince=Date.now();state.manualRowIndex=manualRowIndex;state.manualSince=manualSince;persist();render()}
+function selectServiceRow(index){
+ const selected=rows[Number(index)];
+ if(!selected||state.photoPending)return;
+ const now=Date.now();
+ manualRowIndex=selected.i;
+ manualSince=now;
+ state.manualRowIndex=selected.i;
+ state.manualSince=now;
+ if(selected.type==='CON')
+  state.location={label:'A bord del '+selected.train,time:now};
+ else state.location={label:selected.type==='EST'
+  ?stations[selected.from]:'Trasllat '+stations[selected.from]+' → '+stations[selected.to],time:now};
+ persist();
+ // This reports position, not a new tracking mode. Background polling
+ // and the automatic arrival condition continue unchanged.
+ if(isAndroid&&followMode==='service'){
+  nativeStatusGraceUntil=now+6000;
+  nativeIntent('row',new URLSearchParams({row:String(selected.i),plan:serviceScheduleKey()}));
+ }
+ render();
+}
 $('photoRowHits').addEventListener('click',event=>{const hit=event.target.closest('[data-row-index]');if(hit)selectServiceRow(hit.dataset.rowIndex)});
 $('photoRowHits').addEventListener('keydown',event=>{if((event.key==='Enter'||event.key===' ')&&event.target.matches('[data-row-index]')){event.preventDefault();selectServiceRow(event.target.dataset.rowIndex)}});
 $('editor').addEventListener('input',()=>{if(ocrRowBounds){ocrRowBounds=null;photoRowsReady=false;lastPhotoRow=null;$('activePhotoRow').style.display='none';$('photoProgress').textContent='La transcripción se ha editado; vuelve a interpretar la captura para mantener sincronizado el resaltado.'}});
