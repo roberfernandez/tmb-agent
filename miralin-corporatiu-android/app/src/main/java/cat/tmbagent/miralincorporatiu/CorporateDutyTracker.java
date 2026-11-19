@@ -30,6 +30,7 @@ final class CorporateDutyTracker {
     private int transferSeenRow = -1;
     private long transferLastSeenAt = -1;
     private int transferConsecutive;
+    private int pendingTransfer = -1;
     private int seenRow = -1;
     private long lastSeenAt = -1;
     private int consecutive;
@@ -178,8 +179,9 @@ final class CorporateDutyTracker {
         // A transfer is a movement obligation. Once it starts, keep following
         // a suitable train until it is confirmed at the destination, even if
         // the scheduled transfer end has passed because of a delay.
-        if (activeTransfer >= 0 && !transferArrived[activeTransfer]) {
-            return transferSnapshot(now, activeTransfer, true);
+        if (activeTransfer >= 0 && !transferArrived[activeTransfer]) pendingTransfer = activeTransfer;
+        if (pendingTransfer >= 0 && !transferArrived[pendingTransfer]) {
+            return transferSnapshot(now, pendingTransfer, true);
         }
 
         // If the transfer train arrived early, stay at its destination until
@@ -314,6 +316,7 @@ final class CorporateDutyTracker {
         transferLastSeenAt = now;
         if (transferConsecutive < 2) return false;
         transferArrived[row] = true;
+        if (pendingTransfer == row) pendingTransfer = -1;
         transferSeenRow = -1;
         transferLastSeenAt = -1;
         transferConsecutive = 0;
