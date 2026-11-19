@@ -313,13 +313,16 @@ final class CorporateDutyTracker {
         return true;
     }
 
-    boolean observeTransfer(long now, String selectedTrain, String location) {
+    boolean observeTransfer(long now, String selectedTrain, String location, String reportedTrack) {
         Snapshot snapshot = at(now);
         if (previewOnly || snapshot == null || snapshot.selection == null
             || snapshot.selection.kind != CorporateServicePlan.Selection.TRANSFER_TRACK
             || !snapshot.selection.train.equals(selectedTrain)
             || !sameStation(location, CorporateServicePlan.stationName(
-                Integer.toString(snapshot.selection.destination)))) {
+                Integer.toString(snapshot.selection.destination)))
+            || !sameTrack(reportedTrack, Integer.toString(CorporateServicePlan.directionVia(
+                Integer.toString(snapshot.selection.origin),
+                Integer.toString(snapshot.selection.destination))))) {
             transferSeenRow = -1;
             transferLastSeenAt = -1;
             transferConsecutive = 0;
