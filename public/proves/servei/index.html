@@ -89,7 +89,7 @@ function nativeIntent(host,params=new URLSearchParams()){
 function rememberAndroidLaunch(params){
  const mark=()=>{if(document.visibilityState==='hidden'){
   localStorage.setItem(nativeInstalledKey,'true');
-  if(params?.get('mode')==='service')localStorage.setItem(nativeServiceKey,params.get('schedule')||'');
+  if(params?.get('mode')==='service')localStorage.setItem(nativeServiceKey,(params.get('date')||'')+'|'+(params.get('schedule')||''));
   refreshAndroidDownload();refreshServiceFollowControls();
  }};
  document.addEventListener('visibilitychange',mark);
@@ -113,7 +113,7 @@ function localServiceDate(parsed, instant=new Date()){
  return now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
 }
 let state={date:localServiceDate([]),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,photoPending:false,manualRowIndex:null,manualSince:null};
-const nativeServiceKey='tmb-servei-native-service-v1';
+const nativeServiceKey='tmb-servei-native-service-v2';
 const followModeKey='tmb-servei-follow-mode-v1';let followMode=localStorage.getItem(followModeKey)||'';
 const nativeStatusSeenKey='tmb-servei-native-status-seen-v0.11.0';
 const nativeStatusNonceKey='tmb-servei-native-status-nonce-v1';
@@ -316,7 +316,7 @@ async function syncServiceAlerts(stop=false){
  if(!stop&&state.photoPending)throw Error('Interpreta la imatge del servei abans d’aplicar els avisos.');
  if(!isAndroid)return syncWebServiceAlerts(stop);
  if(!stop&&!rows.length)throw Error('Carrega i interpreta el servei abans d’activar-ne els avisos.');
- const pending=followMode==='service'&&localStorage.getItem(nativeServiceKey)!==serviceScheduleParam();
+ const pending=followMode==='service'&&localStorage.getItem(nativeServiceKey)!==state.date+'|'+serviceScheduleParam();
  const params=new URLSearchParams({enabled:!stop&&!pending?'1':'0',margin:String(state.margin)});
  nativeIntent('alerts',params);
  remoteAlertsActive=!stop;localStorage.setItem('tmb-servei-alerts',String(!stop));
@@ -541,7 +541,7 @@ async function syncNativeEyeState(){
     waiting:status.waiting,preview:status.preview===true,
     source:status.source||'corporate',at:Date.now()
    }:null;
-   if(validServiceDuty)localStorage.setItem(nativeServiceKey,serviceScheduleParam());
+   if(validServiceDuty)localStorage.setItem(nativeServiceKey,state.date+'|'+serviceScheduleParam());
    if(changed||previousMode!==status.mode)render();
   }
   refreshAndroidDownload();
