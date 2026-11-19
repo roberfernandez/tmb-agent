@@ -231,9 +231,9 @@ public final class CorporateDutyTrackerTest {
         assertEquals("417", tracking.selection.train);
         assertEquals(422, tracking.selection.stop);
         assertEquals(1, tracking.selection.via);
-        assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia"));
-        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova"));
-        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Trinitat Nova"));
+        assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia", "Via 1"));
+        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova", "Via 1"));
+        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Trinitat Nova", "Via 1"));
         CorporateDutyTracker.Snapshot atStation = track.at(at(17,19,10)+11_000);
         assertEquals(CorporateServicePlan.Selection.PICKUP, atStation.selection.kind);
         assertEquals("414", atStation.train);
@@ -245,8 +245,8 @@ public final class CorporateDutyTrackerTest {
         long start = at(17,18,46);
         track.at(start);
         assertTrue(track.setTransferTrain(0, "417"));
-        assertFalse(track.observeTransfer(start+60_000, "417", "Trinitat Nova"));
-        assertTrue(track.observeTransfer(start+70_000, "417", "Trinitat Nova"));
+        assertFalse(track.observeTransfer(start+60_000, "417", "Trinitat Nova", "Via 1"));
+        assertTrue(track.observeTransfer(start+70_000, "417", "Trinitat Nova", "Via 1"));
         CorporateDutyTracker.Snapshot waitingAtDestination = track.at(start+71_000);
         assertEquals(CorporateServicePlan.Selection.IDLE, waitingAtDestination.selection.kind);
         assertEquals(422, waitingAtDestination.selection.stop);
@@ -264,9 +264,9 @@ public final class CorporateDutyTrackerTest {
         CorporateDutyTracker.Snapshot late = track.at(at(17,19,10));
         assertEquals(CorporateServicePlan.Selection.TRANSFER_TRACK, late.selection.kind);
         assertEquals("417", late.selection.train);
-        assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia"));
-        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova"));
-        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Trinitat Nova"));
+        assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia", "Via 1"));
+        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova", "Via 1"));
+        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Trinitat Nova", "Via 1"));
         assertEquals(CorporateServicePlan.Selection.PICKUP,
             track.at(at(17,19,10)+11_000).selection.kind);
     }
@@ -284,6 +284,24 @@ public final class CorporateDutyTrackerTest {
         assertEquals(CorporateServicePlan.Selection.PICKUP, snap.selection.kind);
         assertEquals("414", snap.train);
         assertEquals(2, snap.pickupRow);
+    }
+
+    @Test public void drivingRemainsActivePastScheduledEndUntilTrainIsConfirmedAtDestination() {
+        CorporateDutyTracker track = tracker();
+        long pickup = at(17,23,40);
+        assertFalse(track.observe(pickup, "405", "Trinitat Nova", "Via 1", true));
+        assertTrue(track.observe(pickup+10_000, "405", "Trinitat Nova", "Via 1", true));
+        CorporateDutyTracker.Snapshot stillDriving = track.at(at(18,0,35));
+        assertTrue(stillDriving.driving);
+        assertEquals(413, stillDriving.selection.stop);
+        assertFalse(track.observe(at(18,0,35), "405", "Via Júlia", "Via 2", true));
+        assertFalse(track.observe(at(18,0,45), "405", "La Pau", "Via 1", true));
+        assertFalse(track.observe(at(18,0,55), "405", "La Pau", "Via 2", true));
+        assertTrue(track.observe(at(18,1,05), "405", "La Pau", "Via 2", true));
+        CorporateDutyTracker.Snapshot atEndStation = track.at(at(18,1,06));
+        assertEquals(CorporateServicePlan.Selection.IDLE, atEndStation.selection.kind);
+        assertEquals(413, atEndStation.selection.stop);
+        assertEquals(at(18,1,29), atEndStation.selection.takeoverAt);
     }
 
     @Test public void onlyExactNormalizedStationMatches() {
