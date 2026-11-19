@@ -30,18 +30,41 @@ final class CorporateServicePlan {
     }
 
     static final class Selection {
+        static final int IDLE = 0;
+        static final int PICKUP = 1;
+        static final int DRIVING = 2;
+        static final int WAIT_TRANSFER = 3;
+        static final int TRANSFER_SEARCH = 4;
+        static final int TRANSFER_TRACK = 5;
+
         final String train;
         final int stop;
         final int via;
         final boolean driving;
         final long takeoverAt;
-        Selection(String train, int stop, int via, boolean driving, long takeoverAt) {
-            this.train = train;
+        final int kind;
+        final int row;
+        final int origin;
+        final int destination;
+
+        Selection(String train, int stop, int via, boolean driving, long takeoverAt,
+                  int kind, int row, int origin, int destination) {
+            this.train = train == null ? "" : train;
             this.stop = stop;
             this.via = via;
             this.driving = driving;
             this.takeoverAt = takeoverAt;
+            this.kind = kind;
+            this.row = row;
+            this.origin = origin;
+            this.destination = destination;
         }
+
+        boolean transfer() {
+            return kind == WAIT_TRANSFER || kind == TRANSFER_SEARCH || kind == TRANSFER_TRACK;
+        }
+        boolean transferWaiting() { return kind == WAIT_TRANSFER; }
+        boolean transferSearching() { return kind == TRANSFER_SEARCH; }
     }
 
     private final LocalDate date;
@@ -79,6 +102,17 @@ final class CorporateServicePlan {
     static boolean validTrain(String value) { return value != null && value.matches("4\\d{2}"); }
 
     static boolean validVia(String value) { return "1".equals(value) || "2".equals(value); }
+
+    static boolean terminal(int stop) { return stop == FIRST_STOP || stop == LAST_STOP; }
+
+    /**
+     * L4 station codes follow the La Pau → Trinitat Nova direction.
+     * On the corporate boards, Via 1 is that direction and Via 2 is the reverse.
+     */
+    static int directionVia(String from, String to) {
+        if (!validStop(from) || !validStop(to) || from.equals(to)) return 0;
+        return Integer.parseInt(to) > Integer.parseInt(from) ? 1 : 2;
+    }
 
     static final class Notice {
         final String key, title, body;
@@ -159,7 +193,33 @@ final class CorporateServicePlan {
         int selectedVia = selectedStop == FIRST_STOP || selectedStop == LAST_STOP ? 0
             : Integer.parseInt(driving && validVia(chosen.out) ? chosen.out : chosen.via);
         return new Selection(chosen.train, selectedStop, selectedVia, driving,
-            minuteMillis(chosen.start));
+            minuteMillis(chosen.start), driving ? Selection.DRIVING : Selection.PICKUP,
+            rowIndex, Integer.parseInt(chosen.from), Integer.parseInt(chosen.to));
+    }
+
+    Selection transferSelection(int rowIndex, String selectedTrain, boolean started) {
+        if (rowIndex < 0 || rowIndex >= segments.size()) return null;
+        Segment row = segments.get(rowIndex);
+        if (!"TRA".equals(row.type) || row.from.equals(row.to)) return null;
+        int origin = Integer.parseInt(row.from), destination = Integer.parseInt(row.to);
+        int via = directionVia(row.from, row.to);
+        if (!started) {
+            return new Selection("", origin, via, false, minuteMillis(row.start),
+                Selection.WAIT_TRANSFER, rowIndex, origin, destination);
+        }
+        if (selectedTrain == null || selectedTrain.isEmpty()) {
+            return new Selection("", origin, via, false, -1,
+                Selection.TRANSFER_SEARCH, rowIndex, origin, destination);
+        }
+        return new Selection(selectedTrain, destination, via, false, -1,
+            Selection.TRANSFER_TRACK, rowIndex, origin, destination);
+    }
+
+    Selection idleSelection(int rowIndex, long countdownAt) {
+        if (rowIndex < 0 || rowIndex >= segments.size()) return null;
+        Segment row = segments.get(rowIndex);
+        return new Selection("", Integer.parseInt(row.from), 0, false, countdownAt,
+            Selection.IDLE, rowIndex, Integer.parseInt(row.from), Integer.parseInt(row.to));
     }
 
     String identity() {
