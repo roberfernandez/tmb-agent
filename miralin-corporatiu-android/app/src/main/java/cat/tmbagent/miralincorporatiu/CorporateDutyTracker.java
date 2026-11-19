@@ -24,6 +24,59 @@ final class CorporateDutyTracker {
     private int seenRow = -1;
     private long lastSeenAt = -1;
     private int consecutive;
+    private int selectedRow = -1;
+    private long selectedAt = -1;
+
+    /**
+     * A manual checkpoint is never a Stop command. Automatic TMB observations
+     * continue and take over at the next verified transition.
+     */
+    boolean selectRow(long now, int index) {
+        if (index < 0 || index >= rows.size()) return false;
+        CorporateServicePlan.Segment row = rows.get(index);
+        long start = plan.minuteMillis(row.start);
+        long end = plan.minuteMillis(row.end);
+        if (now < start - 30L * 60_000L || now > end + FINAL_DELAY_GRACE_MS)
+            return false;
+        if (row.driving()) {
+            boarded[index] = true;
+            evidence[index] = "manual";
+        }
+        selectedRow = index;
+        selectedAt = now;
+        resetObservations();
+        return true;
+    }
+
+    private boolean manualCheckpointActive(long now) {
+        if (selectedRow < 0) return false;
+        // Later verified boarding supersedes a manually marked station even if
+        // that boarding was delayed beyond its scheduled start.
+        for (int i = selectedRow + 1; i < rows.size(); i++) {
+            if (rows.get(i).driving() && boarded[i]) {
+                selectedRow = -1;
+                return false;
+            }
+        }
+        // Clock-only changes remain fine for transfers/stations; never release
+        // a waiting station into an unconfirmed driving row on the clock alone.
+        for (int i = selectedRow + 1; i < rows.size(); i++) {
+            CorporateServicePlan.Segment later = rows.get(i);
+            if (plan.minuteMillis(later.start) > selectedAt
+                && now >= plan.minuteMillis(later.start)
+                && (!later.driving() || boarded[i])) {
+                selectedRow = -1;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private int nextDrivingFrom(int row) {
+        for (int i = row; i < rows.size(); i++)
+            if (rows.get(i).driving()) return i;
+        return -1;
+    }
 
     static final class Snapshot {
         final int photoRow;
@@ -77,6 +130,11 @@ final class CorporateDutyTracker {
             focus = last;
         if (focus == -1) return null;
 
+        boolean checkpoint = manualCheckpointActive(now);
+        if (checkpoint) {
+            int manuallyFocused = nextDrivingFrom(selectedRow);
+            if (manuallyFocused >= 0) focus = manuallyFocused;
+        }
         CorporateServicePlan.Segment r = rows.get(focus);
         boolean driving = boarded[focus];
         int photoRow;
@@ -93,9 +151,11 @@ final class CorporateDutyTracker {
             if (scheduled >= focus || scheduled < 0) photoRow = waitingRow(focus);
             else photoRow = scheduled;
         }
+        if (checkpoint) photoRow = selectedRow;
         CorporateServicePlan.Selection selected = plan.selectionFor(focus, driving);
         return new Snapshot(photoRow, focus, !driving, driving, r.train, r.from,
-            plan.minuteMillis(r.start), driving ? evidence[focus] : "waiting", selected);
+            plan.minuteMillis(r.start), checkpoint ? "manual-row"
+                : driving ? evidence[focus] : "waiting", selected);
     }
 
     private int waitingRow(int driveIndex) {
@@ -145,6 +205,7 @@ final class CorporateDutyTracker {
         if (consecutive < 2) return false;
         boarded[index] = true;
         evidence[index] = "corporate";
+        if (selectedRow >= 0 && selectedRow < index) selectedRow = -1;
         resetObservations();
         return true;
     }
@@ -155,6 +216,7 @@ final class CorporateDutyTracker {
             || now < snapshot.plannedStart - 30L * 60_000L) return false;
         boarded[row] = true;
         evidence[row] = "manual";
+        if (selectedRow >= 0 && selectedRow < row) selectedRow = -1;
         resetObservations();
         return true;
     }
