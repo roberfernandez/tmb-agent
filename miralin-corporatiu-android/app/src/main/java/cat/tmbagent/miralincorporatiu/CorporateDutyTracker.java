@@ -25,6 +25,7 @@ final class CorporateDutyTracker {
     private int seenRow = -1;
     private long lastSeenAt = -1;
     private int consecutive;
+    private int pendingRow = -1;
     private int selectedRow = -1;
     private long selectedAt = -1;
 
@@ -49,6 +50,7 @@ final class CorporateDutyTracker {
         // pickups must not hold the watcher on the wrong train.
         for (int i = 0; i < index; i++)
             if (rows.get(i).driving() && !boarded[i]) skipped[i] = true;
+        if (pendingRow >= 0 && pendingRow < index) pendingRow = -1;
         if (row.driving()) {
             boarded[index] = true;
             evidence[index] = "manual";
@@ -128,22 +130,23 @@ final class CorporateDutyTracker {
      * beyond its scheduled end: a late train must not vanish at midnight.
      */
     Snapshot at(long now) {
-        int active = -1, future = -1, last = -1, outstanding = -1;
+        int active = -1, future = -1, last = -1;
         for (int i = 0; i < rows.size(); i++) {
             CorporateServicePlan.Segment r = rows.get(i);
             if (!r.driving()) continue;
             long start = plan.minuteMillis(r.start), end = plan.minuteMillis(r.end);
             if (start <= now && now < end) active = i;
             if (start > now && future == -1) future = i;
-            if (start <= now) {
-                last = i;
-                // Do not jump to a later scheduled pickup while an earlier
-                // train is still missing at its boarding station.
-                if (!boarded[i] && !skipped[i] && outstanding == -1)
-                    outstanding = i;
-            }
+            if (start <= now) last = i;
         }
-        int focus = outstanding != -1 ? outstanding : active != -1 ? active : future;
+        long serviceEnd = plan.minuteMillis(rows.get(rows.size() - 1).end);
+        if (now >= serviceEnd + FINAL_DELAY_GRACE_MS) return null;
+        int focus = active != -1 ? active : future;
+        // Only hold a delayed pickup if THIS instance actually started
+        // watching that train. Never infer missed boardings from old rows when
+        // the user first launches the motor halfway through their shift.
+        if (pendingRow >= 0 && pendingRow < rows.size()
+            && !boarded[pendingRow] && !skipped[pendingRow]) focus = pendingRow;
         if (focus == -1 && last != -1 && now < plan.minuteMillis(rows.get(last).end) + FINAL_DELAY_GRACE_MS)
             focus = last;
         if (focus == -1) return null;
@@ -155,6 +158,8 @@ final class CorporateDutyTracker {
         }
         CorporateServicePlan.Segment r = rows.get(focus);
         boolean driving = boarded[focus];
+        if (!driving && !skipped[focus]) pendingRow = focus;
+        else if (pendingRow == focus || driving) pendingRow = -1;
         int photoRow;
         if (driving) {
             // Subsequent scheduled station/transfer rows may be highlighted
