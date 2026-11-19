@@ -784,6 +784,12 @@ public class TrainOverlayService extends Service {
         return servicePlan.minutesAt(System.currentTimeMillis());
     }
 
+    private static String countdown(long millis) {
+        if (millis <= 0) return "0m";
+        long minutes = (millis + 59999) / 60000;
+        return minutes < 100 ? minutes + "m" : (minutes / 60) + "h" + (minutes % 60);
+    }
+
     private void updateEye() {
         if (eye == null) return;
         int age;
@@ -795,6 +801,27 @@ public class TrainOverlayService extends Service {
             currentTrack = track;
         }
         String ageText = age < 0 ? "—" : age < 60 ? age + "s" : (age / 60) + "m";
+        if ("service".equals(mode)) {
+            long now = System.currentTimeMillis();
+            ServicePlan.Row piece = servicePlan.activeRow(now);
+            if (piece != null && "TRA".equals(piece.type)) {
+                // A transfer has no assigned train. Show its actual direction,
+                // never the platform of the following driving piece.
+                String via = ServiceAlerts.displacementVia(piece.from, piece.to);
+                long end = servicePlan.at(servicePlan.anchorAt(now), piece.end);
+                eye.setStatus("TRA", ServiceAlerts.station(piece.to), via,
+                    countdown(end - now));
+                return;
+            }
+            if (piece != null && piece.driving()) {
+                long scheduled = servicePlan.at(servicePlan.anchorAt(now), piece.end);
+                long live = serviceAlerts == null ? 0 : serviceAlerts.predictedHandover(piece, now);
+                long handover = live > 0 ? live : scheduled;
+                eye.setStatus(piece.train, currentStation, currentTrack,
+                    countdown(handover - now));
+                return;
+            }
+        }
         eye.setStatus(train, currentStation, currentTrack, ageText);
     }
 
