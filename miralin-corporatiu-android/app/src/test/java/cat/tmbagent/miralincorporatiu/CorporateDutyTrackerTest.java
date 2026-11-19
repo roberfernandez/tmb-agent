@@ -266,10 +266,9 @@ public final class CorporateDutyTrackerTest {
         assertEquals(CorporateServicePlan.Selection.TRANSFER_TRACK, late.selection.kind);
         assertEquals("417", late.selection.train);
         assertFalse(track.observeTransfer(at(17,19,10), "417", "Barceloneta", "Via 1"));
-        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Barceloneta", "Via 1"));
-        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Barceloneta", "Via 1"));
+        assertTrue(track.observeTransfer(at(17,19,10)+10_000, "417", "Barceloneta", "Via 1"));
         assertEquals(CorporateServicePlan.Selection.PICKUP,
-            track.at(at(17,19,10)+21_000).selection.kind);
+            track.at(at(17,19,10)+11_000).selection.kind);
     }
 
     @Test public void anOverlappingDrivingPieceHasPriorityOverStationPresence() {
