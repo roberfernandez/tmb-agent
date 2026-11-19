@@ -40,13 +40,13 @@ test('a confirmed corporate arrival advances to the correct driving row',()=>{
  assert.equal(ctx.activeServiceRow(now).i,4);
 });
 
-test('a waiting native snapshot does not override a manual boarding confirmation',()=>{
+test('stale historic boarding-button flag cannot override the live corporate waiting state',()=>{
  const {ctx,now}=harness();
  ctx.nativeDuty={plan:ctx.serviceScheduleKey(),row:3,pickup:4,waiting:true,at:now};
  assert.equal(ctx.activeServiceRow(now).i,3);
  ctx.state.taken.push(4);
- assert.equal(ctx.pendingPickup(now),null);
- assert.equal(ctx.activeServiceRow(now).i,4);
+ assert.equal(ctx.pendingPickup(now).i,4);
+ assert.equal(ctx.activeServiceRow(now).i,3);
 });
 
 test('stale or wrong-plan native row cannot jump the service to driving',()=>{
