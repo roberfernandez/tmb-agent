@@ -183,7 +183,7 @@ public final class CorporateDutyTrackerTest {
 
     @Test public void outOfHoursPreviewAcceptsAnExpiredShiftButDoesNotFakeBoarding() {
         CorporateServicePlan plan = new CorporateServicePlan("2026-11-17", SCHEDULE);
-        long now = at(17, 20, 10);
+        long now = at(18, 2, 30);
         assertNull(new CorporateDutyTracker(plan).at(now));
         CorporateDutyTracker preview = new CorporateDutyTracker(plan, true);
         CorporateDutyTracker.Snapshot snapshot = preview.at(now);
@@ -232,9 +232,9 @@ public final class CorporateDutyTrackerTest {
         assertEquals("417", tracking.selection.train);
         assertEquals(422, tracking.selection.stop);
         assertEquals(1, tracking.selection.via);
-        assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia", "Via 1"));
-        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova", "Via 1"));
-        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Trinitat Nova", "Via 1"));
+        assertFalse(track.observeTransfer(at(17,19,10), "417", "Girona", "Via 1"));
+        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Via Júlia", "Via 1"));
+        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Via Júlia", "Via 1"));
         CorporateDutyTracker.Snapshot atStation = track.at(at(17,19,10)+21_000);
         assertEquals(CorporateServicePlan.Selection.PICKUP, atStation.selection.kind);
         assertEquals("414", atStation.train);
@@ -246,8 +246,8 @@ public final class CorporateDutyTrackerTest {
         long start = at(17,18,46);
         track.at(start);
         assertTrue(track.setTransferTrain(0, "417"));
-        assertFalse(track.observeTransfer(start+60_000, "417", "Trinitat Nova", "Via 1"));
-        assertTrue(track.observeTransfer(start+70_000, "417", "Trinitat Nova", "Via 1"));
+        assertFalse(track.observeTransfer(start+60_000, "417", "Via Júlia", "Via 1"));
+        assertTrue(track.observeTransfer(start+70_000, "417", "Via Júlia", "Via 1"));
         CorporateDutyTracker.Snapshot waitingAtDestination = track.at(start+71_000);
         assertEquals(CorporateServicePlan.Selection.IDLE, waitingAtDestination.selection.kind);
         assertEquals(422, waitingAtDestination.selection.stop);
@@ -266,8 +266,8 @@ public final class CorporateDutyTrackerTest {
         assertEquals(CorporateServicePlan.Selection.TRANSFER_TRACK, late.selection.kind);
         assertEquals("417", late.selection.train);
         assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia", "Via 1"));
-        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova", "Via 1"));
-        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Trinitat Nova", "Via 1"));
+        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Via Júlia", "Via 1"));
+        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Via Júlia", "Via 1"));
         assertEquals(CorporateServicePlan.Selection.PICKUP,
             track.at(at(17,19,10)+21_000).selection.kind);
     }
