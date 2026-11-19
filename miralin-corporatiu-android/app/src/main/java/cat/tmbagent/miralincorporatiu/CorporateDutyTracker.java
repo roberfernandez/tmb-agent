@@ -31,6 +31,8 @@ final class CorporateDutyTracker {
     private long transferLastSeenAt = -1;
     private int transferConsecutive;
     private int pendingTransfer = -1;
+    private int pendingDriving = -1;
+    private final boolean[] drivingArrived;
     private int seenRow = -1;
     private long lastSeenAt = -1;
     private int consecutive;
@@ -142,6 +144,7 @@ final class CorporateDutyTracker {
         this.evidence = new String[rows.size()];
         this.transferTrains = new String[rows.size()];
         this.transferArrived = new boolean[rows.size()];
+        this.drivingArrived = new boolean[rows.size()];
     }
 
     /**
@@ -173,8 +176,22 @@ final class CorporateDutyTracker {
         int focus = activeCon;
         if (pendingRow >= 0 && pendingRow < rows.size()
             && !boarded[pendingRow] && !skipped[pendingRow]) focus = pendingRow;
-
-        if (focus >= 0) return drivingSnapshot(now, focus);
+        if (focus >= 0) {
+            if (drivingArrived[focus]) {
+                CorporateServicePlan.Segment row = rows.get(focus);
+                return idleSnapshot(focus, Integer.parseInt(row.to),
+                    plan.minuteMillis(row.end), "driving-arrived");
+            }
+            return drivingSnapshot(now, focus);
+        }
+        if (pendingDriving >= 0 && !drivingArrived[pendingDriving])
+            return drivingSnapshot(now, pendingDriving);
+        if (pendingDriving >= 0 && drivingArrived[pendingDriving]
+            && now < plan.minuteMillis(rows.get(pendingDriving).end)) {
+            CorporateServicePlan.Segment row = rows.get(pendingDriving);
+            return idleSnapshot(pendingDriving, Integer.parseInt(row.to),
+                plan.minuteMillis(row.end), "driving-arrived");
+        }
 
         // A transfer is a movement obligation. Once it starts, keep following
         // a suitable train until it is confirmed at the destination, even if
@@ -247,9 +264,10 @@ final class CorporateDutyTracker {
 
     private Snapshot drivingSnapshot(long now, int index) {
         CorporateServicePlan.Segment row = rows.get(index);
-        boolean driving = boarded[index];
-        if (!driving && !skipped[index]) pendingRow = index;
+        boolean driving = boarded[index] && !drivingArrived[index];
+        if (!driving && !skipped[index] && !boarded[index]) pendingRow = index;
         else if (pendingRow == index || driving) pendingRow = -1;
+        if (driving) pendingDriving = index;
         int photoRow = driving ? Math.max(index, plan.viewerIndex(now)) : waitingRow(index);
         if (manualCheckpointActive(now)) photoRow = selectedRow;
         CorporateServicePlan.Selection selection = plan.selectionFor(index, driving);
@@ -339,38 +357,55 @@ final class CorporateDutyTracker {
     boolean observe(long now, String train, String location, String reportedTrack,
                     boolean unambiguous) {
         Snapshot snapshot = at(now);
-        if (previewOnly || snapshot == null || !snapshot.waiting || !unambiguous
-            || now < snapshot.plannedStart - EARLY_WINDOW_MS
-            || !snapshot.train.equals(train)
-            || !sameStation(location, CorporateServicePlan.stationName(snapshot.from))) {
-            resetObservations();
-            return false;
-        }
-
-        CorporateServicePlan.Segment r = rows.get(snapshot.pickupRow);
-        // An intermediate-station pickup must match the scheduled platform.
-        // Terminal tables can share a platform; only a non-ambiguous reading
-        // is required for terminal pickups.
-        boolean terminal = "413".equals(r.from) || "434".equals(r.from);
-        if (!terminal && !sameTrack(reportedTrack, r.via)) {
+        if (previewOnly || snapshot == null || !unambiguous
+            || !snapshot.train.equals(train)) {
             resetObservations();
             return false;
         }
 
         int index = snapshot.pickupRow;
+        CorporateServicePlan.Segment row = rows.get(index);
+        if (snapshot.waiting) {
+            if (now < snapshot.plannedStart - EARLY_WINDOW_MS
+                || !sameStation(location, CorporateServicePlan.stationName(row.from))) {
+                resetObservations();
+                return false;
+            }
+            // At terminal pickups the platform can be shared. At intermediate
+            // stations, require the exact service via before confirming boarding.
+            boolean terminal = CorporateServicePlan.terminal(Integer.parseInt(row.from));
+            if (!terminal && !sameTrack(reportedTrack, row.via)) {
+                resetObservations();
+                return false;
+            }
+        } else if (snapshot.driving) {
+            if (!sameStation(location, CorporateServicePlan.stationName(row.to))
+                || !sameTrack(reportedTrack,
+                    Integer.toString(CorporateServicePlan.directionVia(row.from, row.to)))) {
+                resetObservations();
+                return false;
+            }
+        } else {
+            resetObservations();
+            return false;
+        }
+
         if (seenRow == index && lastSeenAt >= 0
             && now - lastSeenAt >= MIN_OBSERVATION_SPACING_MS
-            && now - lastSeenAt <= OBSERVATION_TIMEOUT_MS) {
-            consecutive++;
-        } else {
-            consecutive = 1;
-        }
+            && now - lastSeenAt <= OBSERVATION_TIMEOUT_MS) consecutive++;
+        else consecutive = 1;
         seenRow = index;
         lastSeenAt = now;
         if (consecutive < 2) return false;
-        boarded[index] = true;
-        evidence[index] = "corporate";
-        if (selectedRow >= 0 && selectedRow < index) selectedRow = -1;
+        if (snapshot.waiting) {
+            boarded[index] = true;
+            evidence[index] = "corporate";
+            if (selectedRow >= 0 && selectedRow < index) selectedRow = -1;
+            pendingDriving = index;
+        } else {
+            drivingArrived[index] = true;
+            if (pendingDriving == index) pendingDriving = -1;
+        }
         resetObservations();
         return true;
     }
