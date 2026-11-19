@@ -10,12 +10,13 @@ function runPart(startText,endText,context){
  vm.runInContext(page.slice(start,end),vm.createContext(context));
  return context;
 }
-test('El meu servei only offers one corporate Android engine, not a separate Miralín UI',()=>{
- assert.match(page,/id="tmbIdentify"/);
- assert.match(page,/id="corporateIdentity"/);
+test('El meu servei has one native engine and no permanently visible corporate sign-in',()=>{
+ assert.doesNotMatch(page,/id="tmbIdentify"/);
+ assert.doesNotMatch(page,/id="corporateIdentity"/);
  assert.doesNotMatch(page,/id="androidEyeSource"/);
  assert.doesNotMatch(page,/selectedAndroidSource/);
- assert.match(page,/Identifica't amb TMB/);
+ assert.match(page,/id="startServiceEye"/);
+ assert.match(page,/function openAndroidEye\(params\)/);
 });
 
 test('all eye actions use the hidden corporate package and app-local installation fallback',()=>{
@@ -35,7 +36,7 @@ test('all eye actions use the hidden corporate package and app-local installatio
 test('manual mode sends requested train/station/via entirely from the PWA',()=>{
  let call;
  const ctx={rememberAndroidLaunch:()=>{},nativeIntent:(host,params)=>{call={host,params}}};
- runPart('function openAndroidEye(params){','\nif(isAndroid){',ctx);
+ runPart('function openAndroidEye(params){','\nlet state=',ctx);
  ctx.openAndroidEye(new URLSearchParams({mode:'manual',train:'418',stop:'424',via:'2'}));
  assert.equal(call.host,'watch');
  assert.equal(call.params.get('train'),'418');
