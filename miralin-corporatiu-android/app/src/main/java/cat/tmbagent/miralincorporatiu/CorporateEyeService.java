@@ -594,7 +594,7 @@ public final class CorporateEyeService extends Service {
             : new CorporateProjection.Result(departureAt, 0);
         String countdown = selectionKind == CorporateServicePlan.Selection.IDLE
             || selectionKind == CorporateServicePlan.Selection.WAIT_TRANSFER
-            ? OfficialDepartureCountdown.display(takeoverAt, now)
+            ? OfficialDepartureCountdown.displayExact(takeoverAt, now)
             : ageSeconds <= 60 ? OfficialDepartureCountdown.display(projection.timeMs, now) : "--";
         eye.setCountdown(countdown);
         eye.setLaps(ageSeconds <= 60
