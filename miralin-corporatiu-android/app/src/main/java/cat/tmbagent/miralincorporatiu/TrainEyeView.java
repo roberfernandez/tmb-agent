@@ -80,7 +80,7 @@ final class TrainEyeView extends View {
 
     private void updateDescription() {
         setContentDescription("Tren " + train + " · " + station + " · via " + track
-            + ". Temps amb el tren anterior: " + headway + ". Sortida estimada: " + countdown
+            + ". Temps amb el tren anterior: " + headway + ". Compte enrere del proper moviment: " + countdown
             + (projectedLaps > 0 ? " (projecció de " + projectedLaps + " volta o voltes de 77 minuts)" : "")
             + ". Actualització: " + age + ". Toca per obrir el visor; la creu atura el seguiment.");
     }
