@@ -18,7 +18,9 @@ final class CorporateDutyTracker {
     private static final long OBSERVATION_TIMEOUT_MS = 45_000L;
     private static final long MIN_OBSERVATION_SPACING_MS = 7_000L;
     private final CorporateServicePlan plan;
-    private final boolean previewOnly;
+    private boolean previewOnly;
+
+    boolean isPreviewOnly() { return previewOnly; }
     private final List<CorporateServicePlan.Segment> rows;
     private final boolean[] boarded;
     private final boolean[] skipped;
@@ -43,10 +45,14 @@ final class CorporateDutyTracker {
         long last = plan.minuteMillis(rows.get(rows.size() - 1).end);
         // The user may still be on an earlier station or transfer row because
         // of a severe delay. Only a driving-row claim needs a tight time check.
-        if (!previewOnly && (now < first - FINAL_DELAY_GRACE_MS
-            || now > last + FINAL_DELAY_GRACE_MS)) return false;
-        if (!previewOnly && row.driving() && (now < start - 30L * 60_000L
-            || now > end + FINAL_DELAY_GRACE_MS)) return false;
+        // If the worker explicitly chooses an out-of-time row, the app becomes
+        // a clearly labeled TEST instead of refusing the selection. Stop work
+        // alerts and automatic pickup claims for this experimental service.
+        if (now < first - FINAL_DELAY_GRACE_MS
+            || now > last + FINAL_DELAY_GRACE_MS
+            || (row.driving() && (now < start - 30L * 60_000L
+                || now > end + FINAL_DELAY_GRACE_MS)))
+            previewOnly = true;
         // If the worker explicitly selects a later stage, earlier missed
         // pickups must not hold the watcher on the wrong train.
         for (int i = 0; i < index; i++)
