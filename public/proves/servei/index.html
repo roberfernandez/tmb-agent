@@ -8,7 +8,7 @@
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .viewer-shell{height:100%;display:flex;flex-direction:column;min-height:0}.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.viewer-head h2{margin:0}.viewer-status{margin:8px 0 10px;flex:none}#viewerPhotoHome{min-height:0;flex:1;display:flex}#viewerPhotoHome #photoViewport{width:100%;height:100%;max-width:none;max-height:none;margin:0}.viewer-timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.viewer-timeline .journey-row{grid-template-columns:88px minmax(0,1fr);padding:10px}#viewerPhotoHome[hidden],.viewer-timeline[hidden]{display:none}@media(max-width:480px){#serviceViewer{width:100vw;height:88dvh;max-height:780px;border-radius:0;padding:14px}}
 </style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.26.0</span></header><h1>El meu servei</h1>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.26.1</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
@@ -33,7 +33,6 @@
 </section>
 <section class="card">
  <h2>Segueix el servei</h2><p>El seguiment automàtic segueix el tren que toca segons l’horari del servei.</p><p id="serviceTrainPreview" class="service-current" aria-live="polite"></p>
- <div id="corporateIdentity" hidden><div class="row"><button id="tmbIdentify" type="button">Identifica't amb TMB</button><span id="corporateIdentityStatus" class="muted" role="status">Identificació corporativa pendent.</span></div><p class="muted"><small>Les credencials s'introdueixen en un diàleg segur d'Android i només es desen xifrades al dispositiu. No s'envien a la miniapp.</small></p></div>
  <div class="row"><button id="startServiceEye" class="primary"><span aria-hidden="true">👁</span> Activa el seguiment automàtic</button><button id="stopServiceEye" class="stop-active" hidden>Atura</button></div>
  <p id="serviceEyeStatus" role="status" class="muted" hidden></p>
  <div id="pickupPending" class="pickup-pending" hidden>
@@ -77,14 +76,10 @@ const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.9.0';
 const nativeApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.9.0-beta/Miralin-Corporatiu-v0.9.0-beta.apk';
 function refreshAndroidDownload(){
  if(!isAndroid)return;
- $('corporateIdentity').hidden=false;
  const installed=localStorage.getItem(nativeInstalledKey)==='true';
  $('androidOption').href=nativeApkUrl;
  $('androidOption').textContent='Android · instal·la el motor v0.9';
  $('androidOption').hidden=installed;
- $('corporateIdentityStatus').textContent=localStorage.getItem(nativeAuthKey)==='true'
-  ?'Identificació TMB verificada al dispositiu.'
-  :installed?'Motor obert anteriorment · identifica\'t amb TMB si cal.':'Instal·la el motor per activar el seguiment en segon pla.';
 }
 function nativeIntent(host,params=new URLSearchParams()){
  const query=params.toString();
@@ -109,12 +104,6 @@ function openAndroidEye(params){
  rememberAndroidLaunch(params);
  nativeIntent('watch',params);
 }
-if(isAndroid){
- $('tmbIdentify').onclick=()=>{
-  rememberAndroidLaunch(null);
-  nativeIntent('login');
- };
-}
 
 let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,photoPending:false,manualRowIndex:null,manualSince:null};
 const nativeServiceKey='tmb-servei-native-service-v1';
@@ -135,7 +124,6 @@ if(isAndroid&&nativeQuery.has('installNative')){
  localStorage.removeItem(nativeInstalledKey);
  followMode='';localStorage.removeItem(followModeKey);localStorage.removeItem(nativeServiceKey);
  $('androidOption').hidden=false;
- $('corporateIdentityStatus').textContent='Cal instal·lar el motor Android per continuar.';
 }
 if(isAndroid&&nativeQuery.has('nativeReady')){
  localStorage.setItem(nativeInstalledKey,'true');
