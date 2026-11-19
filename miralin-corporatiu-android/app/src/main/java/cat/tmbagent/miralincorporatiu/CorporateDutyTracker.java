@@ -179,7 +179,7 @@ final class CorporateDutyTracker {
         if (focus >= 0) {
             if (drivingArrived[focus]) {
                 CorporateServicePlan.Segment row = rows.get(focus);
-                return idleSnapshot(focus, Integer.parseInt(row.to),
+                return idleSnapshot(now, focus, Integer.parseInt(row.to),
                     plan.minuteMillis(row.end), "driving-arrived");
             }
             return drivingSnapshot(now, focus);
@@ -189,7 +189,7 @@ final class CorporateDutyTracker {
         if (pendingDriving >= 0 && drivingArrived[pendingDriving]
             && now < plan.minuteMillis(rows.get(pendingDriving).end)) {
             CorporateServicePlan.Segment row = rows.get(pendingDriving);
-            return idleSnapshot(pendingDriving, Integer.parseInt(row.to),
+            return idleSnapshot(now, pendingDriving, Integer.parseInt(row.to),
                 plan.minuteMillis(row.end), "driving-arrived");
         }
 
@@ -216,7 +216,7 @@ final class CorporateDutyTracker {
             int following = nextOperationalRow(activeStation);
             if (following >= 0) {
                 CorporateServicePlan.Segment row = rows.get(following);
-                if (row.driving()) return pickupSnapshot(following);
+                if (row.driving()) return pickupSnapshot(now, following);
                 return idleSnapshot(now, following, Integer.parseInt(row.from),
                     plan.minuteMillis(row.start), "station-before-transfer");
             }
@@ -228,7 +228,7 @@ final class CorporateDutyTracker {
         // the arrival was late; the next active station/CON row then takes over.
         if (activeTransfer >= 0 && transferArrived[activeTransfer]) {
             int following = nextOperationalRow(activeTransfer);
-            if (following >= 0 && rows.get(following).driving()) return pickupSnapshot(following);
+            if (following >= 0 && rows.get(following).driving()) return pickupSnapshot(now, following);
             if (following >= 0) {
                 CorporateServicePlan.Segment row = rows.get(following);
                 return idleSnapshot(now, following, Integer.parseInt(row.from),
@@ -241,7 +241,7 @@ final class CorporateDutyTracker {
         // merely because one happens to be passing now.
         if (next >= 0) {
             CorporateServicePlan.Segment row = rows.get(next);
-            if (row.driving()) return pickupSnapshot(next);
+            if (row.driving()) return pickupSnapshot(now, next);
             return idleSnapshot(now, next, Integer.parseInt(row.from),
                 plan.minuteMillis(row.start), "next-activity");
         }
@@ -249,8 +249,8 @@ final class CorporateDutyTracker {
         // Preserve a late final pickup only if this tracker was already watching it.
         if (pendingRow >= 0 && !boarded[pendingRow] && !skipped[pendingRow]
             && now < plan.minuteMillis(rows.get(pendingRow).end) + FINAL_DELAY_GRACE_MS)
-            return pickupSnapshot(pendingRow);
-        if (previewOnly && lastDriving >= 0) return pickupSnapshot(lastDriving);
+            return pickupSnapshot(now, pendingRow);
+        if (previewOnly && lastDriving >= 0) return pickupSnapshot(now, lastDriving);
         return null;
     }
 
@@ -276,10 +276,10 @@ final class CorporateDutyTracker {
                 : driving ? evidence[index] : "waiting", previewOnly, selection);
     }
 
-    private Snapshot pickupSnapshot(int index) {
+    private Snapshot pickupSnapshot(long now, int index) {
         CorporateServicePlan.Segment row = rows.get(index);
         CorporateServicePlan.Selection selection = plan.selectionFor(index, false);
-        int photoRow = manualCheckpointActive(System.currentTimeMillis())
+        int photoRow = manualCheckpointActive(now)
             ? selectedRow : waitingRow(index);
         return new Snapshot(photoRow, index, true, false, row.train, row.from,
             plan.minuteMillis(row.start), previewOnly ? "preview" : "waiting", previewOnly, selection);
