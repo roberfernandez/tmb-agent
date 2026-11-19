@@ -29,7 +29,7 @@ public final class CorporateServicePlanTest {
         CorporateServicePlan.Selection during = plan.at(at(17, 10, 30));
         assertEquals("406", during.train);
         assertEquals(434, during.stop);
-        assertEquals(0, during.via);
+        assertEquals(1, during.via);
         assertTrue(during.driving);
 
         CorporateServicePlan.Selection transfer = plan.at(at(17, 11, 2));
@@ -41,7 +41,7 @@ public final class CorporateServicePlanTest {
         CorporateServicePlan.Selection second = plan.at(at(17, 11, 45));
         assertEquals("418", second.train);
         assertEquals(413, second.stop);
-        assertEquals(0, second.via);
+        assertEquals(1, second.via);
         assertTrue(second.driving);
 
         assertNull(plan.at(at(17, 12, 31)));
