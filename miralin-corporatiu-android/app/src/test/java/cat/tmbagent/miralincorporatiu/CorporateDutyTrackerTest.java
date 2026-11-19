@@ -232,7 +232,8 @@ public final class CorporateDutyTrackerTest {
         assertEquals(422, tracking.selection.stop);
         assertEquals(1, tracking.selection.via);
         assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia"));
-        assertTrue(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova"));
+        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova"));
+        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Trinitat Nova"));
         CorporateDutyTracker.Snapshot atStation = track.at(at(17,19,10)+11_000);
         assertEquals(CorporateServicePlan.Selection.PICKUP, atStation.selection.kind);
         assertEquals("414", atStation.train);
@@ -264,7 +265,8 @@ public final class CorporateDutyTrackerTest {
         assertEquals(CorporateServicePlan.Selection.TRANSFER_TRACK, late.selection.kind);
         assertEquals("417", late.selection.train);
         assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia"));
-        assertTrue(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova"));
+        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova"));
+        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Trinitat Nova"));
         assertEquals(CorporateServicePlan.Selection.PICKUP,
             track.at(at(17,19,10)+11_000).selection.kind);
     }
