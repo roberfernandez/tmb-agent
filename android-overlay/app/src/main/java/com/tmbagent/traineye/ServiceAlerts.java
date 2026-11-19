@@ -451,6 +451,27 @@ final class ServiceAlerts {
         return null;
     }
 
+    /**
+     * Estimate the final handover, never the first terminus passage.
+     * A full extra circuit takes 77 minutes; the first circuit adds nothing.
+     * Return zero rather than displaying a fabricated live prediction.
+     */
+    long predictedHandover(ServicePlan.Row row, long now) {
+        if (row == null || !row.driving() || row.to.isEmpty()) return 0;
+        long scheduled = plan.at(anchor, row.end);
+        String inbound = "413".equals(row.to) ? "2" : "434".equals(row.to) ? "1" : row.out;
+        if (!"1".equals(inbound) && !"2".equals(inbound)) return 0;
+        long first = arrivalAtOrAfter(arrivals(row.to, inbound, now), row.train, now - 15000);
+        if (first == 0) return 0;
+        long predicted = first;
+        int circuits = 0;
+        while (predicted < scheduled - 30 * 60000L && circuits < 4) {
+            predicted += 77 * 60000L;
+            circuits++;
+        }
+        return predicted;
+    }
+
     private long assignedArrival(ServicePlan.Row row, long now) {
         return arrivalAtOrAfter(arrivals(row.from, row.via, now), row.train, 0);
     }
