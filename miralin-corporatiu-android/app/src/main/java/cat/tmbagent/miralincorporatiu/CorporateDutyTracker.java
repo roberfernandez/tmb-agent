@@ -206,7 +206,7 @@ final class CorporateDutyTracker {
         // extra transfer time or chase another train.
         if (activeTransfer >= 0 && transferArrived[activeTransfer]) {
             CorporateServicePlan.Segment transfer = rows.get(activeTransfer);
-            return idleSnapshot(activeTransfer, Integer.parseInt(transfer.to),
+            return idleSnapshot(now, activeTransfer, Integer.parseInt(transfer.to),
                 plan.minuteMillis(transfer.end), "transfer-arrived");
         }
 
@@ -217,10 +217,10 @@ final class CorporateDutyTracker {
             if (following >= 0) {
                 CorporateServicePlan.Segment row = rows.get(following);
                 if (row.driving()) return pickupSnapshot(following);
-                return idleSnapshot(following, Integer.parseInt(row.from),
+                return idleSnapshot(now, following, Integer.parseInt(row.from),
                     plan.minuteMillis(row.start), "station-before-transfer");
             }
-            return idleSnapshot(activeStation, Integer.parseInt(rows.get(activeStation).from),
+            return idleSnapshot(now, activeStation, Integer.parseInt(rows.get(activeStation).from),
                 plan.minuteMillis(rows.get(activeStation).end), "station");
         }
 
@@ -231,7 +231,7 @@ final class CorporateDutyTracker {
             if (following >= 0 && rows.get(following).driving()) return pickupSnapshot(following);
             if (following >= 0) {
                 CorporateServicePlan.Segment row = rows.get(following);
-                return idleSnapshot(following, Integer.parseInt(row.from),
+                return idleSnapshot(now, following, Integer.parseInt(row.from),
                     plan.minuteMillis(row.start), "next-activity");
             }
         }
@@ -242,7 +242,7 @@ final class CorporateDutyTracker {
         if (next >= 0) {
             CorporateServicePlan.Segment row = rows.get(next);
             if (row.driving()) return pickupSnapshot(next);
-            return idleSnapshot(next, Integer.parseInt(row.from),
+            return idleSnapshot(now, next, Integer.parseInt(row.from),
                 plan.minuteMillis(row.start), "next-activity");
         }
 
@@ -279,7 +279,9 @@ final class CorporateDutyTracker {
     private Snapshot pickupSnapshot(int index) {
         CorporateServicePlan.Segment row = rows.get(index);
         CorporateServicePlan.Selection selection = plan.selectionFor(index, false);
-        return new Snapshot(waitingRow(index), index, true, false, row.train, row.from,
+        int photoRow = manualCheckpointActive(System.currentTimeMillis())
+            ? selectedRow : waitingRow(index);
+        return new Snapshot(photoRow, index, true, false, row.train, row.from,
             plan.minuteMillis(row.start), previewOnly ? "preview" : "waiting", previewOnly, selection);
     }
 
@@ -297,9 +299,10 @@ final class CorporateDutyTracker {
                 : "transfer-track", previewOnly, selection);
     }
 
-    private Snapshot idleSnapshot(int row, int stop, long countdownAt, String source) {
+    private Snapshot idleSnapshot(long now, int row, int stop, long countdownAt, String source) {
         CorporateServicePlan.Selection selection = plan.idleAtStopSelection(row, stop, countdownAt);
-        return new Snapshot(row, row, false, false, "", Integer.toString(stop),
+        int photoRow = manualCheckpointActive(now) ? selectedRow : row;
+        return new Snapshot(photoRow, row, false, false, "", Integer.toString(stop),
             countdownAt, source, previewOnly, selection);
     }
 
