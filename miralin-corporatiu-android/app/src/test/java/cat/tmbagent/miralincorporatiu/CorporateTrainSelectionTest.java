@@ -25,6 +25,27 @@ public final class CorporateTrainSelectionTest {
         assertNull(CorporateTrainSelection.find(board, "999"));
     }
 
+    @Test public void transferChoosesNextTrainOnlyFromTheRequiredDirection() {
+        long now = java.time.ZonedDateTime.of(2026, 11, 17, 18, 46, 0, 0,
+            java.time.ZoneId.of("Europe/Madrid")).toInstant().toEpochMilli();
+        CorporateBoardParser.Track via1 = new CorporateBoardParser.Track(1, true,
+            Collections.emptyList(), Arrays.asList(
+                Arrays.asList("418", "18:52", "03:52", "Bogatell", "Via 1"),
+                Arrays.asList("416", "18:50", "03:40", "Poblenou", "Via 1"),
+                Arrays.asList("417", "18:47", "03:20", "La Pau", "Via 2")));
+        CorporateBoardParser.Track via2 = new CorporateBoardParser.Track(2, true,
+            Collections.emptyList(), Arrays.asList(
+                Arrays.asList("414", "18:48", "03:30", "Besòs", "Via 2")));
+        CorporateTrainSelection.Train selected = CorporateTrainSelection.nextForTransfer(
+            new CorporateBoardParser.Board(via1, via2), 1, now);
+        assertNotNull(selected);
+        assertEquals("416", selected.id);
+        assertEquals("18:50", selected.departure);
+        assertEquals("Via 1", selected.track);
+        assertNull(CorporateTrainSelection.nextForTransfer(
+            new CorporateBoardParser.Board(via1, via2), 2, now + 3 * 60_000L));
+    }
+
     @Test public void sameTrainHasDifferentDepartureInEachViaBoard() {
         CorporateBoardParser.Track via1 = new CorporateBoardParser.Track(1, true,
             Collections.emptyList(), Arrays.asList(
