@@ -20,6 +20,7 @@ final class CorporateDutyTracker {
     private final CorporateServicePlan plan;
     private final List<CorporateServicePlan.Segment> rows;
     private final boolean[] boarded;
+    private final boolean[] skipped;
     private final String[] evidence;
     private int seenRow = -1;
     private long lastSeenAt = -1;
@@ -36,8 +37,18 @@ final class CorporateDutyTracker {
         CorporateServicePlan.Segment row = rows.get(index);
         long start = plan.minuteMillis(row.start);
         long end = plan.minuteMillis(row.end);
-        if (now < start - 30L * 60_000L || now > end + FINAL_DELAY_GRACE_MS)
+        long first = plan.minuteMillis(rows.get(0).start);
+        long last = plan.minuteMillis(rows.get(rows.size() - 1).end);
+        // The user may still be on an earlier station or transfer row because
+        // of a severe delay. Only a driving-row claim needs a tight time check.
+        if (now < first - FINAL_DELAY_GRACE_MS || now > last + FINAL_DELAY_GRACE_MS)
             return false;
+        if (row.driving() && (now < start - 30L * 60_000L
+            || now > end + FINAL_DELAY_GRACE_MS)) return false;
+        // If the worker explicitly selects a later stage, earlier missed
+        // pickups must not hold the watcher on the wrong train.
+        for (int i = 0; i < index; i++)
+            if (rows.get(i).driving() && !boarded[i]) skipped[i] = true;
         if (row.driving()) {
             boarded[index] = true;
             evidence[index] = "manual";
@@ -107,6 +118,7 @@ final class CorporateDutyTracker {
         this.plan = plan;
         this.rows = plan.viewerSegments();
         this.boarded = new boolean[rows.size()];
+        this.skipped = new boolean[rows.size()];
         this.evidence = new String[rows.size()];
     }
 
@@ -116,16 +128,22 @@ final class CorporateDutyTracker {
      * beyond its scheduled end: a late train must not vanish at midnight.
      */
     Snapshot at(long now) {
-        int active = -1, future = -1, last = -1;
+        int active = -1, future = -1, last = -1, outstanding = -1;
         for (int i = 0; i < rows.size(); i++) {
             CorporateServicePlan.Segment r = rows.get(i);
             if (!r.driving()) continue;
             long start = plan.minuteMillis(r.start), end = plan.minuteMillis(r.end);
             if (start <= now && now < end) active = i;
             if (start > now && future == -1) future = i;
-            if (start <= now) last = i;
+            if (start <= now) {
+                last = i;
+                // Do not jump to a later scheduled pickup while an earlier
+                // train is still missing at its boarding station.
+                if (!boarded[i] && !skipped[i] && outstanding == -1)
+                    outstanding = i;
+            }
         }
-        int focus = active != -1 ? active : future;
+        int focus = outstanding != -1 ? outstanding : active != -1 ? active : future;
         if (focus == -1 && last != -1 && now < plan.minuteMillis(rows.get(last).end) + FINAL_DELAY_GRACE_MS)
             focus = last;
         if (focus == -1) return null;
