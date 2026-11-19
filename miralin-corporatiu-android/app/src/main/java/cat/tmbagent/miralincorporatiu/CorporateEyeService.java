@@ -43,6 +43,7 @@ public final class CorporateEyeService extends Service {
     static final String EXTRA_SERVICE_IMAGE = "serviceImage";
     static final String EXTRA_SERVICE_ROW_BOUNDS = "serviceRowBounds";
     static final String ACTION_CONFIRM_PICKUP = "CONFIRM_PICKUP";
+    static final String ACTION_SELECT_ROW = "SELECT_SERVICE_ROW";
     static final String EXTRA_PICKUP_ROW = "pickupRow";
     static final String EXTRA_PLAN_KEY = "planKey";
     static volatile boolean isActive;
@@ -73,6 +74,7 @@ public final class CorporateEyeService extends Service {
     private CorporateServiceViewer viewer;
     private String serviceImage = "";
     private String serviceRowBounds = "";
+    private int manualViewerRow = -1;
     private long takeoverAt = -1;
     private int selectionGeneration;
     private boolean alertsEnabled;
@@ -185,15 +187,19 @@ public final class CorporateEyeService extends Service {
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_SELECT_ROW.equals(intent.getAction())) {
+            if (isActive && "service".equals(mode) && duty != null && servicePlan != null
+                && servicePlan.webKey().equals(intent.getStringExtra(EXTRA_PLAN_KEY))) {
+                applyUserRowSelection(System.currentTimeMillis(),
+                    intent.getIntExtra(EXTRA_PICKUP_ROW, -1));
+            }
+            return START_NOT_STICKY;
+        }
         if (intent != null && ACTION_CONFIRM_PICKUP.equals(intent.getAction())) {
             if (isActive && "service".equals(mode) && duty != null && servicePlan != null
-                && servicePlan.webKey().equals(intent.getStringExtra(EXTRA_PLAN_KEY))
-                && duty.confirmBoarded(System.currentTimeMillis(),
-                    intent.getIntExtra(EXTRA_PICKUP_ROW, -1))) {
-                applyServiceSelection(System.currentTimeMillis(), true);
-                publishDutyStatus(System.currentTimeMillis());
-                if (viewer != null) viewer.refresh(System.currentTimeMillis(),
-                    currentViewerRow(System.currentTimeMillis()));
+                && servicePlan.webKey().equals(intent.getStringExtra(EXTRA_PLAN_KEY))) {
+                applyUserRowSelection(System.currentTimeMillis(),
+                    intent.getIntExtra(EXTRA_PICKUP_ROW, -1));
             }
             return START_NOT_STICKY;
         }
@@ -213,6 +219,7 @@ public final class CorporateEyeService extends Service {
                 try {
                     servicePlan = new CorporateServicePlan(date, schedule);
                     duty = new CorporateDutyTracker(servicePlan);
+                    manualViewerRow = -1;
                     viewerPlan = servicePlan;
                     mode = "service";
                     if (!applyServiceSelection(System.currentTimeMillis(), false)) {
@@ -227,6 +234,7 @@ public final class CorporateEyeService extends Service {
                 mode = "manual";
                 servicePlan = null;
                 duty = null;
+                manualViewerRow = -1;
                 activeDutyJson = "";
                 takeoverAt = -1;
                 viewerPlan = null;
@@ -368,7 +376,8 @@ public final class CorporateEyeService extends Service {
     private void openServiceViewer() {
         if (viewer != null && viewer.isShowing()) return;
         viewer = new CorporateServiceViewer(this, windows, viewerPlan,
-            serviceImage, serviceRowBounds, () -> viewer = null);
+            serviceImage, serviceRowBounds, () -> viewer = null,
+            row -> applyUserRowSelection(System.currentTimeMillis(), row));
         viewer.show(currentViewerRow(System.currentTimeMillis()));
     }
 
@@ -471,7 +480,23 @@ public final class CorporateEyeService extends Service {
         return true;
     }
 
+    private boolean applyUserRowSelection(long now, int row) {
+        if ("service".equals(mode) && duty != null) {
+            if (!duty.selectRow(now, row)) return false;
+            applyServiceSelection(now, true);
+            publishDutyStatus(now);
+        } else if ("manual".equals(mode) && viewerPlan != null
+            && row >= 0 && row < viewerPlan.viewerSegments().size()) {
+            // The independent manual train watch keeps following its selected
+            // train; the user can still mark their position on the sheet.
+            manualViewerRow = row;
+        } else return false;
+        if (viewer != null) viewer.refresh(now, currentViewerRow(now));
+        return true;
+    }
+
     private int currentViewerRow(long now) {
+        if ("manual".equals(mode)) return manualViewerRow;
         CorporateDutyTracker.Snapshot snapshot =
             "service".equals(mode) && duty != null ? duty.at(now) : null;
         return snapshot == null ? -1 : snapshot.photoRow;
