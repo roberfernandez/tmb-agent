@@ -78,6 +78,7 @@ public final class CorporateEyeService extends Service {
     private String serviceRowBounds = "";
     private int manualViewerRow = -1;
     private long takeoverAt = -1;
+    private int selectionKind = CorporateServicePlan.Selection.IDLE;
     private int selectionGeneration;
     private boolean alertsEnabled;
     private int alertMargin = 5;
@@ -102,24 +103,35 @@ public final class CorporateEyeService extends Service {
             final String requested = train;
             final int requestedStop = stop;
             final int requestedVia = targetVia;
+            final int requestedKind = selectionKind;
+            final int requestedRow = duty == null ? -1 : duty.at(System.currentTimeMillis()) == null
+                ? -1 : duty.at(System.currentTimeMillis()).selection.row;
             final int generation = selectionGeneration;
             network.execute(() -> {
                 CorporateTrainSelection.Train found = null;
                 CorporateTrainSelection.Train matchingDeparture = null;
+                CorporateTrainSelection.Train transferCandidate = null;
                 Exception failure = null;
                 try {
                     CredentialVault.Login login = new CredentialVault(CorporateEyeService.this).load();
                     if (login == null) throw new SecurityException("Cal iniciar sessió a l'aplicació.");
                     CorporateBoardParser.Board board = client.fetch(login.username, login.password, requestedStop);
-                    found = CorporateTrainSelection.find(board, requested);
-                    matchingDeparture = requestedVia == 0
-                        ? onlyDepartureAtTerminal(board, requested)
-                        : CorporateTrainSelection.find(board, requested, requestedVia);
+                    if ("service".equals(mode)
+                        && requestedKind == CorporateServicePlan.Selection.TRANSFER_SEARCH) {
+                        transferCandidate = CorporateTrainSelection.nextForTransfer(
+                            board, requestedVia, System.currentTimeMillis());
+                    } else {
+                        found = CorporateTrainSelection.find(board, requested);
+                        matchingDeparture = requestedVia == 0
+                            ? onlyDepartureAtTerminal(board, requested)
+                            : CorporateTrainSelection.find(board, requested, requestedVia);
+                    }
                 } catch (Exception e) {
                     failure = e;
                 }
                 final CorporateTrainSelection.Train result = found;
                 final CorporateTrainSelection.Train departure = matchingDeparture;
+                final CorporateTrainSelection.Train candidate = transferCandidate;
                 final Exception error = failure;
                 ui.post(() -> {
                     busy = false;
@@ -130,24 +142,35 @@ public final class CorporateEyeService extends Service {
                         return;
                     }
                     if (error == null) {
-                        lastTrain = result;
                         receivedAt = System.currentTimeMillis();
-                        departureAt = departure == null ? -1
-                            : OfficialDepartureCountdown.departureEpochMs(departure.departure, receivedAt);
-                        connection = result == null ? "Tren no localitzat a la taula consultada"
-                            : departure == null ? "No consta SORTIDA per aquesta via"
-                            : "Lectura oficial rebuda";
-                        if ("service".equals(mode) && duty != null) {
-                            // This is the only auto-pickup signal. No clock-only
-                            // transition is allowed. Two fresh official readings
-                            // at the correct station are required.
-                            if (duty.observe(receivedAt, requested,
-                                    result == null ? "" : result.station,
-                                    result == null ? "" : result.track,
-                                    departure != null)) {
+                        if ("service".equals(mode) && duty != null
+                            && requestedKind == CorporateServicePlan.Selection.TRANSFER_SEARCH) {
+                            if (candidate != null && duty.setTransferTrain(requestedRow, candidate.id)) {
+                                connection = "Trasllat · seguint tren " + candidate.id;
                                 applyServiceSelection(receivedAt, true);
+                            } else {
+                                lastTrain = null;
+                                departureAt = -1;
+                                connection = "Cercant tren en la direcció del trasllat…";
                             }
-                            publishDutyStatus(receivedAt);
+                        } else {
+                            lastTrain = result;
+                            departureAt = departure == null ? -1
+                                : OfficialDepartureCountdown.departureEpochMs(departure.departure, receivedAt);
+                            connection = result == null ? "Tren no localitzat a la taula consultada"
+                                : departure == null ? "No consta SORTIDA per aquesta via"
+                                : "Lectura oficial rebuda";
+                            if ("service".equals(mode) && duty != null) {
+                                boolean transferArrived = requestedKind == CorporateServicePlan.Selection.TRANSFER_TRACK
+                                    && result != null && duty.observeTransfer(receivedAt, requested, result.station);
+                                boolean boarded = requestedKind != CorporateServicePlan.Selection.TRANSFER_TRACK
+                                    && duty.observe(receivedAt, requested,
+                                        result == null ? "" : result.station,
+                                        result == null ? "" : result.track,
+                                        departure != null);
+                                if (transferArrived || boarded) applyServiceSelection(receivedAt, true);
+                                publishDutyStatus(receivedAt);
+                            }
                         }
                     } else {
                         connection = error instanceof CorporateMiralinClient.AccessDenied
@@ -462,22 +485,30 @@ public final class CorporateEyeService extends Service {
             stopSelf();
             return false;
         }
-        long nextTakeover = selected.driving ? -1 : selected.takeoverAt;
+        long nextTakeover = selected.takeoverAt;
         boolean changed = !selected.train.equals(train) || selected.stop != stop
-            || selected.via != targetVia || nextTakeover != takeoverAt;
+            || selected.via != targetVia || nextTakeover != takeoverAt
+            || selected.kind != selectionKind;
         takeoverAt = nextTakeover;
         publishDutyStatus(now);
         if (!changed) return true;
         train = selected.train;
         stop = selected.stop;
         targetVia = selected.via;
+        selectionKind = selected.kind;
         selectionGeneration++;
         lastTrain = null;
         receivedAt = 0;
         departureAt = -1;
-        connection = "Canvi d'activitat · consultant TMB…";
+        connection = selected.kind == CorporateServicePlan.Selection.IDLE
+            ? "Esperant el proper moviment del servei…"
+            : selected.kind == CorporateServicePlan.Selection.TRANSFER_SEARCH
+                ? "Cercant tren per al trasllat…"
+                : "Canvi d'activitat · consultant TMB…";
         render();
-        if (refresh && !busy && !blocked) {
+        boolean needsBoard = selected.kind != CorporateServicePlan.Selection.IDLE
+            && selected.kind != CorporateServicePlan.Selection.WAIT_TRANSFER;
+        if (refresh && needsBoard && !busy && !blocked) {
             ui.removeCallbacks(poll);
             ui.post(poll);
         }
@@ -544,10 +575,14 @@ public final class CorporateEyeService extends Service {
         CorporateProjection.Result projection = "service".equals(mode)
             ? CorporateProjection.project(departureAt, now, takeoverAt)
             : new CorporateProjection.Result(departureAt, 0);
-        eye.setCountdown(ageSeconds <= 60
-            ? OfficialDepartureCountdown.display(projection.timeMs, now)
-            : "--");
-        eye.setLaps(ageSeconds <= 60 ? projection.laps : 0);
+        String countdown = selectionKind == CorporateServicePlan.Selection.IDLE
+            || selectionKind == CorporateServicePlan.Selection.WAIT_TRANSFER
+            ? OfficialDepartureCountdown.display(takeoverAt, now)
+            : ageSeconds <= 60 ? OfficialDepartureCountdown.display(projection.timeMs, now) : "--";
+        eye.setCountdown(countdown);
+        eye.setLaps(ageSeconds <= 60
+            && selectionKind != CorporateServicePlan.Selection.IDLE
+            && selectionKind != CorporateServicePlan.Selection.WAIT_TRANSFER ? projection.laps : 0);
     }
 
     private static String formatHeadway(String original) {
