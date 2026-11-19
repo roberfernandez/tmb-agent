@@ -17,6 +17,7 @@ final class OfficialDepartureCountdown {
     private static final ZoneId BARCELONA = ZoneId.of("Europe/Madrid");
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT);
     private static final long MAX_AHEAD_SECONDS = 8 * 60 * 60;
+    private static final long MAX_SCHEDULE_AHEAD_SECONDS = 48 * 60 * 60;
     private static final long PAST_GRACE_SECONDS = 60;
 
     private OfficialDepartureCountdown() {}
@@ -47,7 +48,7 @@ final class OfficialDepartureCountdown {
     static String displayExact(long targetEpochMs, long nowEpochMs) {
         if (targetEpochMs < 0) return "--";
         long remaining = Math.max(0L, (targetEpochMs - nowEpochMs + 999L) / 1000L);
-        if (remaining > MAX_AHEAD_SECONDS) return "--";
+        if (remaining > MAX_SCHEDULE_AHEAD_SECONDS) return "--";
         if (remaining >= 3600) {
             return String.format(Locale.ROOT, "%dh%02d", remaining / 3600, (remaining % 3600) / 60);
         }
