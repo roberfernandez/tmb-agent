@@ -63,6 +63,7 @@ test('automatic follow transfers schedule, alerts and margin without credentials
   $:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id)},
   stopTrainPushWatch:async()=>true,refreshServiceFollowControls:()=>{},
   serviceScheduleParam:()=> '1409,1469,CON,434,413,405,2,RET',
+  localServiceDate:()=>'2026-11-19',
   showServiceEyeError:()=>{},persist:()=>{},showFollowMode:()=>{},render:()=>{},
   URLSearchParams};
  let result;ctx.openAndroidEye=params=>{result=params};
