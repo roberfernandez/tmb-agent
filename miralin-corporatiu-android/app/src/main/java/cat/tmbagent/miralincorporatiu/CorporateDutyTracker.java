@@ -66,6 +66,8 @@ final class CorporateDutyTracker {
         for (int i = 0; i < index; i++)
             if (rows.get(i).driving() && !boarded[i]) skipped[i] = true;
         if (pendingRow >= 0 && pendingRow < index) pendingRow = -1;
+        if (pendingTransfer >= 0 && pendingTransfer < index) pendingTransfer = -1;
+        if (pendingDriving >= 0 && pendingDriving < index) pendingDriving = -1;
         if (row.driving()) {
             boarded[index] = true;
             evidence[index] = "manual";
