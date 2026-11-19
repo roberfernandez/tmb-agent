@@ -381,7 +381,7 @@ final class ServiceAlerts {
             List<Option> candidates = options.subList(0, Math.min(3, options.size()));
             Option first = candidates.get(candidates.size() - 1);
             String key = "enllacos-" + row.index;
-            if (!approaching(first, now, margin) || sent.contains(key)) return null;
+            if (sent.contains(key) || now < transferStart - margin * 60000L || now >= first.departure) return null;
             String body = station(source) + " · via " + via + " → " + station(row.from)
                 + " · presa per via " + row.via + ". " + formatOptions(candidates, deadline);
             return new Alert(key, "Enllaços per prendre el " + row.train, body, first.departure);
