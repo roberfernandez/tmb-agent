@@ -42,6 +42,29 @@ final class CorporateTrainSelection {
         return findOnTrack(targetVia == 1 ? board.via1 : board.via2, sought);
     }
 
+    /** Pick the next published train departing the transfer origin in the required direction. */
+    static Train nextForTransfer(CorporateBoardParser.Board board, int via, long nowMs) {
+        if (board == null || (via != 1 && via != 2)) return null;
+        CorporateBoardParser.Track track = via == 1 ? board.via1 : board.via2;
+        if (track == null || !track.present) return null;
+        Train best = null;
+        long bestDeparture = Long.MAX_VALUE;
+        for (List<String> cells : track.rows) {
+            if (cells.size() < 4 || cells.get(0).trim().isEmpty()) continue;
+            String id = cells.get(0).trim().toUpperCase(Locale.ROOT);
+            if (!CorporateServicePlan.validTrain(id)) continue;
+            String reportedVia = cells.size() > 4 ? cells.get(4).trim() : "Via " + via;
+            if (!reportedVia.matches("(?i)via\\s*" + via)) continue;
+            String departure = cells.get(1).trim();
+            long at = OfficialDepartureCountdown.departureEpochMs(departure, nowMs);
+            if (at < nowMs || at >= bestDeparture) continue;
+            bestDeparture = at;
+            best = new Train(id, departure, cells.size() > 2 ? cells.get(2) : "",
+                cells.get(3), reportedVia);
+        }
+        return best;
+    }
+
     private static Train findOnTrack(CorporateBoardParser.Track track, String sought) {
         if (track == null || !track.present) return null;
         for (List<String> cells : track.rows) {
