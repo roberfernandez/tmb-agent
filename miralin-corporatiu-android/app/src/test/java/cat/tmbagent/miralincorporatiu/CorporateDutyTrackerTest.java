@@ -175,6 +175,33 @@ public final class CorporateDutyTrackerTest {
         assertFalse(track.at(at(17,23,41)).driving);
     }
 
+    @Test public void outOfHoursPreviewAcceptsAnExpiredShiftButDoesNotFakeBoarding() {
+        CorporateServicePlan plan = new CorporateServicePlan("2026-11-17", SCHEDULE);
+        long now = at(18, 10, 0);
+        assertNull(new CorporateDutyTracker(plan).at(now));
+        CorporateDutyTracker preview = new CorporateDutyTracker(plan, true);
+        CorporateDutyTracker.Snapshot snapshot = preview.at(now);
+        assertNotNull(snapshot);
+        assertTrue(snapshot.preview);
+        assertEquals("preview", snapshot.source);
+        assertEquals("405", snapshot.train);
+        assertFalse(snapshot.driving);
+        assertFalse(preview.observe(now, "405", "Trinitat Nova", "Via 2", true));
+        assertFalse(preview.observe(now + 10_000, "405", "Trinitat Nova", "Via 2", true));
+        assertFalse(preview.at(now + 11_000).driving);
+    }
+
+    @Test public void previewAllowsAnyRowToBeSelectedWithoutStoppingCorporateTrainPolling() {
+        CorporateServicePlan plan = new CorporateServicePlan("2026-11-17", SCHEDULE);
+        CorporateDutyTracker preview = new CorporateDutyTracker(plan, true);
+        long now = at(18, 10, 0);
+        assertTrue(preview.selectRow(now, 1));
+        assertEquals(1, preview.at(now).photoRow);
+        assertTrue(preview.selectRow(now, 4));
+        assertEquals(4, preview.at(now).photoRow);
+        assertTrue(preview.at(now).preview);
+    }
+
     @Test public void onlyExactNormalizedStationMatches() {
         assertTrue(CorporateDutyTracker.sameStation("Trinitat Nova", "Trinitat Nova"));
         assertTrue(CorporateDutyTracker.sameStation("Via Júlia", "Via Julia"));
