@@ -329,6 +329,10 @@ final class CorporateDutyTracker {
         CorporateServicePlan.Segment row = rows.get(index);
         CorporateServicePlan.Selection selection = plan.transferSelection(index,
             transferTrains[index], started);
+        if (selection == null) {
+            return idleSnapshot(now, index, Integer.parseInt(row.from),
+                plan.minuteMillis(row.end), "transfer-at-same-station");
+        }
         if (manualCheckpointActive(now)) {
             return new Snapshot(selectedRow, index, true, false, selection.train,
                 row.from, plan.minuteMillis(row.start), "manual-row", previewOnly, selection);
