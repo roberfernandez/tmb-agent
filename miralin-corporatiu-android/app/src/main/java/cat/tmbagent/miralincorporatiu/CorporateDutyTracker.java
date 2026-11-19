@@ -170,6 +170,32 @@ final class CorporateDutyTracker {
         long serviceEnd = plan.minuteMillis(rows.get(rows.size() - 1).end);
         if (now >= serviceEnd + FINAL_DELAY_GRACE_MS && !previewOnly) return null;
 
+        // A tapped row is an explicit position checkpoint. It does not stop
+        // polling: it only tells the resolver which service segment to follow.
+        if (manualCheckpointActive(now)) {
+            CorporateServicePlan.Segment chosen = rows.get(selectedRow);
+            if (chosen.driving()) return drivingSnapshot(now, selectedRow);
+            if ("TRA".equals(chosen.type)) {
+                if (now < plan.minuteMillis(chosen.start))
+                    return idleSnapshot(now, selectedRow, Integer.parseInt(chosen.from),
+                        plan.minuteMillis(chosen.start), "manual-before-transfer");
+                pendingTransfer = selectedRow;
+                return transferSnapshot(now, selectedRow, true);
+            }
+            int following = nextOperationalRow(selectedRow);
+            if (following >= 0) {
+                CorporateServicePlan.Segment nextRow = rows.get(following);
+                if (nextRow.driving()) return drivingSnapshot(now, following);
+                if (now < plan.minuteMillis(nextRow.start))
+                    return idleSnapshot(now, following, Integer.parseInt(nextRow.from),
+                        plan.minuteMillis(nextRow.start), "manual-before-transfer");
+                pendingTransfer = following;
+                return transferSnapshot(now, following, true);
+            }
+            return idleSnapshot(now, selectedRow, Integer.parseInt(chosen.from),
+                plan.minuteMillis(chosen.end), "manual-station");
+        }
+
         // A real driving piece always wins over a station or transfer piece
         // that overlaps it. A delayed pickup observed by this running tracker
         // also remains authoritative until the train is actually boarded.
@@ -273,7 +299,8 @@ final class CorporateDutyTracker {
         CorporateServicePlan.Selection selection = plan.selectionFor(index, driving);
         return new Snapshot(photoRow, index, !driving, driving, row.train, row.from,
             plan.minuteMillis(row.start), previewOnly ? "preview"
-                : driving ? evidence[index] : "waiting", previewOnly, selection);
+                : manualCheckpointActive(now) ? "manual-row"
+                    : driving ? evidence[index] : "waiting", previewOnly, selection);
     }
 
     private Snapshot pickupSnapshot(long now, int index) {
