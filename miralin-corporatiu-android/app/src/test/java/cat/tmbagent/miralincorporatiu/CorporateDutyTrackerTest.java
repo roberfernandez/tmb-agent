@@ -140,6 +140,33 @@ public final class CorporateDutyTrackerTest {
         assertFalse(afterPickupTime.driving);
     }
 
+    @Test public void aFreshStartDuringTheLastDrivingRowDoesNotAssumeEarlierTrainsWereMissed() {
+        CorporateDutyTracker track = tracker();
+        CorporateDutyTracker.Snapshot snapshot = track.at(at(17,23,41));
+        assertEquals("405", snapshot.train);
+        assertEquals(3, snapshot.photoRow);
+        assertTrue(snapshot.waiting);
+    }
+
+    @Test public void anAlreadyWatchedLatePickupStaysOnItsOriginalStationPastScheduledEnd() {
+        CorporateDutyTracker track = tracker();
+        CorporateDutyTracker.Snapshot initially = track.at(at(17,20,21));
+        assertEquals("414", initially.train);
+        assertEquals("422", initially.from);
+        CorporateDutyTracker.Snapshot late = track.at(at(17,21,45));
+        assertEquals("414", late.train);
+        assertEquals(1, late.photoRow);
+        assertTrue(late.waiting);
+        assertEquals(422, late.selection.stop);
+        // The worker can correct their stage with a single row tap without
+        // disabling the eye or changing the original timetable.
+        assertTrue(track.selectRow(at(17,21,46), 3));
+        CorporateDutyTracker.Snapshot corrected = track.at(at(17,21,46));
+        assertEquals("405", corrected.train);
+        assertEquals(3, corrected.photoRow);
+        assertEquals(434, corrected.selection.stop);
+    }
+
     @Test public void staleOrFutureRowCannotFalselyMarkBoarded() {
         CorporateDutyTracker track = tracker();
         assertFalse(track.selectRow(at(17,20,0), 4));
