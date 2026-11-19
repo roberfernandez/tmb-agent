@@ -8,7 +8,7 @@
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .viewer-shell{height:100%;display:flex;flex-direction:column;min-height:0}.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.viewer-head h2{margin:0}.viewer-status{margin:8px 0 10px;flex:none}#viewerPhotoHome{min-height:0;flex:1;display:flex}#viewerPhotoHome #photoViewport{width:100%;height:100%;max-width:none;max-height:none;margin:0}.viewer-timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.viewer-timeline .journey-row{grid-template-columns:88px minmax(0,1fr);padding:10px}#viewerPhotoHome[hidden],.viewer-timeline[hidden]{display:none}@media(max-width:480px){#serviceViewer{width:100vw;height:88dvh;max-height:780px;border-radius:0;padding:14px}}
 </style></head><body>
-<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.28.0</span></header><h1>El meu servei</h1>
+<main><header><a href="../../">← TMBAgent</a><span class="tag">L4 · PROVES · v0.28.1</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
@@ -38,7 +38,7 @@
    <p id="pickupPendingText"></p>
  </div>
  <div id="nativeStatusRecovery" hidden><p class="muted">No es pot confirmar si l’ull continua actiu. Comprova l’estat directament amb Android.</p><button id="nativeStatusCheck" type="button">Comprova l’estat</button></div>
- <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.10.0-beta/Miralin-Corporatiu-v0.10.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
+ <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.11.0-beta/Miralin-Corporatiu-v0.11.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
  <p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
 </section>
 <section class="card" id="manualTrainCard">
@@ -69,14 +69,14 @@ else{
  $('iosInstructions').textContent='L’ull flotant corporatiu i els avisos natius estan preparats per a Android. La versió Windows encara no està disponible.';
 }
 const nativePackage='cat.tmbagent.elmeuservei.motor';
-const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.10.0';
-const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.10.0';
-const nativeApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.10.0-beta/Miralin-Corporatiu-v0.10.0-beta.apk';
+const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.11.0';
+const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.11.0';
+const nativeApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.11.0-beta/Miralin-Corporatiu-v0.11.0-beta.apk';
 function refreshAndroidDownload(){
  if(!isAndroid)return;
  const installed=localStorage.getItem(nativeInstalledKey)==='true';
  $('androidOption').href=nativeApkUrl;
- $('androidOption').textContent='Android · instal·la el motor v0.10';
+ $('androidOption').textContent='Android · instal·la el motor v0.11';
  $('androidOption').hidden=installed;
 }
 function nativeIntent(host,params=new URLSearchParams()){
@@ -106,15 +106,15 @@ function openAndroidEye(params){
 let state={date:new Date().toISOString().slice(0,10),text:'',location:null,observation:null,margin:5,taken:[],photoData:null,photoRows:null,photoSize:null,photoPending:false,manualRowIndex:null,manualSince:null};
 const nativeServiceKey='tmb-servei-native-service-v1';
 const followModeKey='tmb-servei-follow-mode-v1';let followMode=localStorage.getItem(followModeKey)||'';
-const nativeStatusSeenKey='tmb-servei-native-status-seen-v0.10.0';
+const nativeStatusSeenKey='tmb-servei-native-status-seen-v0.11.0';
 const nativeStatusNonceKey='tmb-servei-native-status-nonce-v1';
 const nativeStatusUrl='http://127.0.0.1:18764/status';
 let nativeStatusChecking=false,nativeStatusErrors=0,nativeStatusGraceUntil=0;
 let nativeDuty=null;
-if(isAndroid&&localStorage.getItem('tmb-servei-corporate-migration-v0.10.0')!=='true'){
+if(isAndroid&&localStorage.getItem('tmb-servei-corporate-migration-v0.11.0')!=='true'){
  // Old eye state does not imply the new corporate worker is running.
  followMode='';localStorage.removeItem(followModeKey);localStorage.removeItem(nativeServiceKey);
- localStorage.setItem('tmb-servei-corporate-migration-v0.10.0','true');
+ localStorage.setItem('tmb-servei-corporate-migration-v0.11.0','true');
 }
 const nativeQuery=new URLSearchParams(location.search);
 if(isAndroid&&nativeQuery.has('installNative')){
