@@ -387,7 +387,7 @@ final class CorporateDutyTracker {
         } else if (snapshot.driving) {
             if (!sameStation(location, CorporateServicePlan.stationName(row.to))
                 || !sameTrack(reportedTrack,
-                    Integer.toString(CorporateServicePlan.directionVia(row.from, row.to)))) {
+                    CorporateServicePlan.validVia(row.out) ? row.out : row.via)) {
                 resetObservations();
                 return false;
             }
