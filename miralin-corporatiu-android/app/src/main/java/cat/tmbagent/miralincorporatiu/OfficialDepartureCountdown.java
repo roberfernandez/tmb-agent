@@ -43,6 +43,17 @@ final class OfficialDepartureCountdown {
         }
     }
 
+    /** Exact countdown to a scheduled service movement (not an estimated SORTIDA). */
+    static String displayExact(long targetEpochMs, long nowEpochMs) {
+        if (targetEpochMs < 0) return "--";
+        long remaining = Math.max(0L, (targetEpochMs - nowEpochMs + 999L) / 1000L);
+        if (remaining > MAX_AHEAD_SECONDS) return "--";
+        if (remaining >= 3600) {
+            return String.format(Locale.ROOT, "%dh%02d", remaining / 3600, (remaining % 3600) / 60);
+        }
+        return String.format(Locale.ROOT, "%d'%02d''", remaining / 60, remaining % 60);
+    }
+
     static String display(long departureEpochMs, long nowEpochMs) {
         if (departureEpochMs < 0) return "--";
         long remaining = Math.max(0L, (departureEpochMs - nowEpochMs + 999L) / 1000L);
