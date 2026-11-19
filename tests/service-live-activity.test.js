@@ -57,27 +57,58 @@ test('stale or wrong-plan native row cannot jump the service to driving',()=>{
  assert.equal(ctx.activeServiceRow(now).i,3);
 });
 
-test('manual confirmation sends only row and matching plan key to native motor',()=>{
+test('touching a driving row sends its position without ever stopping automatic supervision',()=>{
+ const {ctx,now}=harness();
+ let sent,stops=0;
+ Object.assign(ctx,{
+  Date:class extends Date{static now(){return now}},
+  stations:{413:'La Pau',434:'Trinitat Nova'},
+  URLSearchParams,
+  nativeStatusGraceUntil:0,
+  nativeIntent:(host,params)=>{sent={host,params}},
+  stopNativeEye:()=>{stops++},
+  showFollowMode:()=>{throw Error('Unexpected mode change')},
+  persist:()=>{},render:()=>{}
+ });
+ const start=page.indexOf('function selectServiceRow(index){');
+ const finish=page.indexOf("$('photoRowHits').addEventListener('click'",start);
+ assert.ok(start>=0&&finish>start);
+ vm.runInContext(page.slice(start,finish),vm.createContext(ctx));
+ ctx.selectServiceRow(4);
+ assert.equal(ctx.followMode,'service');
+ assert.equal(ctx.manualRowIndex,4);
+ assert.equal(ctx.state.location.label,'A bord del 405');
+ assert.equal(stops,0);
+ assert.equal(sent.host,'row');
+ assert.equal(sent.params.get('row'),'4');
+ assert.equal(sent.params.get('plan'),ctx.serviceScheduleKey());
+ assert.equal(ctx.state.taken.length,0,'native status is the authority for boarding');
+});
+
+test('touching station row keeps automatic monitoring and reports waiting activity',()=>{
  const {ctx,now}=harness();
  let sent;
  Object.assign(ctx,{
-  $:id=>({dataset:{index:4}}),
   Date:class extends Date{static now(){return now}},
-  stations:{434:'Trinitat Nova'},
-  URLSearchParams,
+  stations:{413:'La Pau',434:'Trinitat Nova'},
+  URLSearchParams,nativeStatusGraceUntil:0,
   nativeIntent:(host,params)=>{sent={host,params}},
   persist:()=>{},render:()=>{}
  });
- const start=page.indexOf('function confirmPickupRow(index){');
- const finish=page.indexOf('function buildServiceAlertEvents(){',start);
- assert.ok(start>=0 && finish>start);
+ const start=page.indexOf('function selectServiceRow(index){');
+ const finish=page.indexOf("$('photoRowHits').addEventListener('click'",start);
  vm.runInContext(page.slice(start,finish),vm.createContext(ctx));
- ctx.confirmPickupRow(4);
- assert.equal(ctx.state.taken.includes(4),true);
- assert.equal(ctx.state.location.label,'A bord del 405');
- assert.equal(sent.host,'pickup');
- assert.equal(sent.params.get('row'),'4');
- assert.equal(sent.params.get('plan'),ctx.serviceScheduleKey());
+ ctx.selectServiceRow(3);
+ assert.equal(ctx.manualRowIndex,3);
+ assert.equal(ctx.activeServiceRow(now).i,3);
+ assert.equal(sent.host,'row');
+ assert.equal(sent.params.get('row'),'3');
+ assert.equal(ctx.followMode,'service');
+});
+
+test('redundant He agafat el tren actions are absent',()=>{
+ assert.doesNotMatch(page,/id="taken"/);
+ assert.doesNotMatch(page,/id="confirmPickup"/);
 });
 
 test('the accepted service date, not today, anchors cross-midnight times',()=>{
