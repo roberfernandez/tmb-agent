@@ -227,6 +227,12 @@ final class CorporateDutyTracker {
         // A transfer is a movement obligation. Once it starts, keep following
         // a suitable train until it is confirmed at the destination, even if
         // the scheduled transfer end has passed because of a delay.
+        if (activeTransfer >= 0
+            && rows.get(activeTransfer).from.equals(rows.get(activeTransfer).to)) {
+            CorporateServicePlan.Segment sameStationTransfer = rows.get(activeTransfer);
+            return idleSnapshot(now, activeTransfer, Integer.parseInt(sameStationTransfer.from),
+                plan.minuteMillis(sameStationTransfer.end), "transfer-at-same-station");
+        }
         if (activeTransfer >= 0 && !transferArrived[activeTransfer]) pendingTransfer = activeTransfer;
         if (pendingTransfer >= 0 && !transferArrived[pendingTransfer]) {
             return transferSnapshot(now, pendingTransfer, true);
