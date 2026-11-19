@@ -98,7 +98,8 @@ public final class CorporateEyeService extends Service {
 
     private final Runnable poll = new Runnable() {
         @Override public void run() {
-            if (stopped || blocked || busy) return;
+            if (stopped || blocked || busy
+                || ("service".equals(mode) && selectionKind == CorporateServicePlan.Selection.IDLE)) return;
             busy = true;
             final String requested = train;
             final int requestedStop = stop;
@@ -182,7 +183,9 @@ public final class CorporateEyeService extends Service {
                             || error instanceof SecurityException) blocked = true;
                     }
                     render();
-                    if (!blocked) ui.postDelayed(poll, REFRESH_MS);
+                    if (!blocked && (!"service".equals(mode)
+                        || selectionKind != CorporateServicePlan.Selection.IDLE))
+                        ui.postDelayed(poll, REFRESH_MS);
                 });
             });
         }
@@ -244,6 +247,7 @@ public final class CorporateEyeService extends Service {
                 try {
                     servicePlan = new CorporateServicePlan(date, schedule);
                     previewOnly = intent.getBooleanExtra(EXTRA_PREVIEW_MODE, false);
+                    selectionKind = CorporateServicePlan.Selection.IDLE;
                     duty = new CorporateDutyTracker(servicePlan, previewOnly);
                     manualViewerRow = -1;
                     viewerPlan = servicePlan;
@@ -305,7 +309,7 @@ public final class CorporateEyeService extends Service {
         selectionGeneration++;
         ui.removeCallbacks(poll);
         ui.removeCallbacks(ageTick);
-        ui.post(poll);
+        if (selectionKind != CorporateServicePlan.Selection.IDLE) ui.post(poll);
         ui.post(ageTick);
         return START_NOT_STICKY;
     }
@@ -485,7 +489,7 @@ public final class CorporateEyeService extends Service {
             stopSelf();
             return false;
         }
-        long nextTakeover = selected.takeoverAt;
+        long nextTakeover = selected.driving ? -1 : selected.takeoverAt;
         boolean changed = !selected.train.equals(train) || selected.stop != stop
             || selected.via != targetVia || nextTakeover != takeoverAt
             || selected.kind != selectionKind;
@@ -563,7 +567,11 @@ public final class CorporateEyeService extends Service {
         if (eye == null) return;
         long ageSeconds = receivedAt == 0 ? -1 : Math.max(0, (System.currentTimeMillis() - receivedAt) / 1000);
         String age = ageSeconds < 0 ? "—" : ageSeconds < 60 ? ageSeconds + "s" : (ageSeconds / 60) + "m";
-        String stationText = lastTrain == null ? (receivedAt == 0 ? "Connectant…" : "Sense dades") : lastTrain.station;
+        String stationText = lastTrain == null
+            ? (selectionKind == CorporateServicePlan.Selection.IDLE
+                ? CorporateServicePlan.stationName(Integer.toString(stop))
+                : receivedAt == 0 ? "Connectant…" : "Sense dades")
+            : lastTrain.station;
         String trackText = lastTrain == null ? "—" : lastTrain.track.replaceFirst("(?i)^via\\s*", "").trim();
         String headway = lastTrain == null ? "--" : formatHeadway(lastTrain.previousTrainGap);
         if (blocked) stationText = "Desconn.";
