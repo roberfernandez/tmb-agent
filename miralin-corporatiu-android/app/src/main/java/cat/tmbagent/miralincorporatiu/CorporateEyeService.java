@@ -325,10 +325,14 @@ public final class CorporateEyeService extends Service {
 
     private void startForegroundNotification() {
         PendingIntent pending = viewerPendingIntent();
+        String title = "service".equals(mode)
+            ? selectionKind == CorporateServicePlan.Selection.IDLE
+                ? "El meu servei · proper moviment"
+                : "El meu servei · tren " + train
+            : "Miralín corporatiu · tren " + train;
         Notification notification = new Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_view)
-            .setContentTitle(("service".equals(mode) ? "El meu servei" : "Miralín corporatiu")
-                + " · tren " + train)
+            .setContentTitle(title)
             .setContentText("Seguiment en segon pla · font oficial TMB")
             .setContentIntent(pending)
             .setOngoing(true)
@@ -578,10 +582,14 @@ public final class CorporateEyeService extends Service {
         String age = ageSeconds < 0 ? "—" : ageSeconds < 60 ? ageSeconds + "s" : (ageSeconds / 60) + "m";
         String stationText = lastTrain == null
             ? (selectionKind == CorporateServicePlan.Selection.IDLE
+                || selectionKind == CorporateServicePlan.Selection.TRANSFER_SEARCH
                 ? CorporateServicePlan.stationName(Integer.toString(stop))
                 : receivedAt == 0 ? "Connectant…" : "Sense dades")
             : lastTrain.station;
-        String trackText = lastTrain == null ? "—" : lastTrain.track.replaceFirst("(?i)^via\\s*", "").trim();
+        String trackText = lastTrain == null
+            ? (selectionKind == CorporateServicePlan.Selection.TRANSFER_SEARCH
+                ? Integer.toString(targetVia) : "—")
+            : lastTrain.track.replaceFirst("(?i)^via\\s*", "").trim();
         String headway = lastTrain == null ? "--" : formatHeadway(lastTrain.previousTrainGap);
         if (blocked) stationText = "Desconn.";
         eye.setStatus(train, stationText, trackText, age);
