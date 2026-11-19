@@ -487,6 +487,7 @@ public final class CorporateEyeService extends Service {
     private boolean applyUserRowSelection(long now, int row) {
         if ("service".equals(mode) && duty != null) {
             if (!duty.selectRow(now, row)) return false;
+            previewOnly = duty.isPreviewOnly();
             applyServiceSelection(now, true);
             publishDutyStatus(now);
         } else if ("manual".equals(mode) && viewerPlan != null
