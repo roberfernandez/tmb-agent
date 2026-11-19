@@ -122,7 +122,9 @@ public final class CorporateEyeService extends Service {
                         transferCandidate = CorporateTrainSelection.nextForTransfer(
                             board, requestedVia, System.currentTimeMillis());
                     } else {
-                        found = CorporateTrainSelection.find(board, requested);
+                        found = requestedVia == 0
+                            ? CorporateTrainSelection.find(board, requested)
+                            : CorporateTrainSelection.find(board, requested, requestedVia);
                         matchingDeparture = requestedVia == 0
                             ? onlyDepartureAtTerminal(board, requested)
                             : CorporateTrainSelection.find(board, requested, requestedVia);
