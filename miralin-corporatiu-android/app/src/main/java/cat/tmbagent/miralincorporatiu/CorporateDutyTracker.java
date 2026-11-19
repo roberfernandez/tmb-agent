@@ -204,6 +204,9 @@ final class CorporateDutyTracker {
         int focus = activeCon;
         if (pendingRow >= 0 && pendingRow < rows.size()
             && !boarded[pendingRow] && !skipped[pendingRow]) focus = pendingRow;
+        // Once aboard, do not abandon this train at the scheduled end or when
+        // a later piece overlaps: keep the driving activity until arrival.
+        if (pendingDriving >= 0 && !drivingArrived[pendingDriving]) focus = pendingDriving;
         if (focus >= 0) {
             if (drivingArrived[focus]) {
                 CorporateServicePlan.Segment row = rows.get(focus);
