@@ -469,7 +469,7 @@ function showFollowMode(mode){
  showServiceEyeError('');
 }
 function refreshServiceFollowControls(){
- const dirty=isAndroid&&followMode==='service'&&localStorage.getItem(nativeServiceKey)!==serviceScheduleParam();
+ const dirty=isAndroid&&followMode==='service'&&localStorage.getItem(nativeServiceKey)!==state.date+'|'+serviceScheduleParam();
  $('startServiceEye').hidden=followMode==='manual'||(followMode==='service'&&!dirty);
  $('startServiceEye').innerHTML='<span aria-hidden="true">👁</span> '+(dirty?'Actualitza el seguiment':'Activa el seguiment automàtic');
  $('stopServiceEye').hidden=followMode!=='service';
