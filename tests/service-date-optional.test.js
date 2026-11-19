@@ -15,7 +15,7 @@ test('a screenshot requires no visible date field and uses its original clock ti
  assert.doesNotMatch(page, /<input type="date" id="date">/);
  assert.doesNotMatch(page, /Tria una data\./);
  assert.match(page,/state.date=localServiceDate\(parsed\)/);
- assert.match(page,/state.date=localServiceDate\(rows\)/);
+ assert.match(page,/const operational=localServiceDate\(rows\)/);
 });
 
 test('old evening shift is anchored to current local date regardless of screenshot date',()=>{
