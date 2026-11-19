@@ -95,6 +95,59 @@ public final class CorporateDutyTrackerTest {
         assertNull(track.at(at(18,3,0)));
     }
 
+    @Test public void selectingStationRowKeepsAutomaticTrainMonitoringAndAwaitingArrival() {
+        CorporateDutyTracker track = tracker();
+        long now = at(17,23,41);
+        assertTrue(track.selectRow(now, 3));
+        CorporateDutyTracker.Snapshot selected = track.at(now);
+        assertEquals(3, selected.photoRow);
+        assertEquals(4, selected.pickupRow);
+        assertEquals("405", selected.train);
+        assertFalse(selected.driving);
+        assertEquals(434, selected.selection.stop);
+        assertEquals("manual-row", selected.source);
+        assertFalse(track.observe(now+10_000, "405", "Via Júlia", "Via 1", true));
+        assertFalse(track.at(now+11_000).driving);
+        assertFalse(track.observe(now+20_000, "405", "Trinitat Nova", "Via 2", true));
+        assertTrue(track.observe(now+31_000, "405", "Trinitat Nova", "Via 2", true));
+        CorporateDutyTracker.Snapshot aboard = track.at(now+32_000);
+        assertTrue(aboard.driving);
+        assertEquals(4, aboard.photoRow);
+        assertEquals(413, aboard.selection.stop);
+        assertEquals("corporate", aboard.source);
+    }
+
+    @Test public void tappingDrivingRowMarksPickupWithoutStoppingAutomaticTracking() {
+        CorporateDutyTracker track = tracker();
+        long now = at(17,23,42);
+        assertTrue(track.selectRow(now, 4));
+        CorporateDutyTracker.Snapshot aboard = track.at(now);
+        assertTrue(aboard.driving);
+        assertEquals(4, aboard.photoRow);
+        assertEquals("405", aboard.train);
+        assertEquals(413, aboard.selection.stop);
+        assertEquals("manual-row", aboard.source);
+        assertEquals(5, track.at(at(18,0,30)).photoRow);
+    }
+
+    @Test public void manualRowMayReturnToScheduleButNeverAutoBoardOnlyAtClockTime() {
+        CorporateDutyTracker track = tracker();
+        assertTrue(track.selectRow(at(17,23,0), 3));
+        CorporateDutyTracker.Snapshot afterPickupTime = track.at(at(17,23,35));
+        assertEquals(3, afterPickupTime.photoRow);
+        assertTrue(afterPickupTime.waiting);
+        assertEquals("405", afterPickupTime.train);
+        assertFalse(afterPickupTime.driving);
+    }
+
+    @Test public void staleOrFutureRowCannotFalselyMarkBoarded() {
+        CorporateDutyTracker track = tracker();
+        assertFalse(track.selectRow(at(17,20,0), 4));
+        assertFalse(track.selectRow(at(17,23,41), -1));
+        assertFalse(track.selectRow(at(17,23,41), 250));
+        assertFalse(track.at(at(17,23,41)).driving);
+    }
+
     @Test public void onlyExactNormalizedStationMatches() {
         assertTrue(CorporateDutyTracker.sameStation("Trinitat Nova", "Trinitat Nova"));
         assertTrue(CorporateDutyTracker.sameStation("Via Júlia", "Via Julia"));
