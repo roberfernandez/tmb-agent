@@ -190,7 +190,10 @@ final class CorporateServicePlan {
         Segment chosen = segments.get(rowIndex);
         if (!chosen.driving()) return null;
         int selectedStop = Integer.parseInt(driving ? chosen.to : chosen.from);
-        int selectedVia = selectedStop == FIRST_STOP || selectedStop == LAST_STOP ? 0
+        // While waiting at a terminal, the physical platform can be shared.
+        // Once driving, retain the service's explicit departure/exit via so the
+        // destination board can confirm the correct direction of arrival.
+        int selectedVia = !driving && terminal(selectedStop) ? 0
             : Integer.parseInt(driving && validVia(chosen.out) ? chosen.out : chosen.via);
         return new Selection(chosen.train, selectedStop, selectedVia, driving,
             minuteMillis(chosen.start), driving ? Selection.DRIVING : Selection.PICKUP,
