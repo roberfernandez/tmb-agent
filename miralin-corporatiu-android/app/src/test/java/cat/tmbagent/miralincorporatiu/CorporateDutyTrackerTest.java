@@ -207,6 +207,83 @@ public final class CorporateDutyTrackerTest {
         assertTrue(preview.at(now).preview);
     }
 
+    @Test public void beforeTransferStartShowsOnlyCountdownAndDoesNotFollowPassingTrains() {
+        CorporateDutyTracker track = tracker();
+        CorporateDutyTracker.Snapshot snap = track.at(at(17,18,30));
+        assertNotNull(snap);
+        assertEquals(CorporateServicePlan.Selection.IDLE, snap.selection.kind);
+        assertEquals("", snap.selection.train);
+        assertEquals(413, snap.selection.stop);
+        assertEquals(at(17,18,46), snap.selection.takeoverAt);
+    }
+
+    @Test public void transferFindsAnyTrainInTheRequiredDirectionAndTracksItToDestination() {
+        CorporateDutyTracker track = tracker();
+        long start = at(17,18,46);
+        CorporateDutyTracker.Snapshot searching = track.at(start);
+        assertEquals(CorporateServicePlan.Selection.TRANSFER_SEARCH, searching.selection.kind);
+        assertEquals(413, searching.selection.origin);
+        assertEquals(422, searching.selection.destination);
+        assertEquals(1, searching.selection.via);
+        assertTrue(track.setTransferTrain(0, "417"));
+        CorporateDutyTracker.Snapshot tracking = track.at(start + 1_000);
+        assertEquals(CorporateServicePlan.Selection.TRANSFER_TRACK, tracking.selection.kind);
+        assertEquals("417", tracking.selection.train);
+        assertEquals(422, tracking.selection.stop);
+        assertEquals(1, tracking.selection.via);
+        assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia"));
+        assertTrue(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova"));
+        CorporateDutyTracker.Snapshot atStation = track.at(at(17,19,10)+11_000);
+        assertEquals(CorporateServicePlan.Selection.PICKUP, atStation.selection.kind);
+        assertEquals("414", atStation.train);
+        assertEquals(422, atStation.selection.stop);
+    }
+
+    @Test public void earlyTransferArrivalWaitsAtDestinationUntilStationDutyStarts() {
+        CorporateDutyTracker track = tracker();
+        long start = at(17,18,46);
+        track.at(start);
+        assertTrue(track.setTransferTrain(0, "417"));
+        assertFalse(track.observeTransfer(start+60_000, "417", "Trinitat Nova"));
+        assertTrue(track.observeTransfer(start+70_000, "417", "Trinitat Nova"));
+        CorporateDutyTracker.Snapshot waitingAtDestination = track.at(start+71_000);
+        assertEquals(CorporateServicePlan.Selection.IDLE, waitingAtDestination.selection.kind);
+        assertEquals(422, waitingAtDestination.selection.stop);
+        assertEquals(at(17,19,06), waitingAtDestination.selection.takeoverAt);
+        CorporateDutyTracker.Snapshot stationDuty = track.at(at(17,19,06));
+        assertEquals(CorporateServicePlan.Selection.PICKUP, stationDuty.selection.kind);
+        assertEquals("414", stationDuty.train);
+    }
+
+    @Test public void delayedTransferContinuesAfterItsScheduledEndUntilArrivalIsConfirmed() {
+        CorporateDutyTracker track = tracker();
+        long start = at(17,18,46);
+        track.at(start);
+        assertTrue(track.setTransferTrain(0, "417"));
+        CorporateDutyTracker.Snapshot late = track.at(at(17,19,10));
+        assertEquals(CorporateServicePlan.Selection.TRANSFER_TRACK, late.selection.kind);
+        assertEquals("417", late.selection.train);
+        assertFalse(track.observeTransfer(at(17,19,10), "417", "Via Júlia"));
+        assertTrue(track.observeTransfer(at(17,19,10)+10_000, "417", "Trinitat Nova"));
+        assertEquals(CorporateServicePlan.Selection.PICKUP,
+            track.at(at(17,19,10)+11_000).selection.kind);
+    }
+
+    @Test public void anOverlappingDrivingPieceHasPriorityOverStationPresence() {
+        String overlap = "1126,1146,TRA,413,422,,,;" +
+            "1146,1298,EST,422,422,,,;" +
+            "1226,1298,CON,422,434,414,2,RET;" +
+            "1298,1409,EST,434,434,,,;" +
+            "1409,1469,CON,434,413,405,2,RET;" +
+            "1469,1490,EST,413,413,,,";
+        CorporateDutyTracker track = new CorporateDutyTracker(
+            new CorporateServicePlan("2026-11-17", overlap));
+        CorporateDutyTracker.Snapshot snap = track.at(at(17,20,30));
+        assertEquals(CorporateServicePlan.Selection.PICKUP, snap.selection.kind);
+        assertEquals("414", snap.train);
+        assertEquals(2, snap.pickupRow);
+    }
+
     @Test public void onlyExactNormalizedStationMatches() {
         assertTrue(CorporateDutyTracker.sameStation("Trinitat Nova", "Trinitat Nova"));
         assertTrue(CorporateDutyTracker.sameStation("Via Júlia", "Via Julia"));
