@@ -18,6 +18,7 @@ final class CorporateDutyTracker {
     private static final long OBSERVATION_TIMEOUT_MS = 45_000L;
     private static final long MIN_OBSERVATION_SPACING_MS = 7_000L;
     private final CorporateServicePlan plan;
+    private final boolean previewOnly;
     private final List<CorporateServicePlan.Segment> rows;
     private final boolean[] boarded;
     private final boolean[] skipped;
@@ -42,9 +43,9 @@ final class CorporateDutyTracker {
         long last = plan.minuteMillis(rows.get(rows.size() - 1).end);
         // The user may still be on an earlier station or transfer row because
         // of a severe delay. Only a driving-row claim needs a tight time check.
-        if (now < first - FINAL_DELAY_GRACE_MS || now > last + FINAL_DELAY_GRACE_MS)
-            return false;
-        if (row.driving() && (now < start - 30L * 60_000L
+        if (!previewOnly && (now < first - FINAL_DELAY_GRACE_MS
+            || now > last + FINAL_DELAY_GRACE_MS)) return false;
+        if (!previewOnly && row.driving() && (now < start - 30L * 60_000L
             || now > end + FINAL_DELAY_GRACE_MS)) return false;
         // If the worker explicitly selects a later stage, earlier missed
         // pickups must not hold the watcher on the wrong train.
@@ -100,10 +101,11 @@ final class CorporateDutyTracker {
         final String from;
         final long plannedStart;
         final String source;
+        final boolean preview;
         final CorporateServicePlan.Selection selection;
         Snapshot(int photoRow, int pickupRow, boolean waiting, boolean driving,
                  String train, String from, long plannedStart, String source,
-                 CorporateServicePlan.Selection selection) {
+                 boolean preview, CorporateServicePlan.Selection selection) {
             this.photoRow = photoRow;
             this.pickupRow = pickupRow;
             this.waiting = waiting;
@@ -112,12 +114,16 @@ final class CorporateDutyTracker {
             this.from = from;
             this.plannedStart = plannedStart;
             this.source = source;
+            this.preview = preview;
             this.selection = selection;
         }
     }
 
-    CorporateDutyTracker(CorporateServicePlan plan) {
+    CorporateDutyTracker(CorporateServicePlan plan) { this(plan, false); }
+
+    CorporateDutyTracker(CorporateServicePlan plan, boolean previewOnly) {
         this.plan = plan;
+        this.previewOnly = previewOnly;
         this.rows = plan.viewerSegments();
         this.boarded = new boolean[rows.size()];
         this.skipped = new boolean[rows.size()];
@@ -140,14 +146,15 @@ final class CorporateDutyTracker {
             if (start <= now) last = i;
         }
         long serviceEnd = plan.minuteMillis(rows.get(rows.size() - 1).end);
-        if (now >= serviceEnd + FINAL_DELAY_GRACE_MS) return null;
+        if (now >= serviceEnd + FINAL_DELAY_GRACE_MS && !previewOnly) return null;
         int focus = active != -1 ? active : future;
         // Only hold a delayed pickup if THIS instance actually started
         // watching that train. Never infer missed boardings from old rows when
         // the user first launches the motor halfway through their shift.
         if (pendingRow >= 0 && pendingRow < rows.size()
             && !boarded[pendingRow] && !skipped[pendingRow]) focus = pendingRow;
-        if (focus == -1 && last != -1 && now < plan.minuteMillis(rows.get(last).end) + FINAL_DELAY_GRACE_MS)
+        if (focus == -1 && last != -1
+            && (previewOnly || now < plan.minuteMillis(rows.get(last).end) + FINAL_DELAY_GRACE_MS))
             focus = last;
         if (focus == -1) return null;
 
@@ -177,8 +184,9 @@ final class CorporateDutyTracker {
         if (checkpoint) photoRow = selectedRow;
         CorporateServicePlan.Selection selected = plan.selectionFor(focus, driving);
         return new Snapshot(photoRow, focus, !driving, driving, r.train, r.from,
-            plan.minuteMillis(r.start), checkpoint ? "manual-row"
-                : driving ? evidence[focus] : "waiting", selected);
+            plan.minuteMillis(r.start), previewOnly ? "preview"
+                : checkpoint ? "manual-row" : driving ? evidence[focus] : "waiting",
+            previewOnly, selected);
     }
 
     private int waitingRow(int driveIndex) {
@@ -197,7 +205,7 @@ final class CorporateDutyTracker {
     boolean observe(long now, String train, String location, String reportedTrack,
                     boolean unambiguous) {
         Snapshot snapshot = at(now);
-        if (snapshot == null || !snapshot.waiting || !unambiguous
+        if (previewOnly || snapshot == null || !snapshot.waiting || !unambiguous
             || now < snapshot.plannedStart - EARLY_WINDOW_MS
             || !snapshot.train.equals(train)
             || !sameStation(location, CorporateServicePlan.stationName(snapshot.from))) {
