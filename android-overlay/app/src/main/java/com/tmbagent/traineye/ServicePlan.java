@@ -51,6 +51,13 @@ final class ServicePlan {
         Calendar time = Calendar.getInstance(ZONE); time.setTimeInMillis(anchor);
         time.add(Calendar.MINUTE, minutes); return time.getTimeInMillis();
     }
+    Row activeRow(long time) {
+        int now = minutesAt(time);
+        for (Row row : rows) {
+            if (now >= row.start && now < row.end) return row;
+        }
+        return null;
+    }
     String trainAt(long time, String fallback) {
         int now = minutesAt(time), nearest = Integer.MAX_VALUE, latest = -1;
         String next = null, last = null;

@@ -381,7 +381,7 @@ final class ServiceAlerts {
             List<Option> candidates = options.subList(0, Math.min(3, options.size()));
             Option first = candidates.get(candidates.size() - 1);
             String key = "enllacos-" + row.index;
-            if (!approaching(first, now, margin) || sent.contains(key)) return null;
+            if (sent.contains(key) || now < transferStart - margin * 60000L || now >= first.departure) return null;
             String body = station(source) + " · via " + via + " → " + station(row.from)
                 + " · presa per via " + row.via + ". " + formatOptions(candidates, deadline);
             return new Alert(key, "Enllaços per prendre el " + row.train, body, first.departure);
@@ -449,6 +449,35 @@ final class ServiceAlerts {
             if (departure.train.equals(row.train) && departure.at > now + 5000 && deadline > departure.at)
                 return new Option(row.train, departure.at, deadline);
         return null;
+    }
+
+    /**
+     * Estimate the final handover, never the first terminus passage.
+     * A full extra circuit takes 77 minutes; the first circuit adds nothing.
+     * Return zero rather than displaying a fabricated live prediction.
+     */
+    long predictedHandover(ServicePlan.Row row, long now) {
+        if (row == null || !row.driving() || row.to.isEmpty()) return 0;
+        long scheduled = plan.at(anchor, row.end);
+        String inbound = "413".equals(row.to) ? "2" : "434".equals(row.to) ? "1" : row.out;
+        if (!"1".equals(inbound) && !"2".equals(inbound)) return 0;
+        long first = arrivalAtOrAfter(arrivals(row.to, inbound, now), row.train, now - 15000);
+        if (first == 0) return 0;
+        // Select the circuit whose arrival is closest to the scheduled handover.
+        // A fixed 30-minute cutoff can select one circuit too many.
+        final long circuit = 77 * 60000L;
+        long predicted = first;
+        long bestDifference = Math.abs(first - scheduled);
+        for (int circuits = 1; circuits <= 4; circuits++) {
+            long candidate = first + circuits * circuit;
+            long difference = Math.abs(candidate - scheduled);
+            if (difference < bestDifference) {
+                predicted = candidate;
+                bestDifference = difference;
+            }
+        }
+        // A prediction more than half a circuit away is ambiguous: use timetable.
+        return bestDifference <= circuit / 2 ? predicted : 0;
     }
 
     private long assignedArrival(ServicePlan.Row row, long now) {
