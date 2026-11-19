@@ -167,12 +167,17 @@ public final class CorporateDutyTrackerTest {
         assertEquals(434, corrected.selection.stop);
     }
 
-    @Test public void staleOrFutureRowCannotFalselyMarkBoarded() {
+    @Test public void selectingAnOutOfHoursRowAutomaticallyBecomesPreviewNotRealDuty() {
         CorporateDutyTracker track = tracker();
-        assertFalse(track.selectRow(at(17,20,0), 4));
-        assertFalse(track.selectRow(at(17,23,41), -1));
-        assertFalse(track.selectRow(at(17,23,41), 250));
-        assertFalse(track.at(at(17,23,41)).driving);
+        assertFalse(track.selectRow(at(17,20,0), -1));
+        assertFalse(track.selectRow(at(17,20,0), 250));
+        assertTrue(track.selectRow(at(17,20,0), 4));
+        assertTrue(track.isPreviewOnly());
+        CorporateDutyTracker.Snapshot snap = track.at(at(17,20,0));
+        assertTrue(snap.preview);
+        assertEquals("preview", snap.source);
+        assertEquals(4, snap.photoRow);
+        assertFalse(track.observe(at(17,23,40), "405", "Trinitat Nova", "Via 2", true));
     }
 
     @Test public void outOfHoursPreviewAcceptsAnExpiredShiftButDoesNotFakeBoarding() {
