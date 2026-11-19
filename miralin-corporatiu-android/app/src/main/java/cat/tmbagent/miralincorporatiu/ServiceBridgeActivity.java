@@ -129,8 +129,12 @@ public final class ServiceBridgeActivity extends Activity {
                 String date = data.getQueryParameter("date");
                 String schedule = data.getQueryParameter("schedule");
                 CorporateServicePlan plan = new CorporateServicePlan(date, schedule);
-                if (new CorporateDutyTracker(plan).at(System.currentTimeMillis()) == null)
-                    throw new IllegalArgumentException("Aquest servei ja no és vigent.");
+                // The user may load an old or undated screenshot to test the
+                // viewer and live corporate train data. Outside the real duty
+                // window we activate a clearly marked preview without alerts.
+                boolean preview = new CorporateDutyTracker(plan)
+                    .at(System.currentTimeMillis()) == null;
+                watch.putExtra(CorporateEyeService.EXTRA_PREVIEW_MODE, preview);
                 watch.putExtra(CorporateEyeService.EXTRA_MODE, "service");
                 watch.putExtra(CorporateEyeService.EXTRA_SERVICE_DATE, date);
                 watch.putExtra(CorporateEyeService.EXTRA_SCHEDULE, schedule);
