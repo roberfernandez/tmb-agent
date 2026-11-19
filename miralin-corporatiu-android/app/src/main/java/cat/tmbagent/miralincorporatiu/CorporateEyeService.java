@@ -169,7 +169,10 @@ public final class CorporateEyeService extends Service {
                                         result.station, result.track);
                                 CorporateDutyTracker.Snapshot live = duty.at(receivedAt);
                                 boolean unambiguous = live != null && live.driving
-                                    ? result != null : departure != null;
+                                    ? (live.selection != null
+                                        && CorporateServicePlan.terminal(live.selection.stop)
+                                        ? departure != null : result != null)
+                                    : departure != null;
                                 boolean transitioned = requestedKind != CorporateServicePlan.Selection.TRANSFER_TRACK
                                     && duty.observe(receivedAt, requested,
                                         result == null ? "" : result.station,
