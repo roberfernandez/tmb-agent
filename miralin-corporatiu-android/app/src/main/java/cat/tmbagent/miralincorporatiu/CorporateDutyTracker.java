@@ -417,8 +417,9 @@ final class CorporateDutyTracker {
             }
         } else if (snapshot.driving) {
             if (!sameStation(location, CorporateServicePlan.stationName(row.to))
-                || !sameTrack(reportedTrack,
-                    CorporateServicePlan.validVia(row.out) ? row.out : row.via)) {
+                || (!CorporateServicePlan.terminal(Integer.parseInt(row.to))
+                    && !sameTrack(reportedTrack,
+                        CorporateServicePlan.validVia(row.out) ? row.out : row.via))) {
                 resetObservations();
                 return false;
             }
