@@ -88,6 +88,7 @@ public final class CorporateDutyTrackerTest {
 
     @Test public void aLateLastPickupDoesNotExpireAtScheduledEnd() {
         CorporateDutyTracker track = tracker();
+        track.at(at(17,23,30)); // This instance was already watching the delayed pickup.
         CorporateDutyTracker.Snapshot snap = track.at(at(18,0,45));
         assertNotNull(snap);
         assertTrue(snap.waiting);
@@ -182,17 +183,17 @@ public final class CorporateDutyTrackerTest {
 
     @Test public void outOfHoursPreviewAcceptsAnExpiredShiftButDoesNotFakeBoarding() {
         CorporateServicePlan plan = new CorporateServicePlan("2026-11-17", SCHEDULE);
-        long now = at(18, 10, 0);
+        long now = at(17, 20, 10);
         assertNull(new CorporateDutyTracker(plan).at(now));
         CorporateDutyTracker preview = new CorporateDutyTracker(plan, true);
         CorporateDutyTracker.Snapshot snapshot = preview.at(now);
         assertNotNull(snapshot);
         assertTrue(snapshot.preview);
         assertEquals("preview", snapshot.source);
-        assertEquals("405", snapshot.train);
-        assertFalse(snapshot.driving);
-        assertFalse(preview.observe(now, "405", "Trinitat Nova", "Via 2", true));
-        assertFalse(preview.observe(now + 10_000, "405", "Trinitat Nova", "Via 2", true));
+        assertEquals("414", snapshot.train);
+        assertTrue(snapshot.waiting);
+        assertFalse(preview.observe(now, "414", "Trinitat Nova", "Via 2", true));
+        assertFalse(preview.observe(now + 10_000, "414", "Trinitat Nova", "Via 2", true));
         assertFalse(preview.at(now + 11_000).driving);
     }
 
@@ -295,13 +296,13 @@ public final class CorporateDutyTrackerTest {
         assertTrue(stillDriving.driving);
         assertEquals(413, stillDriving.selection.stop);
         assertFalse(track.observe(at(18,0,35), "405", "Via Júlia", "Via 2", true));
-        assertFalse(track.observe(at(18,0,45), "405", "La Pau", "Via 1", true));
-        assertFalse(track.observe(at(18,0,55), "405", "La Pau", "Via 2", true));
-        assertTrue(track.observe(at(18,1,05), "405", "La Pau", "Via 2", true));
-        CorporateDutyTracker.Snapshot atEndStation = track.at(at(18,1,06));
+        assertFalse(track.observe(at(18,0,40), "405", "La Pau", "Via 1", true));
+        assertFalse(track.observe(at(18,0,40)+10_000, "405", "La Pau", "Via 2", true));
+        assertTrue(track.observe(at(18,0,40)+20_000, "405", "La Pau", "Via 2", true));
+        CorporateDutyTracker.Snapshot atEndStation = track.at(at(18,0,41));
         assertEquals(CorporateServicePlan.Selection.IDLE, atEndStation.selection.kind);
         assertEquals(413, atEndStation.selection.stop);
-        assertEquals(at(18,1,29), atEndStation.selection.takeoverAt);
+        assertEquals(at(18,0,50), atEndStation.selection.takeoverAt);
     }
 
     @Test public void onlyExactNormalizedStationMatches() {
