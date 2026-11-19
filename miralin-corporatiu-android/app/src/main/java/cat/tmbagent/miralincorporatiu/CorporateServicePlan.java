@@ -218,8 +218,14 @@ final class CorporateServicePlan {
     Selection idleSelection(int rowIndex, long countdownAt) {
         if (rowIndex < 0 || rowIndex >= segments.size()) return null;
         Segment row = segments.get(rowIndex);
-        return new Selection("", Integer.parseInt(row.from), 0, false, countdownAt,
-            Selection.IDLE, rowIndex, Integer.parseInt(row.from), Integer.parseInt(row.to));
+        return idleAtStopSelection(rowIndex, Integer.parseInt(row.from), countdownAt);
+    }
+
+    Selection idleAtStopSelection(int rowIndex, int stop, long countdownAt) {
+        if (rowIndex < 0 || rowIndex >= segments.size() || stop < FIRST_STOP || stop > LAST_STOP) return null;
+        Segment row = segments.get(rowIndex);
+        return new Selection("", stop, 0, false, countdownAt,
+            Selection.IDLE, rowIndex, stop, Integer.parseInt(row.to));
     }
 
     String identity() {
