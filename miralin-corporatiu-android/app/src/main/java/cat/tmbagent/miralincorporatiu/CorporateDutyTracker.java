@@ -179,7 +179,7 @@ final class CorporateDutyTracker {
         // a suitable train until it is confirmed at the destination, even if
         // the scheduled transfer end has passed because of a delay.
         if (activeTransfer >= 0 && !transferArrived[activeTransfer]) {
-            return transferSnapshot(activeTransfer, true);
+            return transferSnapshot(now, activeTransfer, true);
         }
 
         // If the transfer train arrived early, stay at its destination until
@@ -263,11 +263,11 @@ final class CorporateDutyTracker {
             plan.minuteMillis(row.start), previewOnly ? "preview" : "waiting", previewOnly, selection);
     }
 
-    private Snapshot transferSnapshot(int index, boolean started) {
+    private Snapshot transferSnapshot(long now, int index, boolean started) {
         CorporateServicePlan.Segment row = rows.get(index);
         CorporateServicePlan.Selection selection = plan.transferSelection(index,
             transferTrains[index], started);
-        if (manualCheckpointActive(System.currentTimeMillis())) {
+        if (manualCheckpointActive(now)) {
             return new Snapshot(selectedRow, index, true, false, selection.train,
                 row.from, plan.minuteMillis(row.start), "manual-row", previewOnly, selection);
         }
