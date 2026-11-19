@@ -25,6 +25,11 @@ final class CorporateDutyTracker {
     private final boolean[] boarded;
     private final boolean[] skipped;
     private final String[] evidence;
+    private final String[] transferTrains;
+    private final boolean[] transferArrived;
+    private int transferSeenRow = -1;
+    private long transferLastSeenAt = -1;
+    private int transferConsecutive;
     private int seenRow = -1;
     private long lastSeenAt = -1;
     private int consecutive;
@@ -134,6 +139,8 @@ final class CorporateDutyTracker {
         this.boarded = new boolean[rows.size()];
         this.skipped = new boolean[rows.size()];
         this.evidence = new String[rows.size()];
+        this.transferTrains = new String[rows.size()];
+        this.transferArrived = new boolean[rows.size()];
     }
 
     /**
@@ -142,57 +149,175 @@ final class CorporateDutyTracker {
      * beyond its scheduled end: a late train must not vanish at midnight.
      */
     Snapshot at(long now) {
-        int active = -1, future = -1, last = -1;
+        int activeCon = -1, activeTransfer = -1, activeStation = -1;
+        int next = -1, lastDriving = -1;
+        long nextStart = Long.MAX_VALUE;
         for (int i = 0; i < rows.size(); i++) {
             CorporateServicePlan.Segment r = rows.get(i);
-            if (!r.driving()) continue;
             long start = plan.minuteMillis(r.start), end = plan.minuteMillis(r.end);
-            if (start <= now && now < end) active = i;
-            if (start > now && future == -1) future = i;
-            if (start <= now) last = i;
+            if (start <= now && now < end) {
+                if (r.driving()) activeCon = i;
+                else if ("TRA".equals(r.type)) activeTransfer = i;
+                else if ("EST".equals(r.type)) activeStation = i;
+            }
+            if (start > now && start < nextStart) { next = i; nextStart = start; }
+            if (r.driving() && start <= now) lastDriving = i;
         }
         long serviceEnd = plan.minuteMillis(rows.get(rows.size() - 1).end);
         if (now >= serviceEnd + FINAL_DELAY_GRACE_MS && !previewOnly) return null;
-        int focus = active != -1 ? active : future;
-        // Only hold a delayed pickup if THIS instance actually started
-        // watching that train. Never infer missed boardings from old rows when
-        // the user first launches the motor halfway through their shift.
+
+        // A real driving piece always wins over a station or transfer piece
+        // that overlaps it. A delayed pickup observed by this running tracker
+        // also remains authoritative until the train is actually boarded.
+        int focus = activeCon;
         if (pendingRow >= 0 && pendingRow < rows.size()
             && !boarded[pendingRow] && !skipped[pendingRow]) focus = pendingRow;
-        if (focus == -1 && last != -1
-            && (previewOnly || now < plan.minuteMillis(rows.get(last).end) + FINAL_DELAY_GRACE_MS))
-            focus = last;
-        if (focus == -1) return null;
 
-        boolean checkpoint = manualCheckpointActive(now);
-        if (checkpoint) {
-            int manuallyFocused = nextDrivingFrom(selectedRow);
-            if (manuallyFocused >= 0) focus = manuallyFocused;
+        if (focus >= 0) return drivingSnapshot(now, focus);
+
+        // A transfer is a movement obligation. Once it starts, keep following
+        // a suitable train until it is confirmed at the destination, even if
+        // the scheduled transfer end has passed because of a delay.
+        if (activeTransfer >= 0 && !transferArrived[activeTransfer]) {
+            return transferSnapshot(activeTransfer, true);
         }
-        CorporateServicePlan.Segment r = rows.get(focus);
-        boolean driving = boarded[focus];
-        if (!driving && !skipped[focus]) pendingRow = focus;
-        else if (pendingRow == focus || driving) pendingRow = -1;
-        int photoRow;
-        if (driving) {
-            // Subsequent scheduled station/transfer rows may be highlighted
-            // normally, until the next train is due; do not freeze the whole
-            // service on a previously completed driving row.
-            int scheduled = plan.viewerIndex(now);
-            photoRow = scheduled > focus ? scheduled : focus;
-        } else {
-            int scheduled = plan.viewerIndex(now);
-            // Even if the clock moved past the planned pickup, keep highlighting
-            // the preceding station row instead of treating driving as started.
-            if (scheduled >= focus || scheduled < 0) photoRow = waitingRow(focus);
-            else photoRow = scheduled;
+
+        // If the transfer train arrived early, stay at its destination until
+        // the scheduled station-duty start. Do not use that station period as
+        // extra transfer time or chase another train.
+        if (activeTransfer >= 0 && transferArrived[activeTransfer]) {
+            CorporateServicePlan.Segment transfer = rows.get(activeTransfer);
+            return idleSnapshot(activeTransfer, Integer.parseInt(transfer.to),
+                plan.minuteMillis(transfer.end), "transfer-arrived");
         }
-        if (checkpoint) photoRow = selectedRow;
-        CorporateServicePlan.Selection selected = plan.selectionFor(focus, driving);
-        return new Snapshot(photoRow, focus, !driving, driving, r.train, r.from,
-            plan.minuteMillis(r.start), previewOnly ? "preview"
-                : checkpoint ? "manual-row" : driving ? evidence[focus] : "waiting",
-            previewOnly, selected);
+
+        // Station presence is an obligation. Follow the next assigned train
+        // only if no intervening transfer row has to be performed first.
+        if (activeStation >= 0) {
+            int following = nextOperationalRow(activeStation);
+            if (following >= 0) {
+                CorporateServicePlan.Segment row = rows.get(following);
+                if (row.driving()) return pickupSnapshot(following);
+                return idleSnapshot(following, Integer.parseInt(row.from),
+                    plan.minuteMillis(row.start), "station-before-transfer");
+            }
+            return idleSnapshot(activeStation, Integer.parseInt(rows.get(activeStation).from),
+                plan.minuteMillis(rows.get(activeStation).end), "station");
+        }
+
+        // A completed transfer can remain current after its scheduled end if
+        // the arrival was late; the next active station/CON row then takes over.
+        if (activeTransfer >= 0 && transferArrived[activeTransfer]) {
+            int following = nextOperationalRow(activeTransfer);
+            if (following >= 0 && rows.get(following).driving()) return pickupSnapshot(following);
+            if (following >= 0) {
+                CorporateServicePlan.Segment row = rows.get(following);
+                return idleSnapshot(following, Integer.parseInt(row.from),
+                    plan.minuteMillis(row.start), "next-activity");
+            }
+        }
+
+        // Before the first movement (or between non-overlapping pieces), show
+        // the time until the next scheduled obligation. No train is followed
+        // merely because one happens to be passing now.
+        if (next >= 0) {
+            CorporateServicePlan.Segment row = rows.get(next);
+            if (row.driving()) return pickupSnapshot(next);
+            return idleSnapshot(next, Integer.parseInt(row.from),
+                plan.minuteMillis(row.start), "next-activity");
+        }
+
+        // Preserve a late final pickup only if this tracker was already watching it.
+        if (pendingRow >= 0 && !boarded[pendingRow] && !skipped[pendingRow]
+            && now < plan.minuteMillis(rows.get(pendingRow).end) + FINAL_DELAY_GRACE_MS)
+            return pickupSnapshot(pendingRow);
+        if (previewOnly && lastDriving >= 0) return pickupSnapshot(lastDriving);
+        return null;
+    }
+
+    private int nextOperationalRow(int after) {
+        for (int i = after + 1; i < rows.size(); i++) {
+            CorporateServicePlan.Segment row = rows.get(i);
+            if (row.driving() || "TRA".equals(row.type)) return i;
+        }
+        return -1;
+    }
+
+    private Snapshot drivingSnapshot(long now, int index) {
+        CorporateServicePlan.Segment row = rows.get(index);
+        boolean driving = boarded[index];
+        if (!driving && !skipped[index]) pendingRow = index;
+        else if (pendingRow == index || driving) pendingRow = -1;
+        int photoRow = driving ? Math.max(index, plan.viewerIndex(now)) : waitingRow(index);
+        if (manualCheckpointActive(now)) photoRow = selectedRow;
+        CorporateServicePlan.Selection selection = plan.selectionFor(index, driving);
+        return new Snapshot(photoRow, index, !driving, driving, row.train, row.from,
+            plan.minuteMillis(row.start), previewOnly ? "preview"
+                : driving ? evidence[index] : "waiting", previewOnly, selection);
+    }
+
+    private Snapshot pickupSnapshot(int index) {
+        CorporateServicePlan.Segment row = rows.get(index);
+        CorporateServicePlan.Selection selection = plan.selectionFor(index, false);
+        return new Snapshot(waitingRow(index), index, true, false, row.train, row.from,
+            plan.minuteMillis(row.start), previewOnly ? "preview" : "waiting", previewOnly, selection);
+    }
+
+    private Snapshot transferSnapshot(int index, boolean started) {
+        CorporateServicePlan.Segment row = rows.get(index);
+        CorporateServicePlan.Selection selection = plan.transferSelection(index,
+            transferTrains[index], started);
+        if (manualCheckpointActive(System.currentTimeMillis())) {
+            return new Snapshot(selectedRow, index, true, false, selection.train,
+                row.from, plan.minuteMillis(row.start), "manual-row", previewOnly, selection);
+        }
+        return new Snapshot(index, index, selection.transferWaiting()
+            || selection.transferSearching(), false, selection.train, row.from,
+            plan.minuteMillis(row.start), selection.transferSearching() ? "transfer-search"
+                : "transfer-track", previewOnly, selection);
+    }
+
+    private Snapshot idleSnapshot(int row, int stop, long countdownAt, String source) {
+        CorporateServicePlan.Selection selection = plan.idleAtStopSelection(row, stop, countdownAt);
+        return new Snapshot(row, row, false, false, "", Integer.toString(stop),
+            countdownAt, source, previewOnly, selection);
+    }
+
+    boolean setTransferTrain(int row, String selectedTrain) {
+        if (row < 0 || row >= rows.size() || !"TRA".equals(rows.get(row).type)
+            || !CorporateServicePlan.validTrain(selectedTrain)) return false;
+        transferTrains[row] = selectedTrain;
+        transferSeenRow = row;
+        transferLastSeenAt = -1;
+        transferConsecutive = 0;
+        return true;
+    }
+
+    boolean observeTransfer(long now, String selectedTrain, String location) {
+        Snapshot snapshot = at(now);
+        if (previewOnly || snapshot == null || snapshot.selection == null
+            || snapshot.selection.kind != CorporateServicePlan.Selection.TRANSFER_TRACK
+            || !snapshot.selection.train.equals(selectedTrain)
+            || !sameStation(location, CorporateServicePlan.stationName(
+                Integer.toString(snapshot.selection.destination)))) {
+            transferSeenRow = -1;
+            transferLastSeenAt = -1;
+            transferConsecutive = 0;
+            return false;
+        }
+        int row = snapshot.selection.row;
+        if (transferSeenRow == row && transferLastSeenAt >= 0
+            && now - transferLastSeenAt >= MIN_OBSERVATION_SPACING_MS
+            && now - transferLastSeenAt <= OBSERVATION_TIMEOUT_MS) transferConsecutive++;
+        else transferConsecutive = 1;
+        transferSeenRow = row;
+        transferLastSeenAt = now;
+        if (transferConsecutive < 2) return false;
+        transferArrived[row] = true;
+        transferSeenRow = -1;
+        transferLastSeenAt = -1;
+        transferConsecutive = 0;
+        return true;
     }
 
     private int waitingRow(int driveIndex) {
