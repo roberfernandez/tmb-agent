@@ -21,8 +21,8 @@ public final class OfficialDepartureCountdownTest {
     @Test public void exactServiceMovementCountdownHasNoApproximationMarkerAndAllowsLongLeadTime() {
         long now = moment(2026, 11, 17, 13, 0, 0);
         long target = now + 15L * 60 * 60_000L + 30L * 60_000L;
-        assertEquals("28h30", OfficialDepartureCountdown.displayExact(target, now));
-        assertEquals("28h29", OfficialDepartureCountdown.displayExact(target, now + 60_000L));
+        assertEquals("15h30", OfficialDepartureCountdown.displayExact(target, now));
+        assertEquals("15h29", OfficialDepartureCountdown.displayExact(target, now + 60_000L));
     }
 
     @Test public void handlesMidnightCrossingCorrectly() {
