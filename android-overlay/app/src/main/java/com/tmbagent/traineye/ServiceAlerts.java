@@ -463,13 +463,21 @@ final class ServiceAlerts {
         if (!"1".equals(inbound) && !"2".equals(inbound)) return 0;
         long first = arrivalAtOrAfter(arrivals(row.to, inbound, now), row.train, now - 15000);
         if (first == 0) return 0;
+        // Select the circuit whose arrival is closest to the scheduled handover.
+        // A fixed 30-minute cutoff can select one circuit too many.
+        final long circuit = 77 * 60000L;
         long predicted = first;
-        int circuits = 0;
-        while (predicted < scheduled - 30 * 60000L && circuits < 4) {
-            predicted += 77 * 60000L;
-            circuits++;
+        long bestDifference = Math.abs(first - scheduled);
+        for (int circuits = 1; circuits <= 4; circuits++) {
+            long candidate = first + circuits * circuit;
+            long difference = Math.abs(candidate - scheduled);
+            if (difference < bestDifference) {
+                predicted = candidate;
+                bestDifference = difference;
+            }
         }
-        return predicted;
+        // A prediction more than half a circuit away is ambiguous: use timetable.
+        return bestDifference <= circuit / 2 ? predicted : 0;
     }
 
     private long assignedArrival(ServicePlan.Row row, long now) {
