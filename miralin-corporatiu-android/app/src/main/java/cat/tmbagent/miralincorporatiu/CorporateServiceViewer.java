@@ -12,6 +12,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.util.Base64;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.ViewConfiguration;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -25,6 +27,7 @@ import org.json.JSONArray;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.IntConsumer;
 
 /**
  * Native small service-sheet viewer rendered over the current app.
@@ -37,6 +40,7 @@ final class CorporateServiceViewer {
     private final String imageBase64;
     private final String rowBoundsJson;
     private final Runnable onClose;
+    private final IntConsumer onRowSelected;
     private final ArrayList<View> timelineRows = new ArrayList<>();
     private FrameLayout root;
     private ScrollView scroll;
@@ -44,13 +48,15 @@ final class CorporateServiceViewer {
     private int activeIndex = Integer.MIN_VALUE;
 
     CorporateServiceViewer(Context context, WindowManager windows, CorporateServicePlan plan,
-                           String imageBase64, String rowBoundsJson, Runnable onClose) {
+                           String imageBase64, String rowBoundsJson, Runnable onClose,
+                           IntConsumer onRowSelected) {
         this.context = context;
         this.windows = windows;
         this.plan = plan;
         this.imageBase64 = imageBase64 == null ? "" : imageBase64;
         this.rowBoundsJson = rowBoundsJson == null ? "" : rowBoundsJson;
         this.onClose = onClose;
+        this.onRowSelected = onRowSelected;
     }
 
     boolean isShowing() { return root != null; }
@@ -198,11 +204,17 @@ final class CorporateServiceViewer {
             list.addView(empty);
             return list;
         }
-        for (CorporateServicePlan.Segment segment : segments) {
+        for (int rowIndex = 0; rowIndex < segments.size(); rowIndex++) {
+            CorporateServicePlan.Segment segment = segments.get(rowIndex);
             LinearLayout line = new LinearLayout(context);
             line.setOrientation(LinearLayout.VERTICAL);
             line.setPadding(dp(9), dp(7), dp(9), dp(7));
             line.setBackground(rowBackground(false));
+            final int selected = rowIndex;
+            line.setClickable(true);
+            line.setOnClickListener(v -> {
+                onRowSelected.accept(selected);
+            });
             String type = "TRA".equals(segment.type) ? "Trasllat"
                 : "EST".equals(segment.type) ? "Estació" : "Conducció";
             line.addView(text(time(segment.start)+"–"+time(segment.end)+" · "+type, 13, 0xfff4d000, true));
@@ -257,17 +269,58 @@ final class CorporateServiceViewer {
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
         private int row = -1;
+        private final int touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+        private float downX, downY;
+        private long downAt;
 
         PhotoView(Bitmap bitmap, ArrayList<RectF> bounds) {
             super(context);
             this.bitmap = bitmap;
             this.bounds = bounds;
+            setClickable(true);
+            setContentDescription("Imatge del servei. Toca una fila per indicar on ets, sense aturar el seguiment.");
             fill.setColor(0x66f4d000);
             stroke.setColor(0xfff4d000);
             stroke.setStyle(Paint.Style.STROKE);
             stroke.setStrokeWidth(dp(3));
         }
         void setActiveRow(int row) { this.row = row; invalidate(); }
+
+        @Override public boolean onTouchEvent(MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downX = event.getX();
+                    downY = event.getY();
+                    downAt = event.getEventTime();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    // Avoid marking a row while swiping to scroll the photograph.
+                    if (Math.abs(event.getX() - downX) <= touchSlop
+                        && Math.abs(event.getY() - downY) <= touchSlop
+                        && event.getEventTime() - downAt < 650) {
+                        performClick();
+                        if (getWidth() <= 0 || getHeight() <= 0) return true;
+                        float x = event.getX() / getWidth();
+                        float y = event.getY() / getHeight();
+                        for (int i = 0; i < bounds.size(); i++) {
+                            if (bounds.get(i).contains(x, y)) {
+                                onRowSelected.accept(i);
+                                break;
+                            }
+                        }
+                    }
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        @Override public boolean performClick() {
+            super.performClick();
+            return true;
+        }
         @Override protected void onMeasure(int w, int h) {
             int width = MeasureSpec.getSize(w);
             if (width < 1) width = dp(300);
