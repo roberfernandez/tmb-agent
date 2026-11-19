@@ -305,6 +305,8 @@ final class CorporateDutyTracker {
 
     private Snapshot pickupSnapshot(long now, int index) {
         CorporateServicePlan.Segment row = rows.get(index);
+        if (!boarded[index] && !skipped[index]) pendingRow = index;
+        else if (pendingRow == index) pendingRow = -1;
         CorporateServicePlan.Selection selection = plan.selectionFor(index, false);
         int photoRow = manualCheckpointActive(now)
             ? selectedRow : waitingRow(index);
