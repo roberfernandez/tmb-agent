@@ -11,6 +11,7 @@ function context(){
   $:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id)},
   localStorage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)},
   serviceScheduleParam:()=>rows.map(r=>[r.a,r.b,r.type,r.from,r.to,r.train||'',r.via||'',r.out||''].join(',')).join(';'),
+  localServiceDate:()=>'2026-01-01',
   URLSearchParams,location:{},enabled:true,state:{date:'2026-01-01',margin:7},
   buildServiceAlertEvents:()=>[{},{}],stopLegacyServiceAlerts:async()=>{},syncWebServiceAlerts:async()=>{throw Error('Android should use native alerts')}};
  return {ctx:vm.createContext(ctx),elements,values};
@@ -24,7 +25,7 @@ test('replacing an active service exposes update and previews 405, then leaves o
  assert.match(elements.get('startServiceEye').innerHTML,/Actualitza/);
  assert.match(elements.get('serviceTrainPreview').textContent,/405 · 23:29 · Trinitat Nova/);
  assert.equal(elements.get('stopServiceEye').hidden,false);
- values.set('native',ctx.serviceScheduleParam());ctx.refreshServiceFollowControls();
+ values.set('native',ctx.state.date+'|'+ctx.serviceScheduleParam());ctx.refreshServiceFollowControls();
  assert.equal(elements.get('startServiceEye').hidden,true);
  assert.equal(elements.get('stopServiceEye').hidden,false);
 });
@@ -41,7 +42,7 @@ test('activation passes the new schedule, alert switch and custom margin to Andr
 });
 
 test('native alerts do not require browser push and pause on an unapplied service replacement',async()=>{
- const {ctx,values}=context();values.set('native',ctx.serviceScheduleParam());
+ const {ctx,values}=context();values.set('native',ctx.state.date+'|'+ctx.serviceScheduleParam());
  const start=page.indexOf('async function syncServiceAlerts(stop=false)');
  vm.runInContext(page.slice(start,page.indexOf('let alertSyncTimer',start)),ctx);
  ctx.nativeIntent=(host,params)=>{ctx.location.href='intent://'+host+'?'+params.toString()};
