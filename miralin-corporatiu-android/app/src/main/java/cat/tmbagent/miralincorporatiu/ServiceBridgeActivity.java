@@ -63,6 +63,26 @@ public final class ServiceBridgeActivity extends Activity {
             finish();
             return;
         }
+        if ("row".equals(host)) {
+            // Changing the highlighted service row is not a request to stop the
+            // eye. The running service verifies both the current plan and index.
+            String key = data.getQueryParameter("plan");
+            String row = data.getQueryParameter("row");
+            if (CorporateEyeService.isActive && key != null
+                && key.matches("[0-9a-f]{1,8}") && row != null
+                && row.matches("[0-9]{1,3}")) {
+                int index = Integer.parseInt(row);
+                if (index < 140) {
+                    Intent choice = new Intent(this, CorporateEyeService.class)
+                        .setAction(CorporateEyeService.ACTION_SELECT_ROW)
+                        .putExtra(CorporateEyeService.EXTRA_PICKUP_ROW, index)
+                        .putExtra(CorporateEyeService.EXTRA_PLAN_KEY, key);
+                    try { startService(choice); } catch (Exception ignored) {}
+                }
+            }
+            finish();
+            return;
+        }
         if ("pickup".equals(host)) {
             // Explicit worker confirmation from the PWA. Only affect the
             // currently running service if the uploaded plan key matches.
