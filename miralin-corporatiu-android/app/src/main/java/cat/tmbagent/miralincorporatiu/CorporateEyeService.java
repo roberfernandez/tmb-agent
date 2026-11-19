@@ -163,13 +163,16 @@ public final class CorporateEyeService extends Service {
                                 : "Lectura oficial rebuda";
                             if ("service".equals(mode) && duty != null) {
                                 boolean transferArrived = requestedKind == CorporateServicePlan.Selection.TRANSFER_TRACK
-                                    && result != null && duty.observeTransfer(receivedAt, requested, result.station);
-                                boolean boarded = requestedKind != CorporateServicePlan.Selection.TRANSFER_TRACK
+                                    && result != null && duty.observeTransfer(receivedAt, requested,
+                                        result.station, result.track);
+                                CorporateDutyTracker.Snapshot live = duty.at(receivedAt);
+                                boolean unambiguous = live != null && live.driving
+                                    ? result != null : departure != null;
+                                boolean transitioned = requestedKind != CorporateServicePlan.Selection.TRANSFER_TRACK
                                     && duty.observe(receivedAt, requested,
                                         result == null ? "" : result.station,
-                                        result == null ? "" : result.track,
-                                        departure != null);
-                                if (transferArrived || boarded) applyServiceSelection(receivedAt, true);
+                                        result == null ? "" : result.track, unambiguous);
+                                if (transferArrived || transitioned) applyServiceSelection(receivedAt, true);
                                 publishDutyStatus(receivedAt);
                             }
                         }
@@ -262,6 +265,7 @@ public final class CorporateEyeService extends Service {
                 }
             } else {
                 mode = "manual";
+                selectionKind = CorporateServicePlan.Selection.DRIVING;
                 servicePlan = null;
                 duty = null;
                 previewOnly = false;
