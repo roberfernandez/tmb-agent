@@ -25,13 +25,37 @@ export const procedures=[
  {title:'Trencament d’ulleres',text:[],url:'https://tmbbcn.sharepoint.com/sites/Cont_Econ_Comp_Inf_Corp/SitePages/AjutsMilloresSocials_TrencamentUlleres.aspx'},
  {title:'Permís per familiar amb malaltia oncològica',text:['Formulari per presentar als serveis mèdics, amb les dades del treballador/a i del familiar.','La informació del facultatiu no cal emplenar-la si ja consta als informes assistencials adjunts. El document inclou les signatures i el consentiment corresponents.'],files:[['Descarrega la sol·licitud','permis-oncologic.pdf']]},
 ];
+function fasCard(p){
+ const c=card(p.title,[]);
+ c.append(el('p','mini-intro',p.text[0]));
+ const sections=[
+  ['Ajuts mensuals','Fins al 80%',p.text[1]],
+  ['Ajuts puntuals i audiòfons','Fins a 800 € en audiòfons',p.text[2]],
+  ['Tractaments dentals','Fins a 250 €',p.text[3]],
+  ['Ulleres, lentilles i plantilles','50 €',p.text[4]],
+  ['Préstecs sense interessos','Fins a 6.000 €',p.text[5]],
+  ['Documentació i terminis','Segons la prestació',p.text[6]],
+  ['Comissió del FAS','Reunions mensuals',p.text[7]]
+ ];
+ for(const [title,amount,description] of sections){
+  const details=el('details','fas-details');
+  const summary=el('summary','fas-summary');
+  summary.append(el('span','',title),el('strong','fas-amount',amount));
+  details.append(summary,el('p','',description));
+  c.append(details);
+ }
+ const actions=el('div','mini-actions');
+ for(const [label,file] of p.files)actions.append(link(label,docs+file));
+ c.append(actions);
+ return c;
+}
 export function renderTramits(){
  const root=shell('Tràmits i ajuts','Formularis i documents per preparar les teves gestions.');
  const portal=card('Tots els tràmits de TMB',['Accedeix al portal corporatiu per consultar aquests tràmits i altres sol·licituds.']);
  portal.classList.add('mini-highlight');portal.append(link('Obre el portal de tràmits ↗','https://tmbbcn.sharepoint.com/sites/Tramitsempleats/SitePages/Sollicituds.aspx'));root.append(portal);
  const input=el('input','mini-input');input.type='search';input.placeholder='Cerca un tràmit…';input.setAttribute('aria-label','Cerca un tràmit');
  const list=el('div','mini-list');const status=el('p','mini-status');status.setAttribute('aria-live','polite');
- function render(){const found=procedures.filter(p=>norm(p.title+' '+p.text.join(' ')).includes(norm(input.value.trim())));list.replaceChildren();status.textContent=found.length?`${found.length} tràmits`:'No s’ha trobat cap tràmit.';for(const p of found){const c=card(p.title,p.text);if(p.url){c.replaceChildren(link(p.title+' ↗',p.url));}else{const actions=el('div','mini-actions');for(const [label,file]of p.files)actions.append(link(label,docs+file));c.append(actions);}list.append(c);}}
+ function render(){const found=procedures.filter(p=>norm(p.title+' '+p.text.join(' ')).includes(norm(input.value.trim())));list.replaceChildren();status.textContent=found.length?`${found.length} tràmits`:'No s’ha trobat cap tràmit.';for(const p of found){const c=p.title.includes('· FAS')?fasCard(p):card(p.title,p.text);if(p.url){c.replaceChildren(link(p.title+' ↗',p.url));}else if(!p.title.includes('· FAS')){const actions=el('div','mini-actions');for(const [label,file]of p.files)actions.append(link(label,docs+file));c.append(actions);}list.append(c);}}
  input.addEventListener('input',render);root.append(input,status,list);render();return root;
 }
 
