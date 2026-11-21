@@ -51,7 +51,7 @@
  </section>
 <section class="card">
  <h2>Avisos del servei</h2><label for="margin">Antelació dels avisos del servei</label><div class="minute-stepper"><button id="marginUp" type="button" aria-label="Augmenta un minut">▲</button><input id="margin" type="number" inputmode="numeric" min="1" max="120" step="1" value="5" aria-label="Minuts d’antelació"><button id="marginDown" type="button" aria-label="Redueix un minut">▼</button><span>minuts</span></div>
- <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button><button id="test">Prova el so</button><button id="testNativeNotices" type="button" hidden>Prova els avisos</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>En Android, el motor corporatiu pot enviar avisos de trasllat i presa basats en l'horari validat, afegint la SORTIDA oficial quan està disponible. Les prediccions avançades d'arribades, enllaços i retorns de l'ull anterior encara estan pendents de validació amb les dades corporatives.</small>
+ <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>En Android, el motor corporatiu pot enviar avisos de trasllat i presa basats en l'horari validat, afegint la SORTIDA oficial quan està disponible. Les prediccions avançades d'arribades, enllaços i retorns de l'ull anterior encara estan pendents de validació amb les dades corporatives.</small>
 </section>
 <p class="muted"><small>Les dades del servei es desen en aquest navegador. Pàgina de proves accessible per enllaç, sense control d’accés.</small></p></main><dialog id="serviceViewer" aria-labelledby="viewerTitle"><div class="viewer-shell"><div class="viewer-head"><h2 id="viewerTitle">El meu servei</h2><button id="closeServiceViewer" type="button" aria-label="Tanca el visor">Tanca ×</button></div><p id="viewerStatus" class="muted viewer-status" aria-live="polite"></p><div id="viewerPhotoHome"></div><div id="viewerTimeline" class="viewer-timeline" hidden></div></div></dialog><div id="toast" role="alert"></div>
 <script type="module">
@@ -325,12 +325,7 @@ async function syncServiceAlerts(stop=false){
 let alertSyncTimer,alertSettingsDirty=false;
 function scheduleAlertSync(){if(isAndroid){$('alarmStatus').textContent='Servei actualitzat. Aplica el seguiment per utilitzar el nou horari i els avisos.';return}clearTimeout(alertSyncTimer);alertSyncTimer=setTimeout(()=>{if(enabled)syncServiceAlerts().then(()=>{$('alarmStatus').textContent=isAndroid?'Avisos configurats al mòbil · '+state.margin+' min. Aplica el servei amb el botó de seguiment.':'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut actualitzar els avisos: '+e.message})},700)}
 function setMargin(value){const n=Math.max(1,Math.min(120,Math.round(Number(value)||1)));state.margin=n;$('margin').value=String(n);persist();if(enabled&&isAndroid){alertSettingsDirty=true;$('enable').textContent='Aplica els canvis';$('alarmStatus').textContent='Antelació nova: '+n+' min. Prem «Aplica els canvis».'}else if(enabled)scheduleAlertSync()}
-$('margin').onchange=()=>setMargin($('margin').value);$('margin').oninput=()=>setMargin($('margin').value);$('marginUp').onclick=()=>setMargin(Number($('margin').value)+1);$('marginDown').onclick=()=>setMargin(Number($('margin').value)-1);$('test').onclick=()=>notify('Prova de so · El meu servei');
-if(isAndroid){
- const noticeTest = $('testNativeNotices');
- noticeTest.hidden = false;
- noticeTest.onclick = () => nativeIntent('login');
-}
+$('margin').onchange=()=>setMargin($('margin').value);$('margin').oninput=()=>setMargin($('margin').value);$('marginUp').onclick=()=>setMargin(Number($('margin').value)+1);$('marginDown').onclick=()=>setMargin(Number($('margin').value)-1);
 $('enable').onclick=async()=>{
  const button=$('enable');button.disabled=true;
  try{
