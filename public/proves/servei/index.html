@@ -86,11 +86,6 @@ function nativeIntent(host,params=new URLSearchParams()){
   +'#Intent;scheme=miralincorp;package='+nativePackage
   +';S.browser_fallback_url='+encodeURIComponent(fallback)+';end';
 }
-if(isAndroid){
- const noticeTest = $('testNativeNotices');
- noticeTest.hidden = false;
- noticeTest.onclick = () => nativeIntent('login');
-}
 function rememberAndroidLaunch(params){
  const mark=()=>{if(document.visibilityState==='hidden'){
   localStorage.setItem(nativeInstalledKey,'true');
@@ -331,6 +326,11 @@ let alertSyncTimer,alertSettingsDirty=false;
 function scheduleAlertSync(){if(isAndroid){$('alarmStatus').textContent='Servei actualitzat. Aplica el seguiment per utilitzar el nou horari i els avisos.';return}clearTimeout(alertSyncTimer);alertSyncTimer=setTimeout(()=>{if(enabled)syncServiceAlerts().then(()=>{$('alarmStatus').textContent=isAndroid?'Avisos configurats al mòbil · '+state.margin+' min. Aplica el servei amb el botó de seguiment.':'Avisos actius · '+state.margin+' min abans dels trasllats i del pas dels trens assignats.'}).catch(e=>{$('alarmStatus').textContent='No s’han pogut actualitzar els avisos: '+e.message})},700)}
 function setMargin(value){const n=Math.max(1,Math.min(120,Math.round(Number(value)||1)));state.margin=n;$('margin').value=String(n);persist();if(enabled&&isAndroid){alertSettingsDirty=true;$('enable').textContent='Aplica els canvis';$('alarmStatus').textContent='Antelació nova: '+n+' min. Prem «Aplica els canvis».'}else if(enabled)scheduleAlertSync()}
 $('margin').onchange=()=>setMargin($('margin').value);$('margin').oninput=()=>setMargin($('margin').value);$('marginUp').onclick=()=>setMargin(Number($('margin').value)+1);$('marginDown').onclick=()=>setMargin(Number($('margin').value)-1);$('test').onclick=()=>notify('Prova de so · El meu servei');
+if(isAndroid){
+ const noticeTest = $('testNativeNotices');
+ noticeTest.hidden = false;
+ noticeTest.onclick = () => nativeIntent('login');
+}
 $('enable').onclick=async()=>{
  const button=$('enable');button.disabled=true;
  try{
