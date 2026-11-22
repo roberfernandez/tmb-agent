@@ -229,7 +229,16 @@ function render() {
     else content.append(element('p', 'notice', 'Accés denegat'));
     return;
   }
-  const destination = shortcutModule?.id === 'miralin' ? originUrl(readOrigin() || '413') : shortcutModule?.appUrl || shortcutModule?.externalUrl;
+  if (shortcutModule?.id === 'miralin') {
+    const board = originUrl(readOrigin() || '413');
+    recordOpen('miralin');
+    // Android can resume this document when its external browser tab is closed.
+    history.replaceState(history.state, '', '#/');
+    render();
+    location.assign(board);
+    return;
+  }
+  const destination = shortcutModule?.appUrl || shortcutModule?.externalUrl;
   if (destination) { recordOpen(shortcutModule.id); location.replace(destination); return; }
   document.body.classList.toggle('home', route === '/' || location.hash === '#content');
   content.replaceChildren();
@@ -436,7 +445,7 @@ async function authorizedRender() {
     launcherHeartbeat(!document.hidden);
     if (!preserveView || (route === '#/administracio' && !canAdmin)) {
       render();
-      renderedRoute = route;
+      renderedRoute = location.hash;
     }
   } catch {
     if (requestId !== checking) return;
