@@ -54,6 +54,7 @@ public final class CorporateEyeService extends Service {
     private static final String CHANNEL = "corporate_eye_active";
     private static final String ALERTS_CHANNEL = "corporate_service_alerts";
     private static final String VIEWER = "https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1";
+    private static final String SERVICE_HOME = "https://roberfernandez.github.io/tmb-agent/proves/servei/";
     private static final int NOTIFICATION = 9404;
     private static final int REFRESH_MS = 10_000;
 
@@ -95,6 +96,8 @@ public final class CorporateEyeService extends Service {
     private float touchX, touchY;
     private int originX, originY;
     private boolean dragging;
+    private float tappedEyeX = TrainEyeView.WIDTH_DP / 2f;
+    private String previousNotice = "";
 
     private final Runnable poll = new Runnable() {
         @Override public void run() {
@@ -208,6 +211,7 @@ public final class CorporateEyeService extends Service {
             if (viewer != null) viewer.refresh(System.currentTimeMillis(),
                 currentViewerRow(System.currentTimeMillis()));
             render();
+            if (isActive) updateForegroundNotification();
             if (!stopped) ui.postDelayed(this, 1000);
         }
     };
@@ -323,25 +327,58 @@ public final class CorporateEyeService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void startForegroundNotification() {
-        PendingIntent pending = viewerPendingIntent();
-        String title = "service".equals(mode)
-            ? selectionKind == CorporateServicePlan.Selection.IDLE
-                ? "El meu servei · proper moviment"
-                : "El meu servei · tren " + train
-            : "Miralín corporatiu · tren " + train;
-        Notification notification = new Notification.Builder(this, CHANNEL)
+    private CorporateEyeNotificationText notificationText(long now) {
+        String target = CorporateServicePlan.stationName(Integer.toString(stop));
+        String current = lastTrain == null ? "" : lastTrain.station;
+        CorporateDutyTracker.Snapshot snapshot = "service".equals(mode) && duty != null
+            ? duty.at(now) : null;
+        CorporateServicePlan.Segment row = snapshot != null && servicePlan != null
+            && snapshot.photoRow >= 0 && snapshot.photoRow < servicePlan.viewerSegments().size()
+            ? servicePlan.viewerSegments().get(snapshot.photoRow) : null;
+        String type = row == null ? "EST" : row.type;
+        String origin = row == null ? target : CorporateServicePlan.stationName(row.from);
+        String destination = row == null ? target : CorporateServicePlan.stationName(row.to);
+        boolean stale = blocked || (receivedAt > 0 && now - receivedAt > 60_000);
+        CorporateProjection.Result projected = "service".equals(mode)
+            ? CorporateProjection.project(departureAt, now, takeoverAt)
+            : new CorporateProjection.Result(departureAt, 0);
+        long projectedAt = selectionKind == CorporateServicePlan.Selection.IDLE
+            || selectionKind == CorporateServicePlan.Selection.WAIT_TRANSFER
+            ? takeoverAt : projected.timeMs;
+        return CorporateEyeNotificationText.forState("manual".equals(mode),
+            type, train, current, target, origin, destination, targetVia, projectedAt, now, stale);
+    }
+
+    private Notification activeNotification(CorporateEyeNotificationText notice) {
+        return new Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_view)
-            .setContentTitle(title)
-            .setContentText("Seguiment en segon pla · font oficial TMB")
-            .setContentIntent(pending)
+            .setContentTitle(notice.title)
+            .setContentText(notice.body)
+            .setStyle(new Notification.BigTextStyle().bigText(notice.body))
+            .setContentIntent(viewerPendingIntent())
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setOnlyAlertOnce(true)
             .setOngoing(true)
             .build();
+    }
+
+    private void startForegroundNotification() {
+        CorporateEyeNotificationText notice = notificationText(System.currentTimeMillis());
+        previousNotice = notice.title + "\n" + notice.body;
+        Notification notification = activeNotification(notice);
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         } else {
             startForeground(NOTIFICATION, notification);
         }
+    }
+
+    private void updateForegroundNotification() {
+        CorporateEyeNotificationText notice = notificationText(System.currentTimeMillis());
+        String current = notice.title + "\n" + notice.body;
+        if (current.equals(previousNotice)) return;
+        previousNotice = current;
+        getSystemService(NotificationManager.class).notify(NOTIFICATION, activeNotification(notice));
     }
 
     private void showOverlay() {
@@ -353,7 +390,7 @@ public final class CorporateEyeService extends Service {
         eye = new TrainEyeView(this);
         bubble.addView(eye, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        eye.setOnClickListener(v -> openServiceViewer());
+        eye.setOnClickListener(v -> dispatchEyeTap(tappedEyeX));
         eye.setOnTouchListener((view, event) -> {
             if (position == null || overlay == null) return false;
             switch (event.getActionMasked()) {
@@ -380,6 +417,7 @@ public final class CorporateEyeService extends Service {
                     } else if (eye != null && eye.isCloseHit(event.getX(), event.getY())) {
                         stopSelf();
                     } else {
+                        tappedEyeX = event.getX();
                         view.performClick();
                     }
                     dragging = false;
@@ -417,6 +455,22 @@ public final class CorporateEyeService extends Service {
      * We use the only matching row; when both exist, keep the earlier published
      * departure rather than silently guessing a direction.
      */
+    private void dispatchEyeTap(float localX) {
+        int zone = CorporateEyeTapZones.actionFor(localX,
+            eye == null ? 0 : eye.getWidth());
+        if (zone == CorporateEyeTapZones.MIRALIN) {
+            Intent open = new Intent(this, MainActivity.class);
+            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(open);
+        } else if (zone == CorporateEyeTapZones.SERVICE) {
+            Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(SERVICE_HOME));
+            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(open);
+        } else {
+            openServiceViewer();
+        }
+    }
+
     private void openServiceViewer() {
         if (viewer != null && viewer.isShowing()) return;
         viewer = new CorporateServiceViewer(this, windows, viewerPlan,
