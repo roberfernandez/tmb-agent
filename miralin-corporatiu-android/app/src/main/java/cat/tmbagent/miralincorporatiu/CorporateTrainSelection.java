@@ -42,40 +42,24 @@ final class CorporateTrainSelection {
         return findOnTrack(targetVia == 1 ? board.via1 : board.via2, sought);
     }
 
-    /** Pick the next published train departing the transfer origin in the required direction. */
-    static Train nextForTransfer(CorporateBoardParser.Board board, int via, long nowMs) {
-        if (board == null || (via != 1 && via != 2)) return null;
-        CorporateBoardParser.Track track = via == 1 ? board.via1 : board.via2;
-        if (track == null || !track.present) return null;
-        Train best = null;
-        long bestDeparture = Long.MAX_VALUE;
-        for (List<String> cells : track.rows) {
-            if (cells.size() < 4 || cells.get(0).trim().isEmpty()) continue;
-            String id = cells.get(0).trim().toUpperCase(Locale.ROOT);
-            if (!CorporateServicePlan.validTrain(id)) continue;
-            String reportedVia = cells.size() > 4 ? cells.get(4).trim() : "Via " + via;
-            if (!reportedVia.matches("(?i)via\\s*" + via)) continue;
-            String departure = cells.get(1).trim();
-            long at = OfficialDepartureCountdown.departureEpochMs(departure, nowMs);
-            if (at < nowMs || at >= bestDeparture) continue;
-            bestDeparture = at;
-            best = new Train(id, departure, cells.size() > 2 ? cells.get(2) : "",
-                cells.get(3), reportedVia);
-        }
-        return best;
+    static String canonicalId(String id) {
+        return id.matches("[MP][0-9]{2}") ? "4" + id.substring(1) : id;
     }
 
     private static Train findOnTrack(CorporateBoardParser.Track track, String sought) {
         if (track == null || !track.present) return null;
+        String canonical = canonicalId(sought);
+        Train alias = null;
         for (List<String> cells : track.rows) {
             if (cells.size() < 4) continue;
             String id = cells.get(0).trim().toUpperCase(Locale.ROOT);
-            if (!id.equals(sought)) continue;
+            if (!canonicalId(id).equals(canonical)) continue;
             String via = cells.size() > 4 && !cells.get(4).trim().isEmpty()
                 ? cells.get(4).trim() : "Via " + track.number;
-            return new Train(id, cells.size() > 1 ? cells.get(1) : "",
-                cells.size() > 2 ? cells.get(2) : "", cells.get(3), via);
+            Train match = new Train(id, cells.get(1), cells.get(2), cells.get(3), via);
+            if (id.equals(sought)) return match;
+            if (alias == null) alias = match;
         }
-        return null;
+        return alias;
     }
 }

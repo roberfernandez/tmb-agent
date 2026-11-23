@@ -44,6 +44,11 @@ final class OfficialDepartureCountdown {
         }
     }
 
+    static String clock(long epochMs) {
+        return epochMs < 0 ? "" : HH_MM.withZone(BARCELONA)
+            .format(java.time.Instant.ofEpochMilli(epochMs));
+    }
+
     /** Exact countdown to a scheduled service movement (not an estimated SORTIDA). */
     static String displayExact(long targetEpochMs, long nowEpochMs) {
         if (targetEpochMs < 0) return "--";

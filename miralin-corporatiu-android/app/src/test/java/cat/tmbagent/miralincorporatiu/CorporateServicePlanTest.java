@@ -69,11 +69,11 @@ public final class CorporateServicePlanTest {
         CorporateServicePlan plan = new CorporateServicePlan("2026-11-17", SCHEDULE);
         java.util.List<CorporateServicePlan.Notice> beforeTake = plan.noticesAt(at(17, 9, 55), 5);
         assertEquals(1, beforeTake.size());
-        assertEquals("Presa del tren 406", beforeTake.get(0).title);
+        assertEquals("TREN 406", beforeTake.get(0).title);
         assertTrue(beforeTake.get(0).body.contains("10:00"));
         java.util.List<CorporateServicePlan.Notice> transfer = plan.noticesAt(at(17, 10, 56), 5);
         assertEquals(1, transfer.size());
-        assertEquals("Trasllat del servei", transfer.get(0).title);
+        assertEquals("TRASLLAT", transfer.get(0).title);
         assertEquals(0, plan.noticesAt(at(17, 10, 00), 3).stream()
             .filter(n -> n.key.equals("transfer-2")).count());
     }

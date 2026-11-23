@@ -21,6 +21,37 @@ public final class CorporateDutyTrackerTest {
         return new CorporateDutyTracker(new CorporateServicePlan("2026-11-17", SCHEDULE));
     }
 
+    @Test public void sameTrainLeavesStationOnItsActualPassageAndTakesOverAtTerminal() {
+        CorporateServicePlan plan = new CorporateServicePlan("2026-11-22",
+            "1146,1286,EST,424,424,,,;1286,1310,TRA,424,413,,,;1310,1485,CON,413,413,405,2,RET");
+        for (int minute : new int[] {23, 29, 48}) {
+            CorporateDutyTracker tracker = new CorporateDutyTracker(plan);
+            long passage = at(22, 21, minute);
+            long previousLap = passage - CorporateProjection.LAP_MS;
+            assertEquals("405", tracker.at(previousLap).train);
+            assertFalse(tracker.observe(previousLap, "405", "Jaume I", "Via 2", true));
+            assertFalse(tracker.observe(previousLap, "405", "Urquinaona", "Via 2", true, previousLap));
+            assertFalse(tracker.observe(previousLap + 10_000, "405", "Jaume I", "Via 2", true, passage));
+            assertFalse(tracker.observe(at(22,20,52), "405", "Poblenou", "Via 2", true, passage));
+            assertEquals(0, tracker.at(at(22,20,52)).photoRow);
+            assertFalse(tracker.observe(passage, "404", "Jaume I", "Via 2", true));
+            assertFalse(tracker.observe(passage, "405", "Jaume I", "Via 1", true));
+            assertFalse(tracker.observe(passage, "405", "Urquinaona", "Via 2", true, passage));
+            assertEquals(0, tracker.at(passage).photoRow);
+            assertEquals(424, tracker.at(passage).selection.stop);
+            assertTrue(tracker.observe(passage + 10_000, "405", "Jaume I", "Via 2", true));
+            assertEquals(1, tracker.at(passage + 11_000).photoRow);
+            assertEquals(413, tracker.at(passage + 11_000).selection.stop);
+            long takeover = at(22, 21, 52);
+            assertFalse(tracker.observe(takeover, "405", "La Pau", "Via 2", true));
+            assertTrue(tracker.observe(takeover + 10_000, "405", "La Pau", "Via 2", true));
+            assertTrue(tracker.at(takeover + 11_000).driving);
+            assertEquals(2, tracker.at(takeover + 11_000).photoRow);
+        }
+        assertTrue(plan.noticesAt(at(22, 21, 25), 5).isEmpty());
+        assertTrue(plan.noticesAt(at(22, 21, 49), 5).isEmpty());
+    }
+
     @Test public void doesNotChangeStationRowJustBecauseScheduledPickupHasPassed() {
         CorporateDutyTracker track = tracker();
         CorporateDutyTracker.Snapshot snapshot = track.at(at(17, 23, 41));
@@ -128,7 +159,12 @@ public final class CorporateDutyTrackerTest {
         assertEquals("405", aboard.train);
         assertEquals(413, aboard.selection.stop);
         assertEquals("manual-row", aboard.source);
-        assertEquals(5, track.at(at(18,0,30)).photoRow);
+        long delayed = at(18,0,40);
+        assertEquals(4, track.at(delayed).photoRow);
+        assertTrue(track.at(delayed).driving);
+        assertFalse(track.observe(delayed, "405", "La Pau", "Via 2", true));
+        assertTrue(track.observe(delayed + 10_000, "405", "La Pau", "Via 2", true));
+        assertEquals(5, track.at(delayed + 11_000).photoRow);
     }
 
     @Test public void manualRowMayReturnToScheduleButNeverAutoBoardOnlyAtClockTime() {
@@ -208,67 +244,64 @@ public final class CorporateDutyTrackerTest {
         assertTrue(preview.at(now).preview);
     }
 
-    @Test public void beforeTransferStartShowsOnlyCountdownAndDoesNotFollowPassingTrains() {
-        CorporateDutyTracker track = tracker();
-        CorporateDutyTracker.Snapshot snap = track.at(at(17,18,30));
-        assertNotNull(snap);
-        assertEquals(CorporateServicePlan.Selection.IDLE, snap.selection.kind);
-        assertEquals("", snap.selection.train);
-        assertEquals(413, snap.selection.stop);
-        assertEquals(at(17,18,46), snap.selection.takeoverAt);
-    }
-
-    @Test public void transferFindsAnyTrainInTheRequiredDirectionAndTracksItToDestination() {
+    @Test public void transferShowsScheduledDepartureAndDirectionBeforeAndDuringMovement() {
         CorporateDutyTracker track = tracker();
         long start = at(17,18,46);
-        CorporateDutyTracker.Snapshot searching = track.at(start);
-        assertEquals(CorporateServicePlan.Selection.TRANSFER_SEARCH, searching.selection.kind);
-        assertEquals(413, searching.selection.origin);
-        assertEquals(422, searching.selection.destination);
-        assertEquals(1, searching.selection.via);
-        assertTrue(track.setTransferTrain(0, "417"));
-        CorporateDutyTracker.Snapshot tracking = track.at(start + 1_000);
-        assertEquals(CorporateServicePlan.Selection.TRANSFER_TRACK, tracking.selection.kind);
-        assertEquals("417", tracking.selection.train);
-        assertEquals(422, tracking.selection.stop);
-        assertEquals(1, tracking.selection.via);
-        assertFalse(track.observeTransfer(at(17,19,10), "417", "Girona", "Via 1"));
-        assertFalse(track.observeTransfer(at(17,19,10)+10_000, "417", "Barceloneta", "Via 1"));
-        assertTrue(track.observeTransfer(at(17,19,10)+20_000, "417", "Barceloneta", "Via 1"));
-        CorporateDutyTracker.Snapshot atStation = track.at(at(17,19,10)+21_000);
-        assertEquals(CorporateServicePlan.Selection.PICKUP, atStation.selection.kind);
-        assertEquals("414", atStation.train);
-        assertEquals(422, atStation.selection.stop);
+        for (long now : new long[]{at(17,18,30), start, at(17,19,0)}) {
+            CorporateServicePlan.Selection selected = track.at(now).selection;
+            assertEquals(CorporateServicePlan.Selection.TRANSFER, selected.kind);
+            assertFalse(selected.watchesTrain());
+            assertEquals("", selected.train);
+            assertEquals(413, selected.stop);
+            assertEquals(1, selected.via);
+            assertEquals(start, selected.takeoverAt);
+        }
+        assertEquals(CorporateServicePlan.Selection.PICKUP, track.at(at(17,19,6)).selection.kind);
     }
 
-    @Test public void earlyTransferArrivalWaitsAtDestinationUntilStationDutyStarts() {
-        CorporateDutyTracker track = tracker();
-        long start = at(17,18,46);
-        track.at(start);
-        assertTrue(track.setTransferTrain(0, "417"));
-        assertFalse(track.observeTransfer(start+60_000, "417", "Barceloneta", "Via 1"));
-        assertTrue(track.observeTransfer(start+70_000, "417", "Barceloneta", "Via 1"));
-        CorporateDutyTracker.Snapshot waitingAtDestination = track.at(start+71_000);
-        assertEquals(CorporateServicePlan.Selection.IDLE, waitingAtDestination.selection.kind);
-        assertEquals(422, waitingAtDestination.selection.stop);
-        assertEquals(at(17,19,06), waitingAtDestination.selection.takeoverAt);
-        CorporateDutyTracker.Snapshot stationDuty = track.at(at(17,19,06));
-        assertEquals(CorporateServicePlan.Selection.PICKUP, stationDuty.selection.kind);
-        assertEquals("414", stationDuty.train);
+    @Test public void selectingReverseTransferReleasesDelayedTrainAndShowsViaTwo() {
+        String schedule = "1126,1146,CON,413,422,420,1,1;"
+            + "1146,1166,TRA,422,413,,,;1166,1190,CON,413,434,405,1,RET";
+        CorporateDutyTracker track = new CorporateDutyTracker(new CorporateServicePlan("2026-11-17", schedule));
+        assertTrue(track.selectRow(at(17,18,55), 0));
+        assertEquals("420", track.at(at(17,19,8)).train);
+        assertTrue(track.selectRow(at(17,19,8), 1));
+        CorporateServicePlan.Selection transfer = track.at(at(17,19,8)).selection;
+        assertFalse(transfer.watchesTrain());
+        assertEquals("", transfer.train);
+        assertEquals(2, transfer.via);
+        assertEquals(at(17,19,6), transfer.takeoverAt);
+        assertEquals("405", track.at(at(17,19,26)).train);
     }
 
-    @Test public void delayedTransferContinuesAfterItsScheduledEndUntilArrivalIsConfirmed() {
+    @Test public void scheduledPickupDoesNotReplaceAnOngoingTransfer() {
+        String schedule = "1126,1146,TRA,413,422,,,;1144,1190,CON,422,434,420,1,RET";
+        CorporateDutyTracker track = new CorporateDutyTracker(new CorporateServicePlan("2026-11-17", schedule));
+        assertFalse(track.at(at(17,19,5)).selection.watchesTrain());
+        assertEquals("420", track.at(at(17,19,6)).train);
+    }
+
+    @Test public void passingTheDestinationOnAnEarlierLapDoesNotEndManualDriving() {
+        String schedule = "1080,1200,CON,413,413,420,1,RET;1200,1220,EST,413,413,,,";
+        CorporateDutyTracker track = new CorporateDutyTracker(new CorporateServicePlan("2026-11-17", schedule));
+        long earlierLap = at(17,18,43);
+        assertTrue(track.selectRow(at(17,18,0), 0));
+        assertFalse(track.observe(earlierLap, "420", "La Pau", "Via 2", true));
+        assertFalse(track.observe(earlierLap + 10_000, "420", "La Pau", "Via 2", true));
+        assertTrue(track.at(earlierLap + 11_000).driving);
+    }
+
+    @Test public void lateCheckpointCanReopenDrivingEvenAfterALaterBoardingWasRecorded() {
         CorporateDutyTracker track = tracker();
-        long start = at(17,18,46);
-        track.at(start);
-        assertTrue(track.setTransferTrain(0, "417"));
-        CorporateDutyTracker.Snapshot late = track.at(at(17,19,10));
-        assertEquals(CorporateServicePlan.Selection.TRANSFER_TRACK, late.selection.kind);
-        assertEquals("417", late.selection.train);
-        assertFalse(track.observeTransfer(at(17,19,10), "417", "Barceloneta", "Via 1"));
-        assertTrue(track.observeTransfer(at(17,19,10)+10_000, "417", "Barceloneta", "Via 1"));
-        assertEquals(CorporateServicePlan.Selection.PICKUP,
-            track.at(at(17,19,10)+11_000).selection.kind);
+        assertTrue(track.selectRow(at(17,23,30), 4));
+        long delayed = at(17,23,42);
+        assertTrue(track.selectRow(delayed, 2));
+        CorporateDutyTracker.Snapshot aboard = track.at(delayed);
+        assertTrue(aboard.driving);
+        assertFalse(aboard.preview);
+        assertEquals("414", aboard.train);
+        assertEquals(2, aboard.photoRow);
+        assertEquals(at(17,21,38), aboard.selection.takeoverAt);
     }
 
     @Test public void anOverlappingDrivingPieceHasPriorityOverStationPresence() {

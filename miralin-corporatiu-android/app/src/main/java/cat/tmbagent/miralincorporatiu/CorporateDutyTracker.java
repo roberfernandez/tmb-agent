@@ -25,12 +25,9 @@ final class CorporateDutyTracker {
     private final boolean[] boarded;
     private final boolean[] skipped;
     private final String[] evidence;
-    private final String[] transferTrains;
-    private final boolean[] transferArrived;
-    private int transferSeenRow = -1;
-    private long transferLastSeenAt = -1;
-    private int transferConsecutive;
-    private int pendingTransfer = -1;
+    private int linkedTransfer = -1;
+    private boolean riding;
+    private long approachSeenAt = -1;
     private int pendingDriving = -1;
     private final boolean[] drivingArrived;
     private int seenRow = -1;
@@ -48,29 +45,31 @@ final class CorporateDutyTracker {
         if (index < 0 || index >= rows.size()) return false;
         CorporateServicePlan.Segment row = rows.get(index);
         long start = plan.minuteMillis(row.start);
-        long end = plan.minuteMillis(row.end);
         long first = plan.minuteMillis(rows.get(0).start);
         long last = plan.minuteMillis(rows.get(rows.size() - 1).end);
-        // The user may still be on an earlier station or transfer row because
-        // of a severe delay. Only a driving-row claim needs a tight time check.
-        // If the worker explicitly chooses an out-of-time row, the app becomes
-        // a clearly labeled TEST instead of refusing the selection. Stop work
-        // alerts and automatic pickup claims for this experimental service.
+        // A late driving checkpoint is authoritative during the real service.
+        // Keep preview behavior for tests before the shift or far past its end.
         if (now < first - FINAL_DELAY_GRACE_MS
             || now > last + FINAL_DELAY_GRACE_MS
-            || (row.driving() && (now < start - 30L * 60_000L
-                || now > end + FINAL_DELAY_GRACE_MS)))
+            || (row.driving() && now < start - 30L * 60_000L))
             previewOnly = true;
         // If the worker explicitly selects a later stage, earlier missed
         // pickups must not hold the watcher on the wrong train.
         for (int i = 0; i < index; i++)
             if (rows.get(i).driving() && !boarded[i]) skipped[i] = true;
-        if (pendingRow >= 0 && pendingRow < index) pendingRow = -1;
-        if (pendingTransfer >= 0 && pendingTransfer < index) pendingTransfer = -1;
-        if (pendingDriving >= 0 && pendingDriving < index) pendingDriving = -1;
+        pendingRow = -1;
+        pendingDriving = -1;
         if (row.driving()) {
             boarded[index] = true;
+            drivingArrived[index] = false;
             evidence[index] = "manual";
+        }
+        linkedTransfer = -1;
+        approachSeenAt = -1;
+        riding = false;
+        if (plan.sameTrainTransfer(index)) {
+            linkedTransfer = index;
+            riding = true;
         }
         selectedRow = index;
         selectedAt = now;
@@ -80,6 +79,14 @@ final class CorporateDutyTracker {
 
     private boolean manualCheckpointActive(long now) {
         if (selectedRow < 0) return false;
+        if (rows.get(selectedRow).driving()) return !drivingArrived[selectedRow];
+        CorporateServicePlan.Segment chosen = rows.get(selectedRow);
+        if ("TRA".equals(chosen.type)) {
+            long end = plan.minuteMillis(chosen.end);
+            if (selectedAt >= end || now < end) return true;
+            selectedRow = -1;
+            return false;
+        }
         // Later verified boarding supersedes a manually marked station even if
         // that boarding was delayed beyond its scheduled start.
         for (int i = selectedRow + 1; i < rows.size(); i++) {
@@ -100,12 +107,6 @@ final class CorporateDutyTracker {
             }
         }
         return true;
-    }
-
-    private int nextDrivingFrom(int row) {
-        for (int i = row; i < rows.size(); i++)
-            if (rows.get(i).driving()) return i;
-        return -1;
     }
 
     static final class Snapshot {
@@ -144,8 +145,6 @@ final class CorporateDutyTracker {
         this.boarded = new boolean[rows.size()];
         this.skipped = new boolean[rows.size()];
         this.evidence = new String[rows.size()];
-        this.transferTrains = new String[rows.size()];
-        this.transferArrived = new boolean[rows.size()];
         this.drivingArrived = new boolean[rows.size()];
     }
 
@@ -170,39 +169,53 @@ final class CorporateDutyTracker {
             if (r.driving() && start <= now) lastDriving = i;
         }
         long serviceEnd = plan.minuteMillis(rows.get(rows.size() - 1).end);
-        if (now >= serviceEnd + FINAL_DELAY_GRACE_MS && !previewOnly) return null;
+        if (now >= serviceEnd + FINAL_DELAY_GRACE_MS && !previewOnly
+            && !(selectedRow >= 0 && rows.get(selectedRow).driving()
+                && !drivingArrived[selectedRow])) return null;
+
+        if (!previewOnly && (pendingDriving < 0 || drivingArrived[pendingDriving])
+            && (selectedRow < 0 || !rows.get(selectedRow).driving())) {
+            int candidate = activeTransfer;
+            if (activeStation >= 0 && candidate < 0) candidate = activeStation + 1;
+            if (candidate < 0 && activeCon >= 0) candidate = activeCon - 1;
+            if (linkedTransfer < 0 && plan.sameTrainTransfer(candidate)
+                && !boarded[candidate + 1] && !skipped[candidate + 1]
+                && (selectedRow < 0 || selectedRow == candidate || selectedRow == candidate - 1))
+                linkedTransfer = candidate;
+            if (linkedTransfer >= 0 && !boarded[linkedTransfer + 1]) {
+                int i = linkedTransfer;
+                CorporateServicePlan.Segment leg = rows.get(i), drive = rows.get(i + 1);
+                int origin = Integer.parseInt(leg.from), dest = Integer.parseInt(leg.to);
+                int photo = !riding && i > 0 && "EST".equals(rows.get(i-1).type) ? i-1 : i;
+                CorporateServicePlan.Selection target = riding ? plan.selectionFor(i+1, false)
+                    : new CorporateServicePlan.Selection(drive.train, origin, Integer.parseInt(drive.via),
+                        false, plan.minuteMillis(leg.start), CorporateServicePlan.Selection.TRANSFER_PICKUP,
+                        i, origin, dest);
+                return new Snapshot(photo, i+1, true, false, drive.train, drive.from,
+                    target.takeoverAt, riding ? "transfer-aboard" : "transfer-wait", false, target);
+            }
+        }
 
         // A tapped row is an explicit position checkpoint. It does not stop
         // polling: it only tells the resolver which service segment to follow.
         if (manualCheckpointActive(now)) {
             CorporateServicePlan.Segment chosen = rows.get(selectedRow);
             if (chosen.driving()) return drivingSnapshot(now, selectedRow);
-            if ("TRA".equals(chosen.type)) {
-                if (now < plan.minuteMillis(chosen.start))
-                    return idleSnapshot(now, selectedRow, Integer.parseInt(chosen.from),
-                        plan.minuteMillis(chosen.start), "manual-before-transfer");
-                pendingTransfer = selectedRow;
-                return transferSnapshot(now, selectedRow, true);
-            }
+            if ("TRA".equals(chosen.type)) return transferSnapshot(now, selectedRow);
             int following = nextOperationalRow(selectedRow);
             if (following >= 0) {
                 CorporateServicePlan.Segment nextRow = rows.get(following);
                 if (nextRow.driving()) return drivingSnapshot(now, following);
-                if (now < plan.minuteMillis(nextRow.start))
-                    return idleSnapshot(now, following, Integer.parseInt(nextRow.from),
-                        plan.minuteMillis(nextRow.start), "manual-before-transfer");
-                pendingTransfer = following;
-                return transferSnapshot(now, following, true);
+                return transferSnapshot(now, following, selectedRow);
             }
             return idleSnapshot(now, selectedRow, Integer.parseInt(chosen.from),
                 plan.minuteMillis(chosen.end), "manual-station");
         }
 
-        // A real driving piece always wins over a station or transfer piece
-        // that overlaps it. A delayed pickup observed by this running tracker
-        // also remains authoritative until the train is actually boarded.
-        int focus = activeCon;
-        if (pendingRow >= 0 && pendingRow < rows.size()
+        // While a transfer is active, only confirmed driving takes precedence.
+        int focus = activeTransfer < 0 || (activeCon >= 0 && boarded[activeCon])
+            ? activeCon : -1;
+        if (activeTransfer < 0 && pendingRow >= 0 && pendingRow < rows.size()
             && !boarded[pendingRow] && !skipped[pendingRow]) focus = pendingRow;
         // Once aboard, do not abandon this train at the scheduled end or when
         // a later piece overlaps: keep the driving activity until arrival.
@@ -224,27 +237,9 @@ final class CorporateDutyTracker {
                 plan.minuteMillis(row.end), "driving-arrived");
         }
 
-        // A transfer is a movement obligation. Once it starts, keep following
-        // a suitable train until it is confirmed at the destination, even if
-        // the scheduled transfer end has passed because of a delay.
-        if (activeTransfer >= 0
-            && rows.get(activeTransfer).from.equals(rows.get(activeTransfer).to)) {
-            CorporateServicePlan.Segment sameStationTransfer = rows.get(activeTransfer);
-            return idleSnapshot(now, activeTransfer, Integer.parseInt(sameStationTransfer.from),
-                plan.minuteMillis(sameStationTransfer.end), "transfer-at-same-station");
-        }
-        if (activeTransfer >= 0 && !transferArrived[activeTransfer]) pendingTransfer = activeTransfer;
-        if (pendingTransfer >= 0 && !transferArrived[pendingTransfer]) {
-            return transferSnapshot(now, pendingTransfer, true);
-        }
-
-        // If the transfer train arrived early, stay at its destination until
-        // the scheduled station-duty start. Do not use that station period as
-        // extra transfer time or chase another train.
-        if (activeTransfer >= 0 && transferArrived[activeTransfer]) {
-            CorporateServicePlan.Segment transfer = rows.get(activeTransfer);
-            return idleSnapshot(now, activeTransfer, Integer.parseInt(transfer.to),
-                plan.minuteMillis(transfer.end), "transfer-arrived");
+        if (activeTransfer >= 0) {
+            pendingRow = -1;
+            return transferSnapshot(now, activeTransfer);
         }
 
         // Station presence is an obligation. Follow the next assigned train
@@ -254,23 +249,10 @@ final class CorporateDutyTracker {
             if (following >= 0) {
                 CorporateServicePlan.Segment row = rows.get(following);
                 if (row.driving()) return pickupSnapshot(now, following);
-                return idleSnapshot(now, following, Integer.parseInt(row.from),
-                    plan.minuteMillis(row.start), "station-before-transfer");
+                return transferSnapshot(now, following, activeStation);
             }
             return idleSnapshot(now, activeStation, Integer.parseInt(rows.get(activeStation).from),
                 plan.minuteMillis(rows.get(activeStation).end), "station");
-        }
-
-        // A completed transfer can remain current after its scheduled end if
-        // the arrival was late; the next active station/CON row then takes over.
-        if (activeTransfer >= 0 && transferArrived[activeTransfer]) {
-            int following = nextOperationalRow(activeTransfer);
-            if (following >= 0 && rows.get(following).driving()) return pickupSnapshot(now, following);
-            if (following >= 0) {
-                CorporateServicePlan.Segment row = rows.get(following);
-                return idleSnapshot(now, following, Integer.parseInt(row.from),
-                    plan.minuteMillis(row.start), "next-activity");
-            }
         }
 
         // Before the first movement (or between non-overlapping pieces), show
@@ -279,6 +261,7 @@ final class CorporateDutyTracker {
         if (next >= 0) {
             CorporateServicePlan.Segment row = rows.get(next);
             if (row.driving()) return pickupSnapshot(now, next);
+            if ("TRA".equals(row.type)) return transferSnapshot(now, next);
             return idleSnapshot(now, next, Integer.parseInt(row.from),
                 plan.minuteMillis(row.start), "next-activity");
         }
@@ -305,7 +288,7 @@ final class CorporateDutyTracker {
         if (!driving && !skipped[index] && !boarded[index]) pendingRow = index;
         else if (pendingRow == index || driving) pendingRow = -1;
         if (driving) pendingDriving = index;
-        int photoRow = driving ? Math.max(index, plan.viewerIndex(now)) : waitingRow(index);
+        int photoRow = driving ? index : waitingRow(index);
         if (manualCheckpointActive(now)) photoRow = selectedRow;
         CorporateServicePlan.Selection selection = plan.selectionFor(index, driving);
         return new Snapshot(photoRow, index, !driving, driving, row.train, row.from,
@@ -325,22 +308,22 @@ final class CorporateDutyTracker {
             plan.minuteMillis(row.start), previewOnly ? "preview" : "waiting", previewOnly, selection);
     }
 
-    private Snapshot transferSnapshot(long now, int index, boolean started) {
+    private Snapshot transferSnapshot(long now, int index) {
+        return transferSnapshot(now, index, index);
+    }
+
+    private Snapshot transferSnapshot(long now, int index, int activityRow) {
         CorporateServicePlan.Segment row = rows.get(index);
-        CorporateServicePlan.Selection selection = plan.transferSelection(index,
-            transferTrains[index], started);
-        if (selection == null) {
-            return idleSnapshot(now, index, Integer.parseInt(row.from),
-                plan.minuteMillis(row.end), "transfer-at-same-station");
+        CorporateServicePlan.Selection selection = plan.transferSelection(index);
+        boolean manual = manualCheckpointActive(now);
+        if (plan.oppositeTransfer(index) && !(manual && selectedRow == index)) {
+            CorporateServicePlan.Segment drive = rows.get(index + 1);
+            selection = new CorporateServicePlan.Selection(drive.train, selection.origin, selection.via,
+                false, plan.minuteMillis(drive.start), CorporateServicePlan.Selection.CONNECTION,
+                index, selection.origin, selection.destination);
         }
-        if (manualCheckpointActive(now)) {
-            return new Snapshot(selectedRow, index, true, false, selection.train,
-                row.from, plan.minuteMillis(row.start), "manual-row", previewOnly, selection);
-        }
-        return new Snapshot(index, index, selection.transferWaiting()
-            || selection.transferSearching(), false, selection.train, row.from,
-            plan.minuteMillis(row.start), selection.transferSearching() ? "transfer-search"
-                : "transfer-track", previewOnly, selection);
+        return new Snapshot(manual ? selectedRow : activityRow, index, true, false, "", row.from,
+            selection.takeoverAt, manual ? "manual-row" : "transfer", previewOnly, selection);
     }
 
     private Snapshot idleSnapshot(long now, int row, int stop, long countdownAt, String source) {
@@ -348,47 +331,6 @@ final class CorporateDutyTracker {
         int photoRow = manualCheckpointActive(now) ? selectedRow : row;
         return new Snapshot(photoRow, row, false, false, "", Integer.toString(stop),
             countdownAt, source, previewOnly, selection);
-    }
-
-    boolean setTransferTrain(int row, String selectedTrain) {
-        if (row < 0 || row >= rows.size() || !"TRA".equals(rows.get(row).type)
-            || !CorporateServicePlan.validTrain(selectedTrain)) return false;
-        transferTrains[row] = selectedTrain;
-        transferSeenRow = row;
-        transferLastSeenAt = -1;
-        transferConsecutive = 0;
-        return true;
-    }
-
-    boolean observeTransfer(long now, String selectedTrain, String location, String reportedTrack) {
-        Snapshot snapshot = at(now);
-        if (previewOnly || snapshot == null || snapshot.selection == null
-            || snapshot.selection.kind != CorporateServicePlan.Selection.TRANSFER_TRACK
-            || !snapshot.selection.train.equals(selectedTrain)
-            || !sameStation(location, CorporateServicePlan.stationName(
-                Integer.toString(snapshot.selection.destination)))
-            || !sameTrack(reportedTrack, Integer.toString(CorporateServicePlan.directionVia(
-                Integer.toString(snapshot.selection.origin),
-                Integer.toString(snapshot.selection.destination))))) {
-            transferSeenRow = -1;
-            transferLastSeenAt = -1;
-            transferConsecutive = 0;
-            return false;
-        }
-        int row = snapshot.selection.row;
-        if (transferSeenRow == row && transferLastSeenAt >= 0
-            && now - transferLastSeenAt >= MIN_OBSERVATION_SPACING_MS
-            && now - transferLastSeenAt <= OBSERVATION_TIMEOUT_MS) transferConsecutive++;
-        else transferConsecutive = 1;
-        transferSeenRow = row;
-        transferLastSeenAt = now;
-        if (transferConsecutive < 2) return false;
-        transferArrived[row] = true;
-        if (pendingTransfer == row) pendingTransfer = -1;
-        transferSeenRow = -1;
-        transferLastSeenAt = -1;
-        transferConsecutive = 0;
-        return true;
     }
 
     private int waitingRow(int driveIndex) {
@@ -406,6 +348,11 @@ final class CorporateDutyTracker {
      */
     boolean observe(long now, String train, String location, String reportedTrack,
                     boolean unambiguous) {
+        return observe(now, train, location, reportedTrack, unambiguous, -1);
+    }
+
+    boolean observe(long now, String train, String location, String reportedTrack,
+                    boolean unambiguous, long departureAt) {
         Snapshot snapshot = at(now);
         if (previewOnly || snapshot == null || !unambiguous
             || !snapshot.train.equals(train)) {
@@ -415,8 +362,31 @@ final class CorporateDutyTracker {
 
         int index = snapshot.pickupRow;
         CorporateServicePlan.Segment row = rows.get(index);
+        if (snapshot.selection.kind == CorporateServicePlan.Selection.TRANSFER_PICKUP) {
+            CorporateServicePlan.Selection target = snapshot.selection;
+            if (!sameTrack(reportedTrack, Integer.toString(target.via))) return false;
+            int direction = target.via == 1 ? 1 : -1;
+            for (int stop = CorporateServicePlan.FIRST_STOP; stop <= CorporateServicePlan.LAST_STOP; stop++) {
+                if (!sameStation(location, CorporateServicePlan.stationName(Integer.toString(stop)))) continue;
+                int offset = (stop - target.origin) * direction;
+                if (offset <= 0) {
+                    CorporateProjection.Result passage = CorporateProjection.project(departureAt, now, target.takeoverAt);
+                    if (offset >= -1 && passage.timeMs >= 0 && passage.laps == 0
+                        && Math.abs(passage.timeMs - now) <= 4 * 60_000L) approachSeenAt = now;
+                    else approachSeenAt = -1;
+                    return false;
+                }
+                if (approachSeenAt < 0 || now - approachSeenAt > 4 * 60_000L
+                    || (target.destination - stop) * direction < 0) return false;
+                riding = true;
+                selectedRow = -1;
+                resetObservations();
+                return true;
+            }
+            return false;
+        }
         if (snapshot.waiting) {
-            if (now < snapshot.plannedStart - EARLY_WINDOW_MS
+            if ((!riding && now < snapshot.plannedStart - EARLY_WINDOW_MS)
                 || !sameStation(location, CorporateServicePlan.stationName(row.from))) {
                 resetObservations();
                 return false;
@@ -429,7 +399,8 @@ final class CorporateDutyTracker {
                 return false;
             }
         } else if (snapshot.driving) {
-            if (!sameStation(location, CorporateServicePlan.stationName(row.to))
+            if (now < plan.minuteMillis(row.end) - CorporateProjection.LAP_MS / 2
+                || !sameStation(location, CorporateServicePlan.stationName(row.to))
                 || (!CorporateServicePlan.terminal(Integer.parseInt(row.to))
                     && !sameTrack(reportedTrack,
                         CorporateServicePlan.validVia(row.out) ? row.out : row.via))) {
@@ -450,11 +421,15 @@ final class CorporateDutyTracker {
         if (consecutive < 2) return false;
         if (snapshot.waiting) {
             boarded[index] = true;
+            linkedTransfer = -1;
+            approachSeenAt = -1;
+            riding = false;
             evidence[index] = "corporate";
             if (selectedRow >= 0 && selectedRow < index) selectedRow = -1;
             pendingDriving = index;
         } else {
             drivingArrived[index] = true;
+            if (selectedRow == index) selectedRow = -1;
             if (pendingDriving == index) pendingDriving = -1;
         }
         resetObservations();
@@ -465,6 +440,11 @@ final class CorporateDutyTracker {
         Snapshot snapshot = at(now);
         if (snapshot == null || snapshot.pickupRow != row
             || now < snapshot.plannedStart - 30L * 60_000L) return false;
+        if (!rows.get(row).driving() || snapshot.selection.kind == CorporateServicePlan.Selection.TRANSFER_PICKUP)
+            return false;
+        linkedTransfer = -1;
+        riding = false;
+        approachSeenAt = -1;
         boarded[row] = true;
         evidence[row] = "manual";
         if (selectedRow >= 0 && selectedRow < row) selectedRow = -1;

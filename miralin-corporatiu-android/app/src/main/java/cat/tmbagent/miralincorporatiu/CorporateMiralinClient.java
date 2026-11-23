@@ -28,6 +28,10 @@ final class CorporateMiralinClient {
         AuthenticationRedirect(String reason) { super(reason); }
     }
 
+    static String boardUrl(int stop) {
+        return HOST + "/miralin/routes/4/stops/" + stop;
+    }
+
     CorporateBoardParser.Board fetch(String username, String password, int stop) throws IOException {
         if (username == null || username.trim().isEmpty() || username.contains(":")
             || password == null || password.isEmpty()) {
@@ -35,7 +39,7 @@ final class CorporateMiralinClient {
         }
         if (stop < 413 || stop > 434) throw new IllegalArgumentException("Estació de la L4 incorrecta.");
 
-        URL current = new URL(HOST + "/miralin/routes/4/stops/" + stop);
+        URL current = new URL(boardUrl(stop));
         String basic = "Basic " + Base64.encodeToString(
             (username + ":" + password).getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
         // Explicitly handle 3xx. HttpsURLConnection's automatic redirect policy can move Authorization

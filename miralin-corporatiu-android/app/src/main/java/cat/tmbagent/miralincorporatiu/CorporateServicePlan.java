@@ -14,7 +14,7 @@ import java.util.Locale;
  */
 final class CorporateServicePlan {
     private static final ZoneId ZONE = ZoneId.of("Europe/Madrid");
-    private static final int FIRST_STOP = 413, LAST_STOP = 434;
+    static final int FIRST_STOP = 413, LAST_STOP = 434;
 
     static final class Segment {
         final int start, end;
@@ -33,9 +33,9 @@ final class CorporateServicePlan {
         static final int IDLE = 0;
         static final int PICKUP = 1;
         static final int DRIVING = 2;
-        static final int WAIT_TRANSFER = 3;
-        static final int TRANSFER_SEARCH = 4;
-        static final int TRANSFER_TRACK = 5;
+        static final int TRANSFER = 3;
+        static final int TRANSFER_PICKUP = 4;
+        static final int CONNECTION = 5;
 
         final String train;
         final int stop;
@@ -60,11 +60,7 @@ final class CorporateServicePlan {
             this.destination = destination;
         }
 
-        boolean transfer() {
-            return kind == WAIT_TRANSFER || kind == TRANSFER_SEARCH || kind == TRANSFER_TRACK;
-        }
-        boolean transferWaiting() { return kind == WAIT_TRANSFER; }
-        boolean transferSearching() { return kind == TRANSFER_SEARCH; }
+        boolean watchesTrain() { return kind == PICKUP || kind == DRIVING || kind == TRANSFER_PICKUP || kind == CONNECTION; }
     }
 
     private final LocalDate date;
@@ -115,10 +111,33 @@ final class CorporateServicePlan {
     }
 
     static final class Notice {
-        final String key, title, body;
-        Notice(String key, String title, String body) {
-            this.key = key; this.title = title; this.body = body;
+        final String key, title, route, time, body;
+        final boolean pickup;
+
+        Notice(String key, String title, String route, String time, String details, boolean pickup) {
+            this.key = key;
+            this.title = title;
+            this.route = route;
+            this.time = time;
+            this.body = route + "\n" + details;
+            this.pickup = pickup;
         }
+    }
+
+    boolean sameTrainTransfer(int index) {
+        if (index < 0 || index + 1 >= segments.size()) return false;
+        Segment transfer = segments.get(index), drive = segments.get(index + 1);
+        return "TRA".equals(transfer.type) && drive.driving() && transfer.end == drive.start
+            && transfer.to.equals(drive.from)
+            && Integer.toString(directionVia(transfer.from, transfer.to)).equals(drive.via);
+    }
+
+    boolean oppositeTransfer(int index) {
+        if (index < 0 || index + 1 >= segments.size()) return false;
+        Segment leg = segments.get(index), drive = segments.get(index + 1);
+        int via = directionVia(leg.from, leg.to);
+        return "TRA".equals(leg.type) && drive.driving() && leg.to.equals(drive.from)
+            && leg.end == drive.start && via != 0 && !Integer.toString(via).equals(drive.via);
     }
 
     /** Scheduled transfer and pickup reminders; no claim of measured train arrival. */
@@ -128,15 +147,21 @@ final class CorporateServicePlan {
         for (int i = 0; i < segments.size(); i++) {
             Segment row = segments.get(i);
             if (!row.driving() && !"TRA".equals(row.type)) continue;
+            if (oppositeTransfer(i) || sameTrainTransfer(i) || sameTrainTransfer(i - 1)) continue;
             long start = minuteMillis(row.start);
             if (nowMillis < start - margin * 60_000L || nowMillis >= start + 60_000L) continue;
             String fromName = stationName(row.from), toName = stationName(row.to);
-            if (row.driving()) due.add(new Notice("take-" + i,
-                "Presa del tren " + row.train,
-                fromName + " · via " + row.via + " · hora prevista " + formatMinute(row.start)));
-            else due.add(new Notice("transfer-" + i,
-                "Trasllat del servei",
-                fromName + " → " + toName + " · inici " + formatMinute(row.start)));
+            String time = formatMinute(row.start);
+            if (row.driving()) {
+                due.add(new Notice("take-" + i, "TREN " + row.train,
+                    fromName + " · Via " + row.via, time, "Hora prevista " + time, true));
+            } else {
+                int via = directionVia(row.from, row.to);
+                String route = via == 0 ? fromName : fromName + " → " + toName;
+                String details = "Surt a les " + time + (via == 0 ? "" : " · Via " + via);
+                due.add(new Notice("transfer-" + i, "TRASLLAT",
+                    route, time, details, false));
+            }
         }
         return due;
     }
@@ -196,26 +221,15 @@ final class CorporateServicePlan {
         int selectedVia = terminal(selectedStop) ? 0
             : Integer.parseInt(driving && validVia(chosen.out) ? chosen.out : chosen.via);
         return new Selection(chosen.train, selectedStop, selectedVia, driving,
-            minuteMillis(chosen.start), driving ? Selection.DRIVING : Selection.PICKUP,
+            minuteMillis(driving ? chosen.end : chosen.start), driving ? Selection.DRIVING : Selection.PICKUP,
             rowIndex, Integer.parseInt(chosen.from), Integer.parseInt(chosen.to));
     }
 
-    Selection transferSelection(int rowIndex, String selectedTrain, boolean started) {
-        if (rowIndex < 0 || rowIndex >= segments.size()) return null;
+    Selection transferSelection(int rowIndex) {
         Segment row = segments.get(rowIndex);
-        if (!"TRA".equals(row.type) || row.from.equals(row.to)) return null;
         int origin = Integer.parseInt(row.from), destination = Integer.parseInt(row.to);
-        int via = directionVia(row.from, row.to);
-        if (!started) {
-            return new Selection("", origin, via, false, minuteMillis(row.start),
-                Selection.WAIT_TRANSFER, rowIndex, origin, destination);
-        }
-        if (selectedTrain == null || selectedTrain.isEmpty()) {
-            return new Selection("", origin, via, false, -1,
-                Selection.TRANSFER_SEARCH, rowIndex, origin, destination);
-        }
-        return new Selection(selectedTrain, destination, via, false, -1,
-            Selection.TRANSFER_TRACK, rowIndex, origin, destination);
+        return new Selection("", origin, directionVia(row.from, row.to), false,
+            minuteMillis(row.start), Selection.TRANSFER, rowIndex, origin, destination);
     }
 
     Selection idleSelection(int rowIndex, long countdownAt) {

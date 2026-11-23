@@ -37,7 +37,14 @@ public final class ServiceBridgeActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        process(getIntent());
+        Intent intent = getIntent();
+        if (Intent.ACTION_MAIN.equals(intent.getAction())
+            && intent.hasCategory(Intent.CATEGORY_LAUNCHER)) {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(VIEWER)));
+            finish();
+            return;
+        }
+        process(intent);
     }
 
     private void process(Intent intent) {
@@ -261,13 +268,13 @@ public final class ServiceBridgeActivity extends Activity {
         password.setHint("Contrasenya");
         password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         form.addView(password);
-        loginDialog = new AlertDialog.Builder(this)
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
             .setTitle("El meu servei · Identificació TMB")
             .setView(form)
             .setNegativeButton("Cancel·la", (dialog, which) -> finish())
             .setPositiveButton("Identifica'm", null)
-            .setOnCancelListener(dialog -> finish())
-            .create();
+            .setOnCancelListener(dialog -> finish());
+        loginDialog = builder.create();
         loginDialog.setOnShowListener(ignored -> {
             loginDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 String username = user.getText().toString().trim();

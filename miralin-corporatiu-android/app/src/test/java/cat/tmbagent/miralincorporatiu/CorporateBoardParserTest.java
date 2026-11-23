@@ -4,6 +4,28 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class CorporateBoardParserTest {
+    @Test public void manual407UsesItsOwnIntervalAtTheSelectedStation() {
+        String html = "<table id='indexForm:tableArrivals2'><tbody>"
+            + "<tr><td>405</td><td>23:10</td><td>05:00</td><td>La Pau</td></tr>"
+            + "<tr><td>407</td><td>23:17</td><td>06:07</td><td>Jaume I</td></tr>"
+            + "</tbody></table><div>MDM: 06:06</div>";
+        CorporateBoardParser.Board board = CorporateBoardParser.parse(html);
+        CorporateTrainSelection.Train train = CorporateTrainSelection.find(board, "407", 2);
+        assertTrue(CorporateBoardParser.exceedsMdm(train.previousTrainGap, board.mdm));
+    }
+
+    @Test public void comparesTrainIntervalWithThePublishedMdmToTheSecond() {
+        String board = "<table id='indexForm:tableArrivals2'><tbody></tbody></table>";
+        String mdm = CorporateBoardParser.parse(board + "<div>MDM: <span>06:06</span></div> Ind.Reg.: 74").mdm;
+        assertEquals("06:06", mdm);
+        assertFalse(CorporateBoardParser.exceedsMdm("06:05", mdm));
+        assertFalse(CorporateBoardParser.exceedsMdm("06:06", mdm));
+        assertTrue(CorporateBoardParser.exceedsMdm("06:07", mdm));
+        assertFalse(CorporateBoardParser.exceedsMdm("06:46", CorporateBoardParser.parse(board).mdm));
+        assertEquals(mdm, CorporateBoardParser.parse(board
+            + "<table><tr><th>MDM:</th><th>Ind.Reg.:</th></tr><tr><td>06:06</td><td>74</td></tr></table>").mdm);
+    }
+
     @Test public void readsBothPrimefacesTablesWithoutChangingSortida() {
         String html = "<html><body>"
             + "<div id='indexForm:tableArrivals1'><table><thead><tr><th>PROP.TREN</th><th>SORTIDA</th></tr></thead>"

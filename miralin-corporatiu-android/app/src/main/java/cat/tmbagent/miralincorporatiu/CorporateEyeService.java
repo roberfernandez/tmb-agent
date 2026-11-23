@@ -5,11 +5,15 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.PixelFormat;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -52,7 +56,7 @@ public final class CorporateEyeService extends Service {
     private static volatile String activeDutyJson = "";
 
     private static final String CHANNEL = "corporate_eye_active";
-    private static final String ALERTS_CHANNEL = "corporate_service_alerts";
+    static final String ALERTS_CHANNEL = "corporate_service_alerts";
     private static final String VIEWER = "https://roberfernandez.github.io/tmb-agent/proves/servei/?serviceViewer=1";
     private static final int NOTIFICATION = 9404;
     private static final int REFRESH_MS = 10_000;
@@ -65,6 +69,10 @@ public final class CorporateEyeService extends Service {
     private View overlay;
     private TrainEyeView eye;
     private WindowManager.LayoutParams position;
+    private int pressedThird;
+    private int notificationRow = -1;
+    private String notificationKey = "";
+    private String boardMdm = "";
     private String train = "406";
     private int stop = 413;
     private int targetVia = 1;
@@ -79,6 +87,9 @@ public final class CorporateEyeService extends Service {
     private int manualViewerRow = -1;
     private long takeoverAt = -1;
     private int selectionKind = CorporateServicePlan.Selection.IDLE;
+    private int connectionDestination;
+    private java.util.List<ConnectionOptions.Option> options = java.util.Collections.emptyList();
+    private String activityLabel = "";
     private int selectionGeneration;
     private boolean alertsEnabled;
     private int alertMargin = 5;
@@ -87,6 +98,7 @@ public final class CorporateEyeService extends Service {
     private int nextAlertId = 9600;
     private long departureAt = -1;
     private CorporateTrainSelection.Train lastTrain;
+    private boolean exceedsMdm;
     private long receivedAt;
     private String connection = "Connectant al Miralín corporatiu…";
     private boolean busy;
@@ -99,42 +111,53 @@ public final class CorporateEyeService extends Service {
     private final Runnable poll = new Runnable() {
         @Override public void run() {
             if (stopped || blocked || busy
-                || ("service".equals(mode) && selectionKind == CorporateServicePlan.Selection.IDLE)) return;
+                || !watchesTrain()) return;
             busy = true;
             final String requested = train;
             final int requestedStop = stop;
             final int requestedVia = targetVia;
             final int requestedKind = selectionKind;
-            final int requestedRow = duty == null ? -1 : duty.at(System.currentTimeMillis()) == null
-                ? -1 : duty.at(System.currentTimeMillis()).selection.row;
+            final int destination = connectionDestination;
+            final long plannedRelay = takeoverAt;
             final int generation = selectionGeneration;
             network.execute(() -> {
                 CorporateTrainSelection.Train found = null;
                 CorporateTrainSelection.Train matchingDeparture = null;
-                CorporateTrainSelection.Train transferCandidate = null;
+                java.util.List<ConnectionOptions.Option> connections = java.util.Collections.emptyList();
+                String mdm = "";
                 Exception failure = null;
                 try {
                     CredentialVault.Login login = new CredentialVault(CorporateEyeService.this).load();
                     if (login == null) throw new SecurityException("Cal iniciar sessió a l'aplicació.");
                     CorporateBoardParser.Board board = client.fetch(login.username, login.password, requestedStop);
-                    if ("service".equals(mode)
-                        && requestedKind == CorporateServicePlan.Selection.TRANSFER_SEARCH) {
-                        transferCandidate = CorporateTrainSelection.nextForTransfer(
-                            board, requestedVia, System.currentTimeMillis());
+                    mdm = board.mdm;
+                    if (requestedKind == CorporateServicePlan.Selection.CONNECTION) {
+                        CorporateBoardParser.Board other = client.fetch(login.username, login.password, destination);
+                        connections = ConnectionOptions.calculate(board, other, requested, requestedVia,
+                            plannedRelay, System.currentTimeMillis());
                     } else {
-                        found = requestedVia == 0
-                            ? CorporateTrainSelection.find(board, requested)
-                            : CorporateTrainSelection.find(board, requested, requestedVia);
                         matchingDeparture = requestedVia == 0
                             ? onlyDepartureAtTerminal(board, requested)
                             : CorporateTrainSelection.find(board, requested, requestedVia);
+                        if (matchingDeparture == null && requestedVia == 0
+                            && requestedKind == CorporateServicePlan.Selection.DRIVING) {
+                            int inboundVia = requestedStop == CorporateServicePlan.FIRST_STOP ? 2 : 1;
+                            matchingDeparture = CorporateTrainSelection.find(board, requested, inboundVia);
+                        }
+                        found = matchingDeparture;
+                        if (found == null && (requestedVia == 0
+                            || requestedKind == CorporateServicePlan.Selection.TRANSFER_PICKUP
+                            || requestedKind == CorporateServicePlan.Selection.DRIVING))
+                            found = CorporateTrainSelection.find(board, requested);
                     }
                 } catch (Exception e) {
                     failure = e;
                 }
                 final CorporateTrainSelection.Train result = found;
                 final CorporateTrainSelection.Train departure = matchingDeparture;
-                final CorporateTrainSelection.Train candidate = transferCandidate;
+                final java.util.List<ConnectionOptions.Option> alternatives = connections;
+                final String publishedMdm = mdm;
+                final boolean longGap = found != null && CorporateBoardParser.exceedsMdm(found.previousTrainGap, mdm);
                 final Exception error = failure;
                 ui.post(() -> {
                     busy = false;
@@ -146,40 +169,28 @@ public final class CorporateEyeService extends Service {
                     }
                     if (error == null) {
                         receivedAt = System.currentTimeMillis();
-                        if ("service".equals(mode) && duty != null
-                            && requestedKind == CorporateServicePlan.Selection.TRANSFER_SEARCH) {
-                            if (candidate != null && duty.setTransferTrain(requestedRow, candidate.id)) {
-                                connection = "Trasllat · seguint tren " + candidate.id;
+                        options = alternatives;
+                        lastTrain = result;
+                        exceedsMdm = longGap;
+                        boardMdm = publishedMdm;
+                        departureAt = departure == null ? -1
+                            : OfficialDepartureCountdown.departureEpochMs(departure.departure, receivedAt);
+                        connection = result == null ? "Tren no localitzat a la taula consultada"
+                            : departure == null ? "No consta SORTIDA per aquesta via"
+                            : "Lectura oficial rebuda";
+                        if (requestedKind != CorporateServicePlan.Selection.CONNECTION && "service".equals(mode) && duty != null) {
+                            boolean driving = requestedKind == CorporateServicePlan.Selection.DRIVING;
+                            boolean unambiguous = (driving && requestedVia != 0)
+                                ? result != null : departure != null;
+                            if (requestedKind == CorporateServicePlan.Selection.TRANSFER_PICKUP)
+                                unambiguous = result != null;
+                            if (driving && CorporateProjection.project(departureAt, receivedAt, takeoverAt).laps > 0)
+                                unambiguous = false;
+                            if (duty.observe(receivedAt, requested,
+                                result == null ? "" : result.station,
+                                result == null ? "" : result.track, unambiguous, departureAt))
                                 applyServiceSelection(receivedAt, true);
-                            } else {
-                                lastTrain = null;
-                                departureAt = -1;
-                                connection = "Cercant tren en la direcció del trasllat…";
-                            }
-                        } else {
-                            lastTrain = result;
-                            departureAt = departure == null ? -1
-                                : OfficialDepartureCountdown.departureEpochMs(departure.departure, receivedAt);
-                            connection = result == null ? "Tren no localitzat a la taula consultada"
-                                : departure == null ? "No consta SORTIDA per aquesta via"
-                                : "Lectura oficial rebuda";
-                            if ("service".equals(mode) && duty != null) {
-                                boolean transferArrived = requestedKind == CorporateServicePlan.Selection.TRANSFER_TRACK
-                                    && result != null && duty.observeTransfer(receivedAt, requested,
-                                        result.station, result.track);
-                                CorporateDutyTracker.Snapshot live = duty.at(receivedAt);
-                                boolean unambiguous = live != null && live.driving
-                                    ? (live.selection != null
-                                        && CorporateServicePlan.terminal(live.selection.stop)
-                                        ? departure != null : result != null)
-                                    : departure != null;
-                                boolean transitioned = requestedKind != CorporateServicePlan.Selection.TRANSFER_TRACK
-                                    && duty.observe(receivedAt, requested,
-                                        result == null ? "" : result.station,
-                                        result == null ? "" : result.track, unambiguous);
-                                if (transferArrived || transitioned) applyServiceSelection(receivedAt, true);
-                                publishDutyStatus(receivedAt);
-                            }
+                            publishDutyStatus(receivedAt);
                         }
                     } else {
                         connection = error instanceof CorporateMiralinClient.AccessDenied
@@ -191,9 +202,10 @@ public final class CorporateEyeService extends Service {
                             || error instanceof SecurityException) blocked = true;
                     }
                     render();
-                    if (!blocked && (!"service".equals(mode)
-                        || selectionKind != CorporateServicePlan.Selection.IDLE))
+                    if (!blocked && watchesTrain()) {
+                        ui.removeCallbacks(poll);
                         ui.postDelayed(poll, REFRESH_MS);
+                    }
                 });
             });
         }
@@ -208,7 +220,10 @@ public final class CorporateEyeService extends Service {
             if (viewer != null) viewer.refresh(System.currentTimeMillis(),
                 currentViewerRow(System.currentTimeMillis()));
             render();
-            if (!stopped) ui.postDelayed(this, 1000);
+            if (!stopped) {
+                startForegroundNotification();
+                ui.postDelayed(this, 1000);
+            }
         }
     };
 
@@ -218,6 +233,10 @@ public final class CorporateEyeService extends Service {
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel(
             CHANNEL, "El meu servei · seguiment", NotificationManager.IMPORTANCE_LOW));
+        createAlertsChannel(manager);
+    }
+
+    static void createAlertsChannel(NotificationManager manager) {
         manager.createNotificationChannel(new NotificationChannel(
             ALERTS_CHANNEL, "El meu servei · avisos", NotificationManager.IMPORTANCE_HIGH));
     }
@@ -306,6 +325,10 @@ public final class CorporateEyeService extends Service {
             return START_NOT_STICKY;
         }
         configureAlerts();
+        lastTrain = null;
+        receivedAt = 0;
+        departureAt = -1;
+        notificationKey = "";
         startForegroundNotification();
         showOverlay();
         isActive = true;
@@ -318,26 +341,82 @@ public final class CorporateEyeService extends Service {
         selectionGeneration++;
         ui.removeCallbacks(poll);
         ui.removeCallbacks(ageTick);
-        if (selectionKind != CorporateServicePlan.Selection.IDLE) ui.post(poll);
+        if (watchesTrain()) ui.post(poll);
         ui.post(ageTick);
         return START_NOT_STICKY;
     }
 
     private void startForegroundNotification() {
+        long now = System.currentTimeMillis();
+        boolean manual = "manual".equals(mode);
+        boolean fresh = receivedAt > 0 && now - receivedAt <= 60_000;
+        String station = CorporateServicePlan.stationName(Integer.toString(stop));
+        String platform = targetVia > 0 ? " · V" + targetVia : "";
+        String position = fresh && lastTrain != null ? lastTrain.station + " · " + lastTrain.track : "";
+        String title = train + (position.isEmpty() ? "" : " · " + position);
+        String label = manual ? station : "Fi a " + station;
+        long time = fresh ? (manual ? departureAt : CorporateProjection.project(departureAt, now, takeoverAt).timeMs) : -1;
+        boolean scheduled = false;
+        String gap = fresh && lastTrain != null ? lastTrain.previousTrainGap : "";
+        if (!manual && selectionKind != CorporateServicePlan.Selection.DRIVING) {
+            title = activityLabel + " · " + station + platform;
+            if (selectionKind == CorporateServicePlan.Selection.CONNECTION) {
+                ConnectionOptions.Option option = lastConnection(now);
+                label = option == null ? "Sense enllaç confirmat" : "Últim enllaç: " + option.train;
+                time = option == null ? -1 : option.departure;
+                gap = option == null ? "" : option.previousTrainGap;
+                if (option != null) title = "EST · " + station + platform;
+            } else if ("TRA".equals(activityLabel) && watchesTrain()) {
+                title = "TRA · " + train + " → " + station;
+                label = "Relleu";
+            } else if (watchesTrain()) {
+                label = train;
+            } else {
+                scheduled = true;
+                time = takeoverAt;
+                label = selectionKind == CorporateServicePlan.Selection.TRANSFER ? "Trasllat" : "Fi";
+                if ("TRA".equals(activityLabel) && servicePlan != null && notificationRow >= 0) {
+                    CorporateServicePlan.Segment leg = servicePlan.viewerSegments().get(notificationRow);
+                    title = "TRA · " + station + " → " + CorporateServicePlan.stationName(leg.to);
+                    time = servicePlan.minuteMillis(leg.end);
+                    label = "Fi previst";
+                }
+            }
+        }
+        if (!manual && selectionKind == CorporateServicePlan.Selection.DRIVING && time < 0) {
+            scheduled = true;
+            time = takeoverAt;
+        }
+        String summary = label;
+        if (time >= 0) {
+            summary += (scheduled ? " " : " ≈") + OfficialDepartureCountdown.clock(time)
+                + (scheduled ? " · segons servei" : " · en " + Math.max(0, (time - now + 59_999) / 60_000) + " min");
+        } else if (watchesTrain() && selectionKind != CorporateServicePlan.Selection.CONNECTION) {
+            summary += " · pendent de previsió";
+        }
+        String details = summary;
+        if (!position.isEmpty() && !title.contains(position)) details += "\nAra a " + position;
+        if (!gap.isEmpty()) details += "\n" + ((manual || selectionKind == CorporateServicePlan.Selection.DRIVING)
+            && exceedsMdm ? "2 galons" : "1 galó") + " · Interval " + formatHeadway(gap);
+        if (fresh && !boardMdm.isEmpty()) details += " · MDM " + formatHeadway(boardMdm);
+        String key = title + "\n" + details;
+        if (key.equals(notificationKey)) return;
+        boolean first = notificationKey.isEmpty();
+        notificationKey = key;
         PendingIntent pending = viewerPendingIntent();
-        String title = "service".equals(mode)
-            ? selectionKind == CorporateServicePlan.Selection.IDLE
-                ? "El meu servei · proper moviment"
-                : "El meu servei · tren " + train
-            : "Miralín corporatiu · tren " + train;
         Notification notification = new Notification.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_menu_view)
+            .setSmallIcon(R.drawable.ic_status_train)
             .setContentTitle(title)
-            .setContentText("Seguiment en segon pla · font oficial TMB")
+            .setContentText(summary)
+            .setStyle(new Notification.BigTextStyle().bigText(details))
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
             .setContentIntent(pending)
             .setOngoing(true)
             .build();
-        if (Build.VERSION.SDK_INT >= 34) {
+        if (!first) {
+            getSystemService(NotificationManager.class).notify(NOTIFICATION, notification);
+        } else if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         } else {
             startForeground(NOTIFICATION, notification);
@@ -358,6 +437,7 @@ public final class CorporateEyeService extends Service {
             if (position == null || overlay == null) return false;
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
+                    pressedThird = eye.tapThird(event.getX());
                     touchX = event.getRawX();
                     touchY = event.getRawY();
                     originX = position.x;
@@ -379,8 +459,19 @@ public final class CorporateEyeService extends Service {
                             .putInt("x", position.x).putInt("y", position.y).apply();
                     } else if (eye != null && eye.isCloseHit(event.getX(), event.getY())) {
                         stopSelf();
-                    } else {
-                        view.performClick();
+                    } else if (eye != null && pressedThird == eye.tapThird(event.getX())) {
+                        if (pressedThird == 2) view.performClick();
+                        else {
+                            String url = pressedThird == 0 ? CorporateMiralinClient.boardUrl(stop)
+                                : "https://roberfernandez.github.io/tmb-agent/proves/servei/";
+                            Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            try { startActivity(open); }
+                            catch (android.content.ActivityNotFoundException e) {
+                                android.widget.Toast.makeText(this, "Cal un navegador per obrir l’enllaç.",
+                                    android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                        }
                     }
                     dragging = false;
                     return true;
@@ -426,9 +517,13 @@ public final class CorporateEyeService extends Service {
     }
 
     private PendingIntent viewerPendingIntent() {
+        return viewerPendingIntent(this);
+    }
+
+    private static PendingIntent viewerPendingIntent(Context context) {
         Intent viewer = new Intent(Intent.ACTION_VIEW, Uri.parse(VIEWER));
         viewer.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        return PendingIntent.getActivity(this, 110, viewer,
+        return PendingIntent.getActivity(context, 110, viewer,
             PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
@@ -451,16 +546,43 @@ public final class CorporateEyeService extends Service {
 
     private void tickServiceAlerts(long now) {
         if (previewOnly || !alertsEnabled || servicePlan == null || !"service".equals(mode)) return;
-        for (CorporateServicePlan.Notice notice : servicePlan.noticesAt(now, alertMargin)) {
+        java.util.List<CorporateServicePlan.Notice> notices = servicePlan.noticesAt(now, alertMargin);
+        if (selectionKind == CorporateServicePlan.Selection.CONNECTION && now - receivedAt <= 60_000) {
+            StringBuilder details = new StringBuilder();
+            long first = 0;
+            for (ConnectionOptions.Option option : options) {
+                if (option.departure <= now) continue;
+                if (first == 0) first = option.departure;
+                if (details.length() > 0) details.append("\n");
+                details.append(option.train).append(" · ").append(OfficialDepartureCountdown.clock(option.departure))
+                    .append(" · marge ").append(option.margin / 60_000L).append(" min");
+            }
+            if (first > now && first - now <= alertMargin * 60_000L) {
+                String route = CorporateServicePlan.stationName(Integer.toString(stop)) + " · Via " + targetVia
+                    + " → " + CorporateServicePlan.stationName(Integer.toString(connectionDestination));
+                notices.add(new CorporateServicePlan.Notice("connection-" + takeoverAt, "Enllaç amb el " + train,
+                    route, OfficialDepartureCountdown.clock(first), details.toString(), false));
+            }
+        }
+        if (selectionKind == CorporateServicePlan.Selection.TRANSFER_PICKUP && lastTrain != null
+            && now - receivedAt <= 60_000 && departureAt >= now
+            && departureAt - now <= alertMargin * 60_000L
+            && CorporateProjection.project(departureAt, now, takeoverAt).laps == 0) {
+            String station = CorporateServicePlan.stationName(Integer.toString(stop));
+            notices.add(new CorporateServicePlan.Notice("ride-" + takeoverAt, "Agafa el " + train,
+                station + " · Via " + targetVia, OfficialDepartureCountdown.clock(departureAt),
+                "Sortida Miralín " + OfficialDepartureCountdown.clock(departureAt), true));
+        }
+        for (CorporateServicePlan.Notice notice : notices) {
             if (sentAlerts.contains(notice.key)) continue;
             String content = notice.body;
             // The separate live source is the published SORTIDA, not measured arrival.
-            if (notice.key.startsWith("take-") && departureAt > now && lastTrain != null) {
+            if (notice.pickup && departureAt > now && lastTrain != null) {
                 String countdown = OfficialDepartureCountdown.display(departureAt, now);
                 if (!"--".equals(countdown))
-                    content += " · SORTIDA TMB " + countdown;
+                    content += "\nSortida TMB " + countdown;
             }
-            if (postServiceNotification(notice.title, content)) {
+            if (postServiceNotification(notice, content)) {
                 sentAlerts.add(notice.key);
                 getSharedPreferences("corporate-alerts-v1", MODE_PRIVATE).edit()
                     .putStringSet("sent", new HashSet<>(sentAlerts)).apply();
@@ -468,19 +590,46 @@ public final class CorporateEyeService extends Service {
         }
     }
 
-    private boolean postServiceNotification(String title, String body) {
+    private boolean postServiceNotification(CorporateServicePlan.Notice notice, String body) {
         try {
-            Notification notification = new Notification.Builder(this, ALERTS_CHANNEL)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle(title)
-                .setContentText(body)
-                .setStyle(new Notification.BigTextStyle().bigText(body))
-                .setContentIntent(viewerPendingIntent())
-                .setAutoCancel(true)
-                .build();
-            getSystemService(NotificationManager.class).notify(nextAlertId++, notification);
+            getSystemService(NotificationManager.class).notify(nextAlertId++,
+                serviceNotification(this, notice, body));
             return true;
         } catch (Exception ignored) { return false; }
+    }
+
+    private static Notification serviceNotification(Context context, CorporateServicePlan.Notice notice,
+                                            String body) {
+        int icon = notice.pickup ? R.drawable.ic_notice_train : R.drawable.ic_notice_transfer;
+        int color = notice.pickup ? 0xffbc2639 : 0xff205bbb;
+        PendingIntent open = viewerPendingIntent(context);
+        return new Notification.Builder(context, ALERTS_CHANNEL)
+            .setSmallIcon(notice.pickup ? R.drawable.ic_status_train : R.drawable.ic_status_transfer)
+            .setLargeIcon(serviceNoticeIcon(context, icon, color))
+            .setColor(color)
+            .setCategory(Notification.CATEGORY_REMINDER)
+            .setContentTitle(notice.title
+                + " · " + notice.time)
+            .setContentText(notice.route)
+            .setStyle(new Notification.BigTextStyle().bigText(body))
+            .setContentIntent(open)
+            .addAction(new Notification.Action.Builder((android.graphics.drawable.Icon) null,
+                "Obre el servei", open).build())
+            .setAutoCancel(true)
+            .build();
+    }
+
+    private static Bitmap serviceNoticeIcon(Context context, int resource, int color) {
+        float density = context.getResources().getDisplayMetrics().density;
+        int size = Math.round(48 * density);
+        int inset = Math.round(3 * density);
+        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Drawable icon = context.getDrawable(resource).mutate();
+        icon.setTint(color);
+        icon.setBounds(inset, inset, size - inset, size - inset);
+        icon.draw(canvas);
+        return bitmap;
     }
 
     private static CorporateTrainSelection.Train onlyDepartureAtTerminal(
@@ -502,30 +651,37 @@ public final class CorporateEyeService extends Service {
             stopSelf();
             return false;
         }
-        long nextTakeover = selected.driving ? -1 : selected.takeoverAt;
+        // A delayed relay may still have a catchable connection after the printed transfer ends.
+        if (selectionKind == CorporateServicePlan.Selection.CONNECTION
+            && selected.kind == CorporateServicePlan.Selection.PICKUP && selected.train.equals(train)
+            && selected.stop == connectionDestination && selected.takeoverAt == takeoverAt
+            && lastConnection(now) != null) return true;
+        String type = servicePlan.viewerSegments().get(snapshot.photoRow).type;
+        activityLabel = snapshot.driving ? "" : "CON".equals(type) ? "EST" : type;
+        if (selected.kind == CorporateServicePlan.Selection.TRANSFER_PICKUP) activityLabel = "EST";
+        notificationRow = selected.row;
+        long nextTakeover = selected.takeoverAt;
         boolean changed = !selected.train.equals(train) || selected.stop != stop
             || selected.via != targetVia || nextTakeover != takeoverAt
-            || selected.kind != selectionKind;
+            || selected.kind != selectionKind || selected.destination != connectionDestination;
         takeoverAt = nextTakeover;
         publishDutyStatus(now);
         if (!changed) return true;
         train = selected.train;
         stop = selected.stop;
         targetVia = selected.via;
+        connectionDestination = selected.destination;
+        options = java.util.Collections.emptyList();
         selectionKind = selected.kind;
         selectionGeneration++;
         lastTrain = null;
         receivedAt = 0;
         departureAt = -1;
-        connection = selected.kind == CorporateServicePlan.Selection.IDLE
-            ? "Esperant el proper moviment del servei…"
-            : selected.kind == CorporateServicePlan.Selection.TRANSFER_SEARCH
-                ? "Cercant tren per al trasllat…"
-                : "Canvi d'activitat · consultant TMB…";
+        connection = watchesTrain() ? "Canvi d'activitat · consultant TMB…"
+            : "Esperant el proper moviment del servei…";
+        if (refresh) startForegroundNotification();
         render();
-        boolean needsBoard = selected.kind != CorporateServicePlan.Selection.IDLE
-            && selected.kind != CorporateServicePlan.Selection.WAIT_TRANSFER;
-        if (refresh && needsBoard && !busy && !blocked) {
+        if (refresh && selected.watchesTrain() && !busy && !blocked) {
             ui.removeCallbacks(poll);
             ui.post(poll);
         }
@@ -576,38 +732,76 @@ public final class CorporateEyeService extends Service {
         position.y = Math.max(0, Math.min(metrics.heightPixels - position.height, y));
     }
 
+    private boolean watchesTrain() {
+        return selectionKind == CorporateServicePlan.Selection.DRIVING
+            || selectionKind == CorporateServicePlan.Selection.PICKUP
+            || selectionKind == CorporateServicePlan.Selection.TRANSFER_PICKUP
+            || selectionKind == CorporateServicePlan.Selection.CONNECTION;
+    }
+
+    private ConnectionOptions.Option lastConnection(long now) {
+        if (options.isEmpty() || now - receivedAt > 60_000) return null;
+        ConnectionOptions.Option last = options.get(options.size() - 1);
+        return last.departure > now ? last : null;
+    }
+
     private void render() {
         if (eye == null) return;
-        long ageSeconds = receivedAt == 0 ? -1 : Math.max(0, (System.currentTimeMillis() - receivedAt) / 1000);
+        long now = System.currentTimeMillis();
+        boolean scheduledMovement = !watchesTrain();
+        boolean transfer = selectionKind == CorporateServicePlan.Selection.TRANSFER;
+        long ageSeconds = receivedAt == 0 ? -1 : Math.max(0, (now - receivedAt) / 1000);
         String age = ageSeconds < 0 ? "—" : ageSeconds < 60 ? ageSeconds + "s" : (ageSeconds / 60) + "m";
+        if (selectionKind == CorporateServicePlan.Selection.CONNECTION) {
+            ConnectionOptions.Option last = lastConnection(now);
+            boolean valid = last != null;
+            eye.setStatus(valid ? last.train : "—", CorporateServicePlan.stationName(Integer.toString(stop)),
+                Integer.toString(targetVia), age);
+            eye.setCountdown(valid ? OfficialDepartureCountdown.display(last.departure, now) : "--");
+            eye.setMovement(valid ? "EST" : activityLabel, valid ? "≈" + OfficialDepartureCountdown.clock(last.departure) : "");
+            eye.setHeadway(valid ? formatHeadway(last.previousTrainGap) : "--", false);
+            eye.setLaps(0);
+            return;
+        }
         String stationText = lastTrain == null
-            ? (selectionKind == CorporateServicePlan.Selection.IDLE
-                || selectionKind == CorporateServicePlan.Selection.TRANSFER_SEARCH
-                ? CorporateServicePlan.stationName(Integer.toString(stop))
+            ? (scheduledMovement ? CorporateServicePlan.stationName(Integer.toString(stop))
                 : receivedAt == 0 ? "Connectant…" : "Sense dades")
             : lastTrain.station;
         String trackText = lastTrain == null
-            ? (selectionKind == CorporateServicePlan.Selection.TRANSFER_SEARCH
-                ? Integer.toString(targetVia) : "—")
+            ? (transfer && targetVia != 0 ? Integer.toString(targetVia) : "—")
             : lastTrain.track.replaceFirst("(?i)^via\\s*", "").trim();
-        String headway = lastTrain == null ? "--" : formatHeadway(lastTrain.previousTrainGap);
-        if (blocked) stationText = "Desconn.";
+        if (blocked && !scheduledMovement) stationText = "Desconn.";
+        if (selectionKind == CorporateServicePlan.Selection.TRANSFER_PICKUP) {
+            stationText = CorporateServicePlan.stationName(Integer.toString(stop));
+            trackText = Integer.toString(targetVia);
+        }
         eye.setStatus(train, stationText, trackText, age);
-        eye.setHeadway(headway);
-        // SORTIDA is the official station departure, not a guaranteed arrival.
-        // The tilde in the countdown marks this published-minute approximation.
-        long now = System.currentTimeMillis();
+
+
         CorporateProjection.Result projection = "service".equals(mode)
             ? CorporateProjection.project(departureAt, now, takeoverAt)
             : new CorporateProjection.Result(departureAt, 0);
-        String countdown = selectionKind == CorporateServicePlan.Selection.IDLE
-            || selectionKind == CorporateServicePlan.Selection.WAIT_TRANSFER
-            ? OfficialDepartureCountdown.displayExact(takeoverAt, now)
-            : ageSeconds <= 60 ? OfficialDepartureCountdown.display(projection.timeMs, now) : "--";
+        boolean fresh = ageSeconds >= 0 && ageSeconds <= 60;
+        String countdown = scheduledMovement ? OfficialDepartureCountdown.displayExact(takeoverAt, now)
+            : fresh ? OfficialDepartureCountdown.display(projection.timeMs, now) : "--";
+        boolean driving = "service".equals(mode) && selectionKind == CorporateServicePlan.Selection.DRIVING;
+        eye.setHeadway(lastTrain == null ? "--" : formatHeadway(lastTrain.previousTrainGap),
+            (driving || "manual".equals(mode)) && fresh && lastTrain != null && exceedsMdm);
+        String clock = "";
+        if (selectionKind == CorporateServicePlan.Selection.TRANSFER_PICKUP) {
+            if (!"--".equals(countdown)) clock = "≈" + OfficialDepartureCountdown.clock(projection.timeMs);
+        } else if (transfer) {
+            clock = OfficialDepartureCountdown.clock(takeoverAt);
+        } else if (selectionKind == CorporateServicePlan.Selection.DRIVING) {
+            if (!"--".equals(countdown)) {
+                clock = "≈" + OfficialDepartureCountdown.clock(projection.timeMs);
+            } else if (driving && takeoverAt > 0) {
+                clock = "Hor. " + OfficialDepartureCountdown.clock(takeoverAt);
+            }
+        }
         eye.setCountdown(countdown);
-        eye.setLaps(ageSeconds <= 60
-            && selectionKind != CorporateServicePlan.Selection.IDLE
-            && selectionKind != CorporateServicePlan.Selection.WAIT_TRANSFER ? projection.laps : 0);
+        eye.setLaps(fresh && !scheduledMovement ? projection.laps : 0);
+        eye.setMovement("service".equals(mode) ? activityLabel : "", clock);
     }
 
     private static String formatHeadway(String original) {

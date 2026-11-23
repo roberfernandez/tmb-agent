@@ -25,7 +25,39 @@ final class CorporateBoardParser {
             throw new IllegalArgumentException(
                 "No s'han trobat les taules del Miralín corporatiu. Pot haver canviat la pàgina o la sessió.");
         }
-        return new Board(via1, via2);
+        return new Board(via1, via2, readMdm(doc));
+    }
+
+    private static final java.util.regex.Pattern MDM = java.util.regex.Pattern.compile(
+        "(?i)\\bMDM\\s*:?\\s*([0-9]{1,3}:[0-5][0-9])(?![:0-9])");
+
+    private static String readMdm(Document doc) {
+        java.util.regex.Matcher inline = MDM.matcher(doc.text());
+        if (inline.find()) return inline.group(1);
+        for (Element cell : doc.select("th, td")) {
+            if (!cell.text().matches("(?i)MDM\\s*:?")) continue;
+            Element row = cell.parent();
+            Element table = cell.closest("table");
+            if (table == null) continue;
+            int index = cell.elementSiblingIndex();
+            for (Element data : table.select("tr")) {
+                if (data == row || data.childrenSize() <= index) continue;
+                String value = data.child(index).text();
+                if (data.closest("table") == table && value.matches("[0-9]{1,3}:[0-5][0-9]")) return value;
+            }
+        }
+        return "";
+    }
+
+    static boolean exceedsMdm(String headway, String mdm) {
+        int threshold = intervalSeconds(mdm);
+        return threshold > 0 && intervalSeconds(headway) > threshold;
+    }
+
+    private static int intervalSeconds(String value) {
+        if (value == null || !value.trim().matches("[0-9]{1,3}:[0-5][0-9]")) return -1;
+        String[] time = value.trim().split(":");
+        return Integer.parseInt(time[0]) * 60 + Integer.parseInt(time[1]);
     }
 
     private static Track parseTrack(Document doc, String tableId, int number) {
@@ -101,7 +133,12 @@ final class CorporateBoardParser {
         final Track via1;
         final Track via2;
 
-        Board(Track via1, Track via2) {
+        final String mdm;
+
+        Board(Track via1, Track via2) { this(via1, via2, ""); }
+
+        Board(Track via1, Track via2, String mdm) {
+            this.mdm = mdm;
             this.via1 = via1;
             this.via2 = via2;
         }

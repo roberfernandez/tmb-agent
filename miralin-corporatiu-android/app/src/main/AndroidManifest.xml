@@ -5,15 +5,21 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:name=".CorporateMotorApplication"
+        android:icon="@mipmap/ic_motor_launcher"
+        android:roundIcon="@mipmap/ic_motor_launcher"
         android:label="El meu servei · motor"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <!-- No launcher. All interaction starts from El meu servei in the PWA. -->
         <activity android:name=".ServiceBridgeActivity"
+            android:icon="@mipmap/ic_motor_launcher"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:exported="true"
             android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>

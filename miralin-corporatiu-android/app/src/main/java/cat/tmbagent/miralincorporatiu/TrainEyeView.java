@@ -35,8 +35,11 @@ final class TrainEyeView extends View {
     private String age = "";
     private String stationLabel = "";
     private String countdown = "--";
+    private boolean doubleChevron;
     private String headway = "--";
     private int projectedLaps;
+    private String activity = "";
+    private String movementClock = "";
 
     TrainEyeView(Context context) {
         super(context);
@@ -48,6 +51,14 @@ final class TrainEyeView extends View {
         if (!countdown.equals(value)) { countdown = value; updateDescription(); invalidate(); }
     }
 
+    void setMovement(String activity, String clock) {
+        if (this.activity.equals(activity) && movementClock.equals(clock)) return;
+        this.activity = activity;
+        movementClock = clock;
+        updateDescription();
+        invalidate();
+    }
+
     void setLaps(int laps) {
         laps = Math.max(0, Math.min(2, laps));
         if (projectedLaps != laps) {
@@ -57,9 +68,14 @@ final class TrainEyeView extends View {
         }
     }
 
-    void setHeadway(String value) {
+    void setHeadway(String value, boolean doubleChevron) {
         value = value == null ? "--" : value;
-        if (!headway.equals(value)) { headway = value; updateDescription(); invalidate(); }
+        if (!headway.equals(value) || this.doubleChevron != doubleChevron) {
+            headway = value;
+            this.doubleChevron = doubleChevron;
+            updateDescription();
+            invalidate();
+        }
     }
 
     void setStatus(String train, String station, String track, String age) {
@@ -79,10 +95,15 @@ final class TrainEyeView extends View {
     }
 
     private void updateDescription() {
-        setContentDescription("Tren " + train + " · " + station + " · via " + track
-            + ". Temps amb el tren anterior: " + headway + ". Compte enrere del proper moviment: " + countdown
+        setContentDescription((activity.isEmpty() ? "Tren " + train : activity + " " + train) + " · " + station + " · via " + track
+            + ". Temps amb el tren anterior: " + headway + (doubleChevron ? " · dos galons" : "") + ". Compte enrere del proper moviment: " + countdown
             + (projectedLaps > 0 ? " (projecció de " + projectedLaps + " volta o voltes de 77 minuts)" : "")
-            + ". Actualització: " + age + ". Toca per obrir el visor; la creu atura el seguiment.");
+            + (movementClock.isEmpty() ? "" : ". Hora " + movementClock)
+            + ". Actualització: " + age + ". Esquerra: Miralín. Centre: El meu servei. Dreta: visor; la creu atura el seguiment.");
+    }
+
+    int tapThird(float x) {
+        return Math.max(0, Math.min(2, (int)(3 * x / Math.max(1, getWidth()))));
     }
 
     boolean isCloseHit(float x, float y) {
@@ -107,9 +128,11 @@ final class TrainEyeView extends View {
 
         text.setColor(WHITE);
         text.setTextAlign(Paint.Align.CENTER);
-        drawRefresh(canvas, 90f, 17f);
-        drawMetric(canvas, age, 108f, 17f, 10f, 18f);
-        drawMetric(canvas, "Via " + track, 135f, 17f, 12.5f, 30f);
+        if (activity.isEmpty() || !train.isEmpty()) {
+            drawRefresh(canvas, 90f, 17f);
+            drawMetric(canvas, age, 108f, 17f, 10f, 18f);
+        }
+        if (activity.isEmpty() || !"—".equals(track)) drawMetric(canvas, "Via " + track, 135f, 17f, 12.5f, 30f);
         ink.setColor(GOLD);
         ink.setStyle(Paint.Style.STROKE);
         ink.setStrokeWidth(2.1f);
@@ -124,22 +147,43 @@ final class TrainEyeView extends View {
         for (float x : new float[]{61f, 113f}) canvas.drawLine(x, 29f, x, 50.5f, ink);
 
         text.setColor(GOLD);
-        drawMetric(canvas, train, 36.5f, 40.5f, 27f, 45f);
-
-        // The white hat always belongs to T.ANT, never to the arrival countdown.
-        ink.setColor(WHITE);
-        ink.setStrokeWidth(1.9f);
-        ink.setStrokeCap(Paint.Cap.ROUND);
-        ink.setStrokeJoin(Paint.Join.ROUND);
-        Path hat = new Path();
-        hat.moveTo(82.5f, 33.3f);
-        hat.lineTo(87f, 29.5f);
-        hat.lineTo(91.5f, 33.3f);
-        canvas.drawPath(hat, ink);
+        boolean hasTrain = !train.isEmpty() && !"—".equals(train);
+        if (activity.isEmpty()) {
+            drawMetric(canvas, train, 36.5f, 40.5f, 27f, 45f);
+        } else if (hasTrain) {
+            drawMetric(canvas, activity, 36.5f, 32f, 9f, 45f);
+            drawMetric(canvas, train, 36.5f, 45f, 21f, 45f);
+        } else {
+            drawMetric(canvas, activity, 36.5f, 40.5f, 18f, 45f);
+        }
+        if (hasTrain) {
+            ink.setColor(WHITE);
+            ink.setStrokeWidth(1.9f);
+            ink.setStrokeCap(Paint.Cap.ROUND);
+            ink.setStrokeJoin(Paint.Join.ROUND);
+            Path hat = new Path();
+            hat.moveTo(82.5f, 33.3f);
+            hat.lineTo(87f, 29.5f);
+            hat.lineTo(91.5f, 33.3f);
+            if (doubleChevron) {
+                hat.moveTo(82.5f, 29.8f);
+                hat.lineTo(87f, 26.0f);
+                hat.lineTo(91.5f, 29.8f);
+                hat.offset(0f, 1.4f);
+            }
+            canvas.drawPath(hat, ink);
+            text.setColor(WHITE);
+            drawMetric(canvas, headway, 87f, 43.7f, 17f, 46f);
+            if (projectedLaps > 0)
+                drawMetric(canvas, "+" + projectedLaps + "×77′",
+                    movementClock.isEmpty() ? 139f : 87f, 54f, 8.5f, 46f);
+        }
         text.setColor(WHITE);
-        drawMetric(canvas, headway, 87f, 43.7f, 17f, 46f);
         drawMetric(canvas, countdown, 139f, 40.5f, 19.5f, 46f);
-        if (projectedLaps > 0) drawMetric(canvas, "+"+projectedLaps+"×77′", 139f, 54f, 8.5f, 46f);
+        if (!movementClock.isEmpty()) {
+            text.setColor(0xff000000);
+            drawMetric(canvas, movementClock, 131f, 60.2f, 10.5f, 46f);
+        }
         canvas.restoreToCount(save);
     }
 
