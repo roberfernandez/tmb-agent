@@ -82,7 +82,7 @@ final class TrainEyeView extends View {
         setContentDescription("Tren " + train + " · " + station + " · via " + track
             + ". Temps amb el tren anterior: " + headway + ". Compte enrere del proper moviment: " + countdown
             + (projectedLaps > 0 ? " (projecció de " + projectedLaps + " volta o voltes de 77 minuts)" : "")
-            + ". Actualització: " + age + ". Toca per obrir el visor; la creu atura el seguiment.");
+            + ". Actualització: " + age + ". Toca a l'esquerra per obrir Miralín, al centre per obrir El meu servei o a la dreta per obrir el visor. La creu atura el seguiment.");
     }
 
     boolean isCloseHit(float x, float y) {
