@@ -7,8 +7,13 @@
 #serviceViewer{width:min(760px,100vw);height:min(80dvh,780px);max-width:none;max-height:none;margin:auto;padding:16px;background:#111e30;color:#eef3fa;border:1px solid #41516a;border-radius:18px;box-shadow:0 20px 70px #000b;overflow:hidden}
 #serviceViewer::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .viewer-shell{height:100%;display:flex;flex-direction:column;min-height:0}.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.viewer-head h2{margin:0}.viewer-status{margin:8px 0 10px;flex:none}#viewerPhotoHome{min-height:0;flex:1;display:flex}#viewerPhotoHome #photoViewport{width:100%;height:100%;max-width:none;max-height:none;margin:0}.viewer-timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.viewer-timeline .journey-row{grid-template-columns:88px minmax(0,1fr);padding:10px}#viewerPhotoHome[hidden],.viewer-timeline[hidden]{display:none}@media(max-width:480px){#serviceViewer{width:100vw;height:88dvh;max-height:780px;border-radius:0;padding:14px}}
+.tmb-return{display:inline-flex;align-items:center;justify-content:center;gap:0;width:52px;min-width:52px;height:52px;min-height:52px;padding:5px;box-sizing:border-box;border:2px solid #f1cb49;border-radius:999px;background:#182536;color:#f1cb49;flex:0 0 auto;text-decoration:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.tmb-return img{display:block;width:38px;height:38px;border-radius:10px;object-fit:contain;flex:0 0 auto}
+.tmb-return:hover{background:#26394d;border-color:#ffe177;color:#ffe177}
+.tmb-return:active{background:#30465e}
+.tmb-return:focus-visible{outline:3px solid #98c5e0;outline-offset:3px}
 </style></head><body>
-<main><header><a href="../../" aria-label="Torna a TMBAgent"><img src="../../assets/icons/tmb-agent-192.png" width="48" height="48" alt="" style="display:block"></a><span class="tag">L4 · PROVES · v0.32.0</span></header><h1>El meu servei</h1>
+<main><header><a class="tmb-return" href="../../" aria-label="Torna a TMBAgent"><img src="../../assets/icons/tmb-agent-192.png" width="38" height="38" alt=""></a><span class="tag">L4 · PROVES · v0.32.0</span></header><h1>El meu servei</h1>
 <section class="card service-card">
  <h2>Seguiment del servei</h2>
  <div class="row"><span id="openImport" class="file-picker primary"><input id="photo" class="file-input" type="file" accept="image/*" aria-label="Tria una captura de la galeria">Carrega captura o foto</span><span id="openCamera" class="file-picker secondary"><input id="cameraPhoto" class="file-input" type="file" accept="image/*" capture="environment" aria-label="Fes una foto del servei">Fes una foto</span></div>
