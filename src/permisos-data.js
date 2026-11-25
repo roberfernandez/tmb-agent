@@ -1,5 +1,6 @@
-export const REVIEW_DATE='16/10/2026';
+export const REVIEW_DATE='25/11/2026';
 export const sources={
+ rdl42:{label:'RDL 42/2026 · BOE 25/11/2026 · vigent des del 26/11/2026',url:'https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-24700'},
  conveni2016:{label:'Conveni FMB 2016–2019 · art. 23, BOPB 01/03/2018',url:'https://ccoo.app/metro-barcelona/wp-content/blogs.dir/6/files/sites/198/2018/03/conveni-metro.pdf'},
  civil:{label:'Codi civil de Catalunya · arts. 234-1 i 234-2',url:'https://www.boe.es/buscar/act.php?id=BOE-A-2010-13312#a2341'},
  cgt2022:{label:'CGT · primer dia laborable, 14/03/2022; comunicat revisat'},
@@ -81,6 +82,26 @@ for(const id of ['urgencias','sedacion','deber']){
 get('matrimonio').verified+=' CGT, 14/03/2022, informa d’inici el primer dia laborable si el fet causant coincideix amb descans; no converteix tota la durada natural en laborable.';
 get('matrimonio').refs.push('cgt2022');
 get('matrimonio').pending='Per a la reiteració o formalització de parelles no inscrites, comprovar el criteri específic FMB del cas.';
+
+const duel=get('fallecimiento');
+duel.title='Dol per defunció de familiar';
+duel.reference.duration='Des del 26/11/2026: 10 dies laborables per cònjuge, parella de fet, pares o fills. Altres familiars fins al segon grau: 3 dies laborables (5 si cal desplaçament), sense perjudici de la millora FMB de 4/6/8 dies.';
+duel.reference.notes='Es pot iniciar dins les quatre setmanes posteriors a la defunció. El gaudi discontinu requereix previsió en la negociació col·lectiva. Es conserva la condició convencional més favorable: 4 dies a Catalunya, 6 a la resta de la Península i Balears, 8 a Ceuta, Melilla, Canàries i l’estranger. No se sumen automàticament els dos règims.';
+duel.verified='Art. 37.3.b bis ET, modificat pel RDL 42/2026. Antecedent FMB: art. 33.f del conveni 2008–2011 (4/6/8 dies naturals). Abans del 26/11/2026: mínim ET de 2 dies, ampliable a 4 amb desplaçament.';
+duel.pending='Confirmar amb FMB el còmput convencional més favorable en cada calendari i el procediment de gaudi discontinu.';
+duel.refs.push('rdl42');
+const birth=get('nacimiento');
+birth.title='Naixement, adopció, guarda i acolliment';
+birth.reference.duration='20 setmanes (6+11+3); monoparentalitat: 34 (6+22+6), per fets causants des del 26/11/2026.';
+birth.reference.notes='6 setmanes obligatòries a jornada completa; 11 (22 en monoparentalitat) dins dels primers 12 mesos i 3 (6) fins als 8 anys. Gaudi per setmanes, acumulat o interromput; temps parcial per acord amb l’empresa. Preavís mínim de 15 dies.';
+birth.verified='Art. 48.4 i 48.5 ET i disposició transitòria del RDL 42/2026. La setmana addicional (dues en monoparentalitat) es pot sol·licitar des de l’01/03/2027, sense nou reconeixement del dret. Per a fets anteriors es manté el règim del RDL 9/2025: 19/32 setmanes quan correspongui.';
+birth.refs.push('rdl42');
+permits.push(
+ item('eutanasia','Acompanyament en la prestació d’ajuda per morir','Salut','Retribuït','1 dia, el dia de la prestació, des del 26/11/2026.','Avís previ i acreditació de la designació com a acompanyant.','Cal haver estat designat per la persona que rep la prestació segons la LO 3/2021.',['dependiente','conviviente',...family],'Art. 37.3 ET modificat pel RDL 42/2026. No es limita al parentiu.',['rdl42']),
+ item('palliatius-adaptacio','Adaptació de jornada per cures pal·liatives','Salut','Adaptació de jornada','Segons les necessitats justificades, des del 26/11/2026.','Sol·licitud i justificació de les circumstàncies.','Cònjuge, parella de fet, familiars fins al segon grau de consanguinitat o persones dependents convivents. Negociació màxima de 15 dies; absència d’oposició motivada implica presumpció de concessió. Adaptació raonable i proporcionada.',['pareja','madre-padre','hijo-hija','hermano-hermana','abuelo-abuela','nieto-nieta','conviviente','dependiente'],'Art. 34.8 ET modificat pel RDL 42/2026.',['rdl42']),
+ item('palliatius-reduccio','Reducció de jornada per cures pal·liatives','Salut','Reducció amb disminució salarial','Entre un vuitè i la meitat de la jornada diària, amb reducció proporcional del salari. Des del 26/11/2026.','Justificació de la necessitat de cura directa.','Cònjuge, parella de fet, familiars fins al segon grau de consanguinitat o afinitat, inclosos els familiars consanguinis de la parella de fet, en els termes de l’art. 37.6 ET. ',family,'Art. 37.6 ET modificat pel RDL 42/2026.',['rdl42'])
+);
+
 export const relations={propio:'Jo',pareja:'Cònjuge o parella','madre-padre':'Mare / pare','hijo-hija':'Fill / filla','hermano-hermana':'Germà / germana','abuelo-abuela':'Avi / àvia','nieto-nieta':'Net / neta','suegro-suegra':'Sogre / sogra','yerno-nuera':'Gendre / nora','cunado-cunada':'Cunyat / cunyada',conviviente:'Altra persona convivent',dependiente:'Persona dependent',tutela:'Persona sota tutela','tercer-grado':'Oncle / nebot (3r grau)','cuarto-grado':'Cosí / cosina (4t grau)'};
 export const normalize=value=>String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 export function filterPermits({query='',category='',pay='',relation='',travel=''}={}){const words=normalize(query).trim().split(/\s+/).filter(Boolean);return permits.filter(p=>(!category||p.category===category)&&(!pay||p.pay===pay)&&(!relation||p.relations.includes(relation))&&(!travel||p.travel)&&words.every(w=>normalize([p.title,p.category,p.reference.duration,p.reference.notes,p.reference.documents,p.verified,p.controversy,p.pending,...p.relations.map(r=>relations[r])].join(' ')).includes(w)));}
