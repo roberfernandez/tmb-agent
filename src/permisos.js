@@ -12,7 +12,7 @@ export function renderPermisos() {
   const root=node('section','panel permisos'); root.lang='ca';
   const heading=node('div','perm-heading'); const image=node('img','perm-icon'); image.src='./assets/icons/permisos-192.webp'; image.alt=''; image.width=72; image.height=72;
   const copy=node('div'); copy.append(node('p','eyebrow','GUIA DE CONSULTA · FMB'),node('h1','','Permisos TMB')); heading.append(image,copy);
-  root.append(heading,node('p','subtitle','Consulta la durada, els justificants i les condicions de cada permís.'));
+  root.append(heading,node('p','subtitle','Consulta la durada, els justificants i les condicions de cada permís. Actualització RDL 42/2026: en vigor a partir del 26/11/2026.'));
   const form=node('form','perm-filters'); form.setAttribute('role','search'); form.addEventListener('submit',e=>e.preventDefault());
   const searchLabel=node('label','perm-search','Cerca per motiu o paraula');
   const input=node('input'); input.type='search'; input.placeholder='Hospitalització, naixement, domicili…'; input.value=state.query; searchLabel.append(input); form.append(searchLabel);
@@ -68,7 +68,7 @@ export function renderPermisos() {
   section(refsBody,'Àmbit','Personal FMB / Metro de Barcelona. No traslladar automàticament les condicions a altres societats de TMB.');
   section(refsBody,'Criteri','Prioritat a la versió més recent disponible per a cada matèria, contrastada amb conveni i legislació. Les versions antigues són antecedents. La taula CGT de referència no té data d’edició visible; el contingut de naixement és posterior a la versió de 16 setmanes.');
   section(refsBody,'Fonts complementàries','CIM Barcelona, comunicacions de CCOO i CPTC, acords i actes FMB. No s’ha localitzat una taula pròpia de Solidaritat Obrera a l’arxiu revisat. Les discrepàncies no resoltes queden obertes amb l’usuari.');
-  section(refsBody,'Tall temporal: 16 d’octubre de 2026','No s’aplica anticipadament la modificació de l’art. 37 amb entrada en vigor el 23/10/2026. Cal revisar aquesta edició per a fets posteriors.');
+  section(refsBody,'Actualització: 25 de novembre de 2026','RDL 42/2026 publicat el 25/11/2026, aplicable des del 26/11/2026. Es mantenen les millores convencionals més favorables. Les fitxes no afectades conserven el contrast documental anterior.');
   sourceLinks(refsBody,Object.keys(sources)); refs.append(refsBody); root.append(refs);
   update(); return root;
 }
