@@ -13,8 +13,8 @@ test('territorial rules are limited to relevant cards and third degree is not si
   assert.equal(filterPermits({relation:'madre-padre',query:'hospitalitzacio'}).some(p=>p.id==='hospital'),true);
 });
 test('all conditions carry provenance, documentation and explicit unresolved scope',()=>{
-  assert.equal(permits.length,21);
-  assert.equal(new Set(permits.map(p=>p.id)).size,21);
+  assert.equal(permits.length,24);
+  assert.equal(new Set(permits.map(p=>p.id)).size,24);
   for(const p of permits) {
     assert.ok(p.reference.duration && p.reference.documents && p.reference.notes);
     if(p.verified) assert.ok(p.refs.length);
@@ -23,7 +23,10 @@ test('all conditions carry provenance, documentation and explicit unresolved sco
 });
 test('recent birth rules, historical provenance and unresolved disputes remain distinct',()=>{
   const get=id=>permits.find(p=>p.id===id);
-  assert.match(get('nacimiento').reference.duration,/19 setmanes/);
+  assert.match(get('nacimiento').reference.duration,/20 setmanes/);
+  assert.match(get('nacimiento').reference.duration,/34/);
+  assert.match(get('fallecimiento').reference.duration,/10 dies laborables/);
+  for(const id of ['eutanasia','palliatius-adaptacio','palliatius-reduccio']) assert.ok(get(id).refs.includes('rdl42'));
   assert.ok(get('domicilio').refs.includes('anterior'));
   assert.ok(get('hospital').controversy);
   assert.ok(get('cirugia-reposo').controversy);
