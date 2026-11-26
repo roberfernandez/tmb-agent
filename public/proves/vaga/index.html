@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ca"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101a27"><title>VAGA · TMB Agent</title>
+<style>html,body{margin:0;height:100%;color:#f4f2ea;background:#101a27;font-family:system-ui,sans-serif}body{display:flex;flex-direction:column;height:100dvh}header{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 12px;background:#142333;border-bottom:1px solid #354a5e}header strong{color:#f4c76b}header a,button{border:1px solid #526577;border-radius:9px;background:#203247;color:inherit;padding:8px 12px;text-decoration:none;cursor:pointer;font:inherit}button:disabled{opacity:.5;cursor:default}#update{margin-left:auto}#notice{padding:20px;max-width:680px;margin:auto;line-height:1.6}#viewer{flex:1;width:100%;min-height:0;border:0} [hidden]{display:none!important}#notice a{color:#f4c76b}</style></head>
+<body><header><a href="../../#/">← TMB Agent</a><strong>VAGA</strong><button id="update" hidden>Actualitzar VAGA</button><input id="file" type="file" accept=".html,text/html" hidden></header><section id="notice" role="status">Comprovant permisos…</section><iframe id="viewer" title="VAGA · Memòria obrera del Metro" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" hidden></iframe>
+<script type="module">
+import { SESSION_KEY } from '../../src/session.js';
+const ENDPOINT='https://hhenkvendzengggrgook.supabase.co/functions/v1/tmb-agent-vaga';
+const KEY='sb_publishable_QSPDTmh3fd0FH-VvAjH5KQ_Rfvzr2x_';
+const notice=document.getElementById('notice'),viewer=document.getElementById('viewer'),update=document.getElementById('update'),file=document.getElementById('file');
+let generation=0, authorized=false;
+function show(message){notice.textContent=message;notice.hidden=false;viewer.hidden=true;viewer.removeAttribute('srcdoc');}
+async function call(action,body){
+ let session;try{session=JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{}
+ if(!session?.access_token)throw new Error('Inicia sessió a TMB Agent.');
+ const response=await fetch(ENDPOINT+'?action='+action,{method:'POST',cache:'no-store',signal:AbortSignal.timeout(60000),headers:{apikey:KEY,Authorization:'Bearer '+session.access_token,'Content-Type':'text/plain'},body});
+ const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||'Servei no disponible');return data;
+}
+function empty(){show('VAGA està preparada. Carrega el fitxer VAGA.html recuperat per activar la versió independent. Només ho has de fer una vegada.');const p=document.createElement('p'),a=document.createElement('a');a.href='https://vaga-maqueta-privada.elodcoliv36.chatgpt.site/';a.target='_blank';a.rel='noopener noreferrer';a.textContent='Obrir la maqueta anterior';p.append(a);notice.append(p);update.textContent='Carregar VAGA.html';}
+async function load(){const current=++generation;authorized=false;update.hidden=true;show('Comprovant permisos…');try{const result=await call('read');if(current!==generation)return;authorized=true;update.hidden=false;update.textContent='Actualitzar VAGA';if(typeof result.html==='string'&&result.html){viewer.srcdoc=result.html;viewer.hidden=false;notice.hidden=true}else empty();}catch(e){if(current===generation)show(e.message);}}
+update.addEventListener('click',()=>{if(authorized)file.click()});
+file.addEventListener('change',async()=>{const selected=file.files?.[0];file.value='';if(!selected||!authorized)return;if(!confirm('Carregar aquesta versió de VAGA?'))return;update.disabled=true;try{if(selected.size>8*1024*1024)throw new Error('Fitxer massa gran');await call('upload',selected);await load();}catch(e){alert(e.message)}finally{update.disabled=false}});
+window.addEventListener('storage',e=>{if(e.key===SESSION_KEY||e.key===null)load()});window.addEventListener('pageshow',e=>{if(e.persisted)load()});load();
+</script></body></html>
