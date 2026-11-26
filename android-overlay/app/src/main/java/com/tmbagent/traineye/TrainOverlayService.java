@@ -647,8 +647,7 @@ public class TrainOverlayService extends Service {
                 prefs.edit().putString("alertPlan", key).putStringSet("alertSent", java.util.Collections.emptySet()).remove("liveTakeState").apply();
             }
         }
-        if (!"service".equals(mode) || schedule.isEmpty()) serviceAlerts = null;
-        pruneServiceNotifications(now);
+        if (!"service".equals(mode)) serviceAlerts = null;
         updateAlertStops();
         updateAlertWakeLock();
     }
@@ -672,10 +671,8 @@ public class TrainOverlayService extends Service {
 
     private void tickServiceAlerts() {
         updateAlertStops(); updateAlertWakeLock();
-        long now = System.currentTimeMillis();
-        pruneServiceNotifications(now);
         if (!alertsEnabled || serviceAlerts == null) return;
-        List<ServiceAlerts.Alert> due = serviceAlerts.due(now, alertMargin);
+        List<ServiceAlerts.Alert> due = serviceAlerts.due(System.currentTimeMillis(), alertMargin);
         NotificationManager manager = getSystemService(NotificationManager.class);
         boolean scheduledSent = false;
         if (!due.isEmpty() && manager.areNotificationsEnabled()) {
@@ -689,34 +686,6 @@ public class TrainOverlayService extends Service {
             if (scheduledSent) edit.putStringSet("alertSent", new java.util.HashSet<>(serviceAlerts.sent));
             if (takeState != null) edit.putString("liveTakeState", takeState);
             edit.apply();
-        }
-    }
-
-    // Only remove our own service alerts, never the foreground tracking notification.
-    private void pruneServiceNotifications(long now) {
-        NotificationManager manager = getSystemService(NotificationManager.class);
-        for (android.service.notification.StatusBarNotification active : manager.getActiveNotifications()) {
-            String tag = active.getTag();
-            if (active.getId() != 9414 || tag == null || !tag.startsWith("service-")) continue;
-            boolean expired = !alertsEnabled || serviceAlerts == null;
-            if (!expired) {
-                String[] parts = tag.substring(8).split("-");
-                try {
-                    int index = Integer.parseInt(parts[1]);
-                    if (index < 0 || index >= serviceAlerts.plan.rows.size()) expired = true;
-                    else {
-                        ServicePlan.Row row = serviceAlerts.plan.rows.get(index);
-                        if ("pas".equals(parts[0]) || "enllac".equals(parts[0]) || "enllacos".equals(parts[0])) {
-                            ServicePlan.Row transfer = serviceAlerts.plan.transferFor(row);
-                            if (transfer != null) row = transfer;
-                        }
-                        expired = now >= serviceAlerts.plan.at(serviceAlerts.anchor, row.end);
-                    }
-                } catch (IndexOutOfBoundsException | NumberFormatException ignored) {
-                    // Unknown alert format: leave its existing timeout in charge.
-                }
-            }
-            if (expired) manager.cancel(tag, active.getId());
         }
     }
 
@@ -831,8 +800,6 @@ public class TrainOverlayService extends Service {
 
     @Override
     public void onDestroy() {
-        alertsEnabled = false;
-        pruneServiceNotifications(System.currentTimeMillis());
         isActive = false;
         if (alertWakeLock != null && alertWakeLock.isHeld()) alertWakeLock.release();
         destroyed = true;

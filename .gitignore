@@ -8,4 +8,11 @@ auth/.dart_tool/
 auth/build/
 auth/.flutter-plugins-dependencies
 
+# Android build products and local signing material
+miralin-corporatiu-android/.gradle/
+miralin-corporatiu-android/app/build/
+*.jks
+*.keystore
+signing.properties
+
 supabase/.temp/

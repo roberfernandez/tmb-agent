@@ -1,0 +1,26 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'cat.tmbagent.miralincorporatiu'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'cat.tmbagent.elmeuservei.motor'
+        minSdk 26
+        targetSdk 35
+        versionCode 45
+        versionName '0.14.28'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'org.jsoup:jsoup:1.18.3'
+    testImplementation 'junit:junit:4.13.2'
+}
