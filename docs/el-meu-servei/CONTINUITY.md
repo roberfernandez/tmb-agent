@@ -18,10 +18,14 @@ normal sin depender del historial del chat ni de archivos temporales.
 | SHA-256 del APK validado | `f1dbaaec77b190de3ce3b6145c22039c96cad28efca6441c24856f800ec6fbcd` |
 | SHA-256 del certificado | `8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56` |
 
+La candidata 0.14.29 está fijada en el commit de implementación
+`df8d3f1752263c6a4a2a68cdb281d1e3b3959524`; continúa como candidata hasta la
+confirmación expresa de Róber.
+
 La 0.14.28 se recuperó del commit local histórico
 `83a45fd2091656dfe43db7fed26a3bc55580242e`. El APK archivado coincide byte por
-byte con el producto de esa fuente. La referencia GitHub inmutable se rellenará
-en `STATE.json` al publicar el commit de consolidación.
+byte con el producto de esa fuente. La consolidación canónica está en el commit
+GitHub `3f832ac469f54e6e5f5e61377bb88f9febfef74e`.
 
 ## Inicio obligatorio de cualquier sesión
 
@@ -57,6 +61,10 @@ versión y la huella antes de aceptar el APK. GitHub Actions ejecuta pruebas y
 una compilación técnica, pero no publica un APK actualizable si no dispone de la
 firma protegida.
 
+El historial fuente 0.14.1–0.14.28 y los 28 APK están enlazados, con sus huellas,
+desde `artifacts/el-meu-servei-motor/APK_INDEX.md`. Esto permite recuperarlos sin
+conservar una carpeta temporal de Work.
+
 ## Proyectos que no deben confundirse
 
 - `miralin-corporatiu-android/` es el motor vigente.
@@ -76,13 +84,13 @@ Nunca se envían a GitHub, Render, TMBAgent ni a otro intermediario.
 ## iPhone
 
 La investigación actual está descrita en `CURRENT_WORK.md`. La alternativa sin
-cuota de Apple es una PWA instalada desde Safari. Safari no puede leer la web
-corporativa desde el dominio de GitHub Pages porque TMB no devuelve autorización
-CORS para esa lectura. Una PWA tampoco puede mantener una consulta periódica
-fiable con el iPhone bloqueado. El prototipo antiguo basado en `miralin.cat` queda
-descartado. El siguiente paso conservado es una prueba iPhone aislada que valide
-instalación, permisos y acceso corporativo directo sin recoger credenciales ni
-simular datos en directo.
+cuota de Apple es la PWA `public/proves/servei/iphone/`, instalada desde Safari.
+Prueba permisos y acceso directo a TMB y habilita seguimiento manual en primer
+plano únicamente si Safari puede leer la tabla. La respuesta corporativa observada
+no incluye autorización CORS, por lo que se espera que el iPhone real confirme el
+bloqueo. Una PWA tampoco mantiene sondeos fiables con el iPhone bloqueado ni puede
+crear una Live Activity. El prototipo basado en `miralin.cat` sigue archivado y no
+se puede reactivar como solución vigente.
 
 ## Cierre obligatorio de cada sesión
 

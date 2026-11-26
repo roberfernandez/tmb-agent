@@ -13,6 +13,8 @@ miralin-corporatiu-android/.gradle/
 miralin-corporatiu-android/app/build/
 *.jks
 *.keystore
+artifacts/el-meu-servei-motor/history/*.tar
+artifacts/el-meu-servei-motor/history/*.bundle
 signing.properties
 
 supabase/.temp/

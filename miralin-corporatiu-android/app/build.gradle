@@ -2,6 +2,8 @@ plugins {
     id 'com.android.application'
 }
 
+def motorSigningStore = System.getenv('MOTOR_SIGNING_STORE_FILE')
+
 android {
     namespace 'cat.tmbagent.miralincorporatiu'
     compileSdk 35
@@ -10,8 +12,25 @@ android {
         applicationId 'cat.tmbagent.elmeuservei.motor'
         minSdk 26
         targetSdk 35
-        versionCode 45
-        versionName '0.14.28'
+        versionCode 46
+        versionName '0.14.29'
+    }
+
+    signingConfigs {
+        if (motorSigningStore) {
+            motor {
+                storeFile file(motorSigningStore)
+                storePassword System.getenv('MOTOR_SIGNING_STORE_PASSWORD')
+                keyAlias System.getenv('MOTOR_SIGNING_KEY_ALIAS')
+                keyPassword System.getenv('MOTOR_SIGNING_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (motorSigningStore) signingConfig signingConfigs.motor
+        }
     }
 
     compileOptions {

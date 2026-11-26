@@ -39,6 +39,17 @@ expresa de Róber registrada en este archivo y en el changelog.
 - Los avisos de tren y traslado conservan iconos diferenciados.
 - No se presentará una hora teórica como llegada real.
 
+## iPhone
+
+- Sin cuota de Apple, la entrega activa es una PWA instalada desde Safari.
+- La PWA sólo consulta Miralín corporativo y no pide ni conserva credenciales.
+- Un bloqueo CORS se informa como bloqueo; nunca se rellena con `miralin.cat` ni
+  con horarios simulados.
+- El seguimiento en primer plano sólo se ofrece después de recibir una tabla
+  corporativa legible.
+- Safari no garantiza consultas con la pantalla bloqueada. Web Push requiere un
+  emisor y una Live Activity requiere una app nativa firmada.
+
 ## Visor y servicio
 
 - La imagen original del servicio se conserva localmente y la fila activa se

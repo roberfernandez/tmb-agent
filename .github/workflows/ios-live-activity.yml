@@ -1,17 +1,6 @@
-name: iOS Live Activity
+name: Archived iOS native prototype
 
 on:
-  pull_request:
-    paths:
-      - 'ios/**'
-      - 'backend/miralin/server.mjs'
-      - '.github/workflows/ios-live-activity.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'ios/**'
-      - 'backend/miralin/server.mjs'
-      - '.github/workflows/ios-live-activity.yml'
   workflow_dispatch:
 
 permissions:

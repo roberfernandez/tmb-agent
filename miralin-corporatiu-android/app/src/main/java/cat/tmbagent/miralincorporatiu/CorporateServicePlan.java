@@ -140,28 +140,26 @@ final class CorporateServicePlan {
             && leg.end == drive.start && via != 0 && !Integer.toString(via).equals(drive.via);
     }
 
-    /** Scheduled transfer and pickup reminders; no claim of measured train arrival. */
+    /** Scheduled reminders only for transfers that do not depend on a train. */
     List<Notice> noticesAt(long nowMillis, int marginMinutes) {
         List<Notice> due = new ArrayList<>();
         int margin = Math.max(1, Math.min(120, marginMinutes));
         for (int i = 0; i < segments.size(); i++) {
             Segment row = segments.get(i);
-            if (!row.driving() && !"TRA".equals(row.type)) continue;
-            if (oppositeTransfer(i) || sameTrainTransfer(i) || sameTrainTransfer(i - 1)) continue;
+            if (!"TRA".equals(row.type)) continue;
+            // These transfers depend on a train and are notified from fresh
+            // corporate observations by CorporateEyeService.
+            if (oppositeTransfer(i) || sameTrainTransfer(i)) continue;
             long start = minuteMillis(row.start);
             if (nowMillis < start - margin * 60_000L || nowMillis >= start + 60_000L) continue;
             String fromName = stationName(row.from), toName = stationName(row.to);
             String time = formatMinute(row.start);
-            if (row.driving()) {
-                due.add(new Notice("take-" + i, "TREN " + row.train,
-                    fromName + " · Via " + row.via, time, "Hora prevista " + time, true));
-            } else {
-                int via = directionVia(row.from, row.to);
-                String route = via == 0 ? fromName : fromName + " → " + toName;
-                String details = "Surt a les " + time + (via == 0 ? "" : " · Via " + via);
-                due.add(new Notice("transfer-" + i, "TRASLLAT",
-                    route, time, details, false));
-            }
+            int via = directionVia(row.from, row.to);
+            String route = via == 0 ? fromName : fromName + " → " + toName;
+            String details = "Surt a les " + time + (via == 0 ? "" : " · Via " + via)
+                + " · segons servei";
+            due.add(new Notice("transfer-" + i, "TRASLLAT",
+                route, time, details, false));
         }
         return due;
     }

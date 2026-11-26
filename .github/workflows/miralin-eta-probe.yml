@@ -1,4 +1,4 @@
-name: Diagnostico ETA Miralin
+name: Archived miralin.cat ETA probe
 on:
   workflow_dispatch:
 jobs:

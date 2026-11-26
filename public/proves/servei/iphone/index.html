@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ca"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080f1c"><meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Motor servei">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://aplicacions.tmb.cat; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'">
+<link rel="apple-touch-icon" href="../../../assets/icons/miralin-192.png"><link rel="manifest" href="./manifest.webmanifest">
+<title>Motor iPhone · prova corporativa</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#080f1c;color:#eef3fa;font:17px system-ui,-apple-system,sans-serif}main{max-width:620px;margin:auto;padding:calc(20px + env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom))}header{display:flex;gap:13px;align-items:center;margin-bottom:22px}header img{width:48px;height:48px;border-radius:50%;background:#9df2e9;padding:7px}h1{font-size:27px;line-height:1.1;margin:0}h2{font-size:19px;margin:0 0 10px}.subtle{color:#aebcd0}.card{background:#122136;border:1px solid #304560;border-radius:20px;padding:18px;margin:14px 0}.status{border-left:5px solid #ffdf00}.status.ok{border-left-color:#39d98a}.status.bad{border-left-color:#ff6b6b}button,a.button{display:inline-flex;justify-content:center;align-items:center;min-height:49px;border:0;border-radius:14px;padding:12px 16px;background:#ffdf00;color:#07101d;font:inherit;font-weight:750;text-decoration:none;cursor:pointer}button.secondary,a.secondary{background:#213550;color:#f3f7fc;border:1px solid #4a6485}button:disabled{opacity:.45}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions>*{flex:1 1 220px}label{display:block;margin:13px 0 6px;color:#c7d2e2}select{width:100%;min-height:48px;border:1px solid #4a6485;border-radius:12px;background:#0b1728;color:#fff;padding:9px;font:inherit}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#07101d;border-radius:12px;padding:12px;min-height:54px}.badge{display:inline-block;border-radius:999px;background:#263a56;padding:5px 10px;font-size:14px}.warning{color:#ffd985}details{margin-top:12px}summary{cursor:pointer;color:#ffdf00}@media(max-width:420px){h1{font-size:24px}.card{padding:16px}}
+</style></head><body><main>
+<header><img src="../../../assets/icons/miralin-192.png" alt=""><div><h1>Motor iPhone</h1><div class="subtle">Prova · Miralín corporatiu</div></div></header>
+
+<section id="deviceCard" class="card status"><h2>Instal·lació</h2><p id="deviceStatus">Comprovant l’iPhone…</p><p id="installHelp" class="subtle">A Safari, prem Compartir i «Afegeix a la pantalla d’inici». Obre després la icona instal·lada.</p></section>
+
+<section class="card"><h2>Avisos de l’iPhone</h2><p class="subtle">Comprova que la PWA instal·lada pot demanar el permís i mostrar un avís local.</p><button id="notificationTest">Activa i prova els avisos</button><p id="notificationStatus" aria-live="polite" class="subtle"></p></section>
+
+<section class="card"><h2>Connexió corporativa</h2><p>La prova consulta directament <strong>aplicacions.tmb.cat</strong>. No envia credencials ni dades a TMBAgent.</p>
+<label for="station">Estació</label><select id="station"></select>
+<div class="actions" style="margin-top:14px"><a id="openCorporate" class="button secondary" target="_blank" rel="noopener">Obre Miralín corporatiu</a><button id="checkCorporate">Comprova la connexió</button></div>
+<p id="corporateStatus" aria-live="polite" class="subtle">Primer obre Miralín i identifica’t a la pàgina de TMB. Torna després aquí i fes la comprovació.</p></section>
+
+<section id="requestCard" class="card" hidden><h2 id="requestTitle">Seguiment rebut</h2><p id="requestStatus" class="subtle"></p></section>
+
+<section id="manualCard" class="card" hidden><h2>Seguiment en primer pla</h2><p class="subtle">Disponible només si Safari pot llegir la resposta corporativa.</p>
+<label for="train">Tren</label><select id="train"></select><label for="via">Via</label><select id="via"><option value="1">Via 1</option><option value="2">Via 2</option></select>
+<div class="actions" style="margin-top:14px"><button id="startManual">Inicia</button><button id="stopManual" class="secondary" disabled>Atura</button></div>
+<pre id="trainStatus" aria-live="polite">Seguiment aturat.</pre></section>
+
+<section class="card status"><h2>Abast d’aquesta prova</h2><p id="scopeStatus">Podem provar instal·lació, permisos i lectura corporativa amb Safari obert.</p><p class="warning">El seguiment amb l’iPhone bloquejat i les Live Activities encara no estan disponibles en aquesta PWA.</p><details><summary>Limitació detectada</summary><p class="subtle">Si TMB no autoritza la lectura entre dominis, Safari permet obrir Miralín però no deixa que aquesta PWA llegeixi la taula. El resultat es mostrarà com a bloqueig de connexió. No se substituirà per dades de miralin.cat ni per horaris simulats.</p></details></section>
+
+<p><a href="../">← Torna a El meu servei</a></p>
+</main><script>
+'use strict';
+const OFFICIAL='https://aplicacions.tmb.cat/miralin/routes/4/stops/';
+const names=['La Pau','Besòs','Besòs Mar','El Maresme | Fòrum','Selva de Mar','Poblenou','Llacuna','Bogatell','Ciutadella | Vila Olímpica','Barceloneta','Jaume I','Urquinaona','Passeig de Gràcia','Girona','Verdaguer','Joanic','Alfons X','Guinardó | Hospital de Sant Pau','Maragall','Llucmajor','Via Júlia','Trinitat Nova'];
+const $=id=>document.getElementById(id),isIPhone=/iPhone/i.test(navigator.userAgent),standalone=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;
+for(let stop=413;stop<=434;stop++)$('station').add(new Option(names[stop-413],String(stop)));
+for(let number=401;number<=425;number++)$('train').add(new Option(String(number),String(number)));
+$('station').value='413';
+const request=new URLSearchParams(location.search),requestMode=request.get('mode');
+if(requestMode==='manual'){
+ const train=request.get('train'),stop=request.get('stop'),via=request.get('via');
+ if(/^4(?:0[1-9]|1\d|2[0-5])$/.test(train||''))$('train').value=train;
+ if(/^(?:41[3-9]|42\d|43[0-4])$/.test(stop||''))$('station').value=stop;
+ if(via==='1'||via==='2')$('via').value=via;
+ $('requestCard').hidden=false;$('requestTitle').textContent='Seguiment manual rebut';
+ $('requestStatus').textContent='Tren '+($('train').value||'—')+' · '+names[Number($('station').value)-413]+' · via '+$('via').value+'. La prova l’activarà si la lectura corporativa és compatible.';
+}else if(requestMode==='service'){
+ $('requestCard').hidden=false;$('requestTitle').textContent='Servei rebut';
+ $('requestStatus').textContent='El servei continua desat a El meu servei. Aquesta primera prova valida la connexió corporativa abans d’activar el seguiment automàtic a l’iPhone.';
+}
+function officialUrl(){return OFFICIAL+$('station').value}
+function updateOfficialLink(){$('openCorporate').href=officialUrl()}
+$('station').addEventListener('change',updateOfficialLink);updateOfficialLink();
+if(!isIPhone){$('deviceCard').classList.add('bad');$('deviceStatus').textContent='Obre aquest enllaç amb Safari en un iPhone.';$('notificationTest').disabled=true}
+else if(!standalone){$('deviceStatus').textContent='Safari detectat. Instal·la la prova a la pantalla d’inici.'}
+else{$('deviceCard').classList.add('ok');$('deviceStatus').textContent='PWA instal·lada i oberta des de la pantalla d’inici.';$('installHelp').hidden=true}
+
+async function registration(){if(!('serviceWorker'in navigator))throw Error('Aquest Safari no admet el servei de la PWA.');await navigator.serviceWorker.register('./sw.js',{scope:'./'});return navigator.serviceWorker.ready}
+$('notificationTest').onclick=async()=>{const status=$('notificationStatus');try{if(!standalone)throw Error('Instal·la i obre primer la icona de la pantalla d’inici.');if(!('Notification'in window))throw Error('Aquest iPhone no admet notificacions web.');const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('El permís de notificacions no s’ha concedit.');const worker=await registration();await worker.showNotification('El meu servei · prova iPhone',{body:'Avís local rebut correctament en aquest iPhone.',tag:'iphone-local-test',icon:'../../../assets/icons/miralin-192.png'});status.textContent='Permís concedit i avís local enviat.'}catch(error){status.textContent=error.message}};
+
+function clean(element){const copy=element.cloneNode(true);copy.querySelectorAll('script,style,.ui-column-title,.ui-helper-hidden,[aria-hidden="true"]').forEach(node=>node.remove());return copy.textContent.replace(/\s+/g,' ').trim()}
+function parseBoard(html){const doc=new DOMParser().parseFromString(html,'text/html'),tracks=[];for(const via of [1,2]){let root=doc.getElementById('indexForm:tableArrivals'+via)||doc.getElementById('indexForm:tableArrivals'+via+'_data');if(!root)continue;let table=root.matches('table')?root:root.closest('table')||root.querySelector('table');if(!table)continue;const rows=[];for(const tr of table.querySelectorAll('tbody tr')){if(tr.classList.contains('ui-datatable-empty-message'))continue;const cells=[...tr.children].filter(cell=>cell.matches('td')).map(clean);if(cells.some(Boolean))rows.push(cells)}tracks.push({via,rows})}if(!tracks.length)throw Error('La resposta no conté les taules corporatives esperades.');return tracks}
+let lastBoard=null,timer=null,requestAutoStarted=false;
+async function readBoard(){const response=await fetch(officialUrl(),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error('TMB ha respost HTTP '+response.status+'.');const type=response.headers.get('content-type')||'';if(!type.toLowerCase().includes('text/html'))throw Error('TMB no ha retornat la pàgina HTML de Miralín.');return parseBoard(await response.text())}
+async function checkCorporate(showResult=true){const status=$('corporateStatus');if(showResult)status.textContent='Connectant directament amb TMB…';try{lastBoard=await readBoard();const rows=lastBoard.reduce((total,track)=>total+track.rows.length,0);status.textContent='Connexió corporativa disponible. '+rows+' files oficials rebudes.';$('manualCard').hidden=false;if(requestMode==='manual'&&showResult&&!requestAutoStarted){requestAutoStarted=true;setTimeout(()=>$('startManual').click(),0)}return lastBoard}catch(error){lastBoard=null;$('manualCard').hidden=true;status.textContent=error.name==='TypeError'?'Safari ha bloquejat la lectura entre dominis. Miralín es pot obrir, però aquesta PWA no pot llegir-ne la taula.':'Connexió no disponible. '+error.message;throw error}}
+$('checkCorporate').onclick=()=>checkCorporate().catch(()=>{});
+function showTrain(board){const wanted=$('train').value,via=Number($('via').value),track=board.find(item=>item.via===via),row=track?.rows.find(cells=>String(cells[0]||'').replace(/^[MP]/,'4')===wanted);$('trainStatus').textContent=row?'Tren '+row.join(' · '):'El tren '+wanted+' no consta ara a la taula de via '+via+'.'}
+$('startManual').onclick=async()=>{clearInterval(timer);try{showTrain(await checkCorporate(false));timer=setInterval(async()=>{if(document.hidden)return;try{showTrain(await checkCorporate(false))}catch{}},10000);$('startManual').disabled=true;$('stopManual').disabled=false}catch{}};
+$('stopManual').onclick=()=>{clearInterval(timer);timer=null;$('startManual').disabled=false;$('stopManual').disabled=true;$('trainStatus').textContent='Seguiment aturat.'};
+addEventListener('pagehide',()=>clearInterval(timer));registration().catch(()=>{});
+</script></body></html>

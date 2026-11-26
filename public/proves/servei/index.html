@@ -47,8 +47,8 @@
    <p id="pickupPendingText"></p>
  </div>
  <div id="nativeStatusRecovery" hidden><p class="muted">No es pot confirmar si l’ull continua actiu. Comprova l’estat directament amb Android.</p><button id="nativeStatusCheck" type="button">Comprova l’estat</button></div>
- <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.14.0-beta/Miralin-Corporatiu-v0.14.0-beta.apk" rel="noopener">Android · instal·la el motor del servei</a><a id="iosOption" class="platform-link" href="#iosInstructions">iPhone/iPad · Live Activity</a></div>
- <p class="muted" id="iosInstructions">La Live Activity requereix l’app nativa de prova instal·lada a l’iPhone. Des de la miniapp pots enviar-hi el servei o el tren triat. Les actualitzacions remotes necessiten APNs.</p>
+ <div class="platform-choice"><a id="androidOption" class="platform-link primary" href="./downloads/El-meu-servei-motor-0.14.29.apk" rel="noopener">Android · instal·la el motor 0.14.29</a><a id="iosOption" class="platform-link" href="./iphone/">iPhone · prova el motor des de Safari</a></div>
+ <p class="muted" id="iosInstructions">Prova instal·lable des de Safari amb Miralín corporatiu. Valida permisos, connexió i seguiment en primer pla; iOS encara limita el funcionament amb la pantalla bloquejada.</p>
 </section>
 <section class="card" id="manualTrainCard">
  <h2>Segueix un tren</h2><p>Escull manualment el tren que vols seguir. Aquest mode atura el seguiment automàtic del servei.</p>
@@ -60,7 +60,7 @@
  </section>
 <section class="card">
  <h2>Avisos del servei</h2><label for="margin">Antelació dels avisos del servei</label><div class="minute-stepper"><button id="marginUp" type="button" aria-label="Augmenta un minut">▲</button><input id="margin" type="number" inputmode="numeric" min="1" max="120" step="1" value="5" aria-label="Minuts d’antelació"><button id="marginDown" type="button" aria-label="Redueix un minut">▼</button><span>minuts</span></div>
- <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>En Android, el motor corporatiu pot enviar avisos de TRASLLAT i TREN basats en l'horari validat, afegint la SORTIDA oficial quan està disponible. Les prediccions avançades d'arribades, enllaços i retorns de l'ull anterior encara estan pendents de validació amb les dades corporatives.</small>
+ <div class="row" style="margin-top:14px"><button id="enable" class="primary">Activa els avisos</button></div><p id="alarmStatus" class="muted" aria-live="polite">Avisos desactivats.</p><small>En Android, els avisos amb tren segueixen les previsions reals de Miralín corporatiu. Els trasllats sense tren utilitzen l’horari validat del servei. Els avisos de peces ja acabades desapareixen automàticament.</small>
 </section>
 <p class="muted"><small>Les dades del servei es desen en aquest navegador. Pàgina de proves accessible per enllaç, sense control d’accés.</small></p></main><dialog id="serviceViewer" aria-labelledby="viewerTitle"><div class="viewer-shell"><div class="viewer-head"><h2 id="viewerTitle">El meu servei</h2><button id="closeServiceViewer" type="button" aria-label="Tanca el visor">Tanca ×</button></div><p id="viewerStatus" class="muted viewer-status" aria-live="polite"></p><div id="viewerPhotoHome"></div><div id="viewerTimeline" class="viewer-timeline" hidden></div></div></dialog><div id="toast" role="alert"></div>
 <script type="module">
@@ -78,14 +78,14 @@ else{
  $('iosInstructions').textContent='L’ull flotant corporatiu i els avisos natius estan preparats per a Android. La versió Windows encara no està disponible.';
 }
 const nativePackage='cat.tmbagent.elmeuservei.motor';
-const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.14.0';
+const nativeInstalledKey='tmb-servei-corporate-engine-installed-v0.14.29';
 const nativeAuthKey='tmb-servei-corporate-auth-confirmed-v0.14.0';
-const nativeApkUrl='https://github.com/roberfernandez/tmb-agent/releases/download/miralin-corporatiu-v0.14.0-beta/Miralin-Corporatiu-v0.14.0-beta.apk';
+const nativeApkUrl='./downloads/El-meu-servei-motor-0.14.29.apk';
 function refreshAndroidDownload(){
  if(!isAndroid)return;
  const installed=localStorage.getItem(nativeInstalledKey)==='true';
  $('androidOption').href=nativeApkUrl;
- $('androidOption').textContent='Android · instal·la el motor v0.14';
+ $('androidOption').textContent='Android · instal·la el motor 0.14.29';
  $('androidOption').hidden=installed;
 }
 function nativeIntent(host,params=new URLSearchParams()){
@@ -94,6 +94,9 @@ function nativeIntent(host,params=new URLSearchParams()){
  location.href='intent://'+host+(query?'?'+query:'')
   +'#Intent;scheme=miralincorp;package='+nativePackage
   +';S.browser_fallback_url='+encodeURIComponent(fallback)+';end';
+}
+function openIPhonePilot(params=new URLSearchParams()){
+ location.href='./iphone/'+(params.toString()?'?'+params.toString():'');
 }
 function rememberAndroidLaunch(params){
  const mark=()=>{if(document.visibilityState==='hidden'){
@@ -323,6 +326,10 @@ async function stopLegacyServiceAlerts(){
 }
 async function syncServiceAlerts(stop=false){
  if(!stop&&state.photoPending)throw Error('Interpreta la imatge del servei abans d’aplicar els avisos.');
+ if(isIOS){
+  if(stop){enabled=false;remoteAlertsActive=false;localStorage.removeItem('tmb-servei-alerts');return {events:0,iphone:true}}
+  throw Error('Configura els avisos des de la prova iPhone instal·lada amb Safari.');
+ }
  if(!isAndroid)return syncWebServiceAlerts(stop);
  if(!stop&&!rows.length)throw Error('Carrega i interpreta el servei abans d’activar-ne els avisos.');
  const pending=followMode==='service'&&localStorage.getItem(nativeServiceKey)!==state.date+'|'+serviceScheduleParam();
@@ -613,7 +620,7 @@ async function stopNativeEye(){
  if(isAndroid){
   nativeIntent('stop');
   await new Promise(r=>setTimeout(r,450));
- }else if(isIOS){location.href='tmbservei-ios://stop';await new Promise(r=>setTimeout(r,450))}
+ }
 }
 $('startServiceEye').onclick=async()=>{
  if(state.photoPending||serviceLaunchBusy)return;
@@ -634,7 +641,7 @@ $('startServiceEye').onclick=async()=>{
    if(state.photoData)await attachNativeViewerData(query);
    if(state.photoPending||schedule!==serviceScheduleParam()||photo!==state.photoData)return;
    openAndroidEye(query);
-  }else if(isIOS)location.href='tmbservei-ios://watch?'+query.toString();
+  }else if(isIOS){openIPhonePilot(query);return}
   manualRowIndex=null;manualSince=0;state.manualRowIndex=null;state.manualSince=null;persist();showFollowMode('service');render();
   alertSettingsDirty=false;$('enable').textContent=enabled?'Desactiva els avisos':'Activa els avisos';
  }catch(e){showServiceEyeError(e.message)}
@@ -705,6 +712,7 @@ async function stopTrainPushWatch(){
  const status=$('trainWatchStatus');
  try{
   if(isAndroid){status.textContent='Seguiment gestionat des d’El meu servei.';return true;}
+  if(isIOS){status.textContent='Seguiment iPhone gestionat des de la prova instal·lada.';return true;}
   if(!('serviceWorker'in navigator)||!('PushManager'in window)){status.textContent='No hi ha avisos push actius en aquest dispositiu.';return true;}
   const registration=await navigator.serviceWorker.getRegistration('./');
   const subscription=await registration?.pushManager.getSubscription();
@@ -757,8 +765,8 @@ async function startOrChangeTrainWatch(replacing=false){
   watchEditing=false;watchBeforeEdit=null;
   showFollowMode('manual');
   if(isIOS){
-   $('trainWatchStatus').textContent=(replacing?'Actualitzant':'Iniciant')+' el seguiment manual del tren '+train+'.';
-   location.href='tmbservei-ios://watch?'+params.toString();
+   $('trainWatchStatus').textContent='Obrint la prova iPhone per al tren '+train+'.';
+   openIPhonePilot(params);
    return;
   }
   if(isAndroid){

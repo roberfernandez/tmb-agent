@@ -1,12 +1,24 @@
 # Changelog de El meu servei · motor
 
-## 0.14.29 — en desarrollo
+## 0.14.29 — candidata pendiente de validar por Róber
 
 - Consolidación del código completo sobre GitHub partiendo de la 0.14.28 validada.
 - Sistema de continuidad entre Work y conversaciones normales.
-- Pendiente en este punto. Limpieza automática de avisos caducados.
-- Pendiente en este punto. Avisos de tren basados en Miralín corporativo.
-- Pendiente en este punto. Piloto iPhone desde Safari con fuente corporativa.
+- Los avisos de piezas anteriores se eliminan al terminar la pieza, confirmar la
+  toma del tren, cambiar de servicio, desactivar los avisos o detener el motor.
+- La notificación permanente del seguimiento queda separada de esa limpieza.
+- Los avisos que implican un tren se crean y actualizan con la previsión o la
+  llegada observada en Miralín corporativo; ya no se generan desde la hora teórica.
+- Los traslados sin tren implicado conservan la hora validada del servicio y se
+  identifican como «segons servei».
+- Los avisos usan etiquetas estables por servicio y pieza; una migración única
+  elimina los avisos aleatorios que pudieran quedar de la 0.14.28 o anteriores.
+- Pruebas de regresión específicas para fuente real, caducidad, cambio de servicio
+  y separación entre aviso permanente y avisos de pieza.
+- Piloto iPhone instalable desde Safari, enlazado desde El meu servei y limitado a
+  Miralín corporativo. Sustituye las rutas activas del prototipo de `miralin.cat`.
+- Los workflows del antiguo Miralin Tren Ull y del prototipo iOS quedan archivados
+  y sin publicación automática.
 
 ## 0.14.28 — validada por Róber
 

@@ -1,8 +1,12 @@
 # Archivo de APK
 
-El APK validado 0.14.28 se conserva en este repositorio. Las versiones 0.14.1 a
-0.14.27 se conservan en el archivo histórico de trabajo y sus huellas se registran
-a continuación para poder comprobar cualquier copia sin ambigüedad.
+El APK validado 0.14.28 y cada candidata posterior se conservan en este
+repositorio. Las versiones 0.14.1 a 0.14.28 también están reunidas en el archivo
+duradero [el-meu-servei-apks-0.14.1-0.14.28.tar](https://chatgpt.com/library?file_id=libfile_ec297bca8d088191a107d48f6abf2421&account_id=personal),
+con SHA-256 `369a3da76b5e9a20e14fab9a81edeefe847a9e4c53aafe44ef71576a82406a1d`.
+El historial filtrado de su código está en
+[el-meu-servei-source-0.14.1-0.14.28.bundle](https://chatgpt.com/library?file_id=libfile_e03bde702c60819180a5104bf9ca196f&account_id=personal),
+con SHA-256 `11a57e43ad8c14856b19b89a918171047d8801fea7019cda56fea72672c74504`.
 
 | Versión | SHA-256 |
 |---|---|
@@ -34,3 +38,4 @@ a continuación para poder comprobar cualquier copia sin ambigüedad.
 | 0.14.26 | `18a57a4b9932bc45fd148ad465b036c690f4571b4921879db40c2b92d9c3e1aa` |
 | 0.14.27 | `5258469207f810d99b5d854fe2f49b65dbfaa521a8a4ca90803a84d589d5a5d8` |
 | 0.14.28 | `f1dbaaec77b190de3ce3b6145c22039c96cad28efca6441c24856f800ec6fbcd` |
+| 0.14.29 (candidata) | `c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc` |

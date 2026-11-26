@@ -1,6 +1,8 @@
-# Miralín corporatiu · Android (prototip independent)
+# El meu servei · motor Android
 
-Aplicació Android separada de **Miralín Tren Ull** i de `miralin.cat`. Reprodueix el contingut de les dues taules del cartell de l'L4 sense recalcular hores. No incorpora seguiment del tren, mapa, ni previsió pròpia.
+Motor vigent de la miniapp **El meu servei**, separat de **Miralin Tren Ull** i
+de `miralin.cat`. Consulta Miralín corporatiu, manté el seguiment automàtic o
+manual, mostra el motor flotant i genera els avisos natius del servei.
 
 ## Connexió
 
@@ -9,12 +11,16 @@ Aplicació Android separada de **Miralín Tren Ull** i de `miralin.cat`. Reprodu
 - Les credencials només es guarden al dispositiu, xifrades amb AES-GCM i una clau no exportable d'Android Keystore. Botó per esborrar-les.
 - No segueix redireccions d'autenticació ni reintenta automàticament després de 401 o 403. No registra les dades rebudes ni les credencials.
 - Llegeix `indexForm:tableArrivals1` i `indexForm:tableArrivals2` del document HTML i mostra les cel·les tal com apareixen. El parser està aïllat.
-- Refresc cada 20 s **només mentre la pantalla de l'aplicació és visible**. Si falla, manté les darreres dades en memòria indicant-ne l'antiguitat; no confon una fallada amb l'absència de trens.
-- `applicationId`: `cat.tmbagent.miralincorporatiu`; independent de `com.tmbagent.traineye`.
+- El servei de primer pla consulta les dades corporatives mentre el seguiment és
+  actiu. Si falla, diferencia la informació antiga i no inventa cap posició.
+- `applicationId`: `cat.tmbagent.elmeuservei.motor`; independent de l'antic `com.tmbagent.traineye`.
 
-## Estat i limitacions
+## Estat actual
 
-**Prototip no verificat contra un HTML corporatiu real.** Les proves automatitzades validen exemples d'HTML amb l'estructura comunicada per un company, no una resposta autenticada de TMB. Cal confirmar des d'un dispositiu autoritzat que la pàgina respon i que la taula real té aquesta estructura. La ruta no és una API pública documentada i pot canviar.
+La 0.14.28 és l'última versió validada per Róber. La 0.14.29 és candidata i
+queda pendent de prova durant un servei real. L'HTML corporatiu no és una API
+pública documentada i pot canviar; les regressions comproven el parser i les
+regles de seguiment amb mostres controlades.
 
 Cada persona ha de tenir permís per consultar les dades amb el seu compte; s'han de respectar les normes d'accés corporatiu de TMB. Aquesta aplicació és una prova independent i no és una aplicació oficial de TMB. No s'han d'enviar credencials al xat ni incloure-les al repositori.
 
@@ -22,7 +28,15 @@ Cada persona ha de tenir permís per consultar les dades amb el seu compte; s'ha
 
 `gradle -p miralin-corporatiu-android :app:testDebugUnitTest :app:assembleDebug`
 
-La GitHub Action del prototip publica un APK directe de prova. Les APK debug no tenen signatura estable entre compilacions: les actualitzacions futures podrien requerir desinstal·lar i tornar a instal·lar, cosa que esborraria les credencials del dispositiu. Caldrà una signatura privada estable abans d'un desplegament general.
+La candidata instal·lable es compila amb `scripts/build-el-meu-servei-motor.sh` i
+la clau protegida externa. GitHub Actions prova el projecte amb una firma efímera
+i no publica aquell APK. La huella pública compatible està documentada a
+`docs/el-meu-servei/CONTINUITY.md`.
+
+## Historial inicial
+
+Les notes següents documenten l'evolució de les primeres betes. No substitueixen
+`docs/el-meu-servei/CHANGELOG.md`, que és el registre acumulatiu canònic.
 
 ## Beta 0.2.0 · Ull flotant corporatiu
 - Nova app independent «Miralín Corp Ull», identificador `cat.tmbagent.miralincorporatiu.ull`, per poder conviure amb la v0.1.1 i amb «Miralín Tren Ull». Això comporta introduir-hi les credencials una sola vegada a la nova app.
@@ -75,5 +89,7 @@ La GitHub Action del prototip publica un APK directe de prova. Les APK debug no 
 - Tant en mode manual com automàtic, **tocar l'ull sempre obre el visor d'El meu servei**. Les notificacions també hi porten. La PWA ha d'estar instal·lada amb el navegador que té l'horari guardat.
 - Avisos locals en segon pla del servei: trasllats i preses segons l'horari, amb `SORTIDA TMB` estimada quan estigui disponible. Es poden activar/desactivar i canviar el marge des de la miniapp. Aquests avisos no afirmen tenir l'arribada exacta del tren.
 - Disseny de l'ull idèntic al frontal sèrie 9000, lectura corporativa cada 10 segons, compte enrere cada segon.
-- APK beta independent `cat.tmbagent.elmeuservei.motor`, instal·lada sense ZIP. Les betes anteriors es poden conservar per comparació. Sense distribució signada estable encara.
+- APK `cat.tmbagent.elmeuservei.motor`, instal·lada sense ZIP i actualitzable amb
+  la firma protegida original. Les versions validades i candidates es conserven a
+  `artifacts/el-meu-servei-motor/`.
 - **Límits abans de distribució:** la correspondència completa dels avisos intel·ligents de la versió antiga (arribades, enllaços i retorns amb dades dinàmiques) necessita dades i validació; la beta 0.5.0 només programa avisos de trasllats/preses. No s'ha verificat en mòbil físic.

@@ -12,17 +12,20 @@
     "validatedApkSha256": "f1dbaaec77b190de3ce3b6145c22039c96cad28efca6441c24856f800ec6fbcd",
     "signingCertificateSha256": "8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56",
     "historicalLocalCommit": "83a45fd2091656dfe43db7fed26a3bc55580242e",
-    "validatedGithubCommit": null,
+    "validatedGithubCommit": "3f832ac469f54e6e5f5e61377bb88f9febfef74e",
     "nextVersion": "0.14.29",
-    "candidateCommit": null,
-    "status": "development"
+    "candidateCommit": "df8d3f1752263c6a4a2a68cdb281d1e3b3959524",
+    "candidateVersionCode": 46,
+    "candidateApkSha256": "c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc",
+    "status": "candidate-awaiting-user-validation"
   },
   "ios": {
-    "status": "research",
+    "status": "pilot-awaiting-real-iphone-test",
     "delivery": "Safari Home Screen PWA",
     "dataSource": "Miralin corporatiu",
     "oldPrototypeAllowed": false,
-    "blockingFinding": "The corporate site does not authorize cross-origin credentialed reads from GitHub Pages"
+    "pilotPath": "public/proves/servei/iphone/",
+    "blockingFinding": "The corporate site did not advertise CORS authorization; the real iPhone pilot must confirm the browser result"
   },
   "currentWorkDocument": "docs/el-meu-servei/CURRENT_WORK.md"
 }

@@ -1,12 +1,8 @@
-name: Android train eye
+name: Archived Miralin Tren Ull
 on:
-  push:
-    paths:
-      - 'android-overlay/**'
-      - '.github/workflows/android-train-eye.yml'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   build-debug-apk:
     runs-on: ubuntu-latest
@@ -21,26 +17,8 @@ jobs:
           gradle-version: '8.9'
       - name: Build Android test app
         run: gradle -p android-overlay :app:testDebugUnitTest :app:assembleDebug
-      - name: Read app version
-        id: app-version
-        run: |
-          version=$(awk -F "'" '/versionName/ {print $2}' android-overlay/app/build.gradle)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Publish direct APK download
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.app-version.outputs.version }}
-        run: |
-          tag="miralin-tren-ull-v${VERSION}"
-          cp android-overlay/app/build/outputs/apk/debug/app-debug.apk "Miralin-Tren-Ull-v${VERSION}.apk"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "Miralin-Tren-Ull-v${VERSION}.apk" --clobber
-          else
-            gh release create "$tag" "Miralin-Tren-Ull-v${VERSION}.apk" --title "Miralin Tren Ull v${VERSION}" --notes "APK debug per instal·lar manualment a Android."
-          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: miralin-tren-ull-ci-fallback
+          name: archived-miralin-tren-ull
           path: android-overlay/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7

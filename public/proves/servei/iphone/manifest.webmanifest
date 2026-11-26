@@ -1,0 +1,24 @@
+{
+  "id": "./motor-iphone-prova",
+  "name": "El meu servei · motor iPhone",
+  "short_name": "Motor servei",
+  "description": "Prova iPhone del motor amb Miralín corporatiu",
+  "lang": "ca",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080f1c",
+  "theme_color": "#080f1c",
+  "icons": [
+    {
+      "src": "../../../assets/icons/miralin-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../../../assets/icons/tmb-agent-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

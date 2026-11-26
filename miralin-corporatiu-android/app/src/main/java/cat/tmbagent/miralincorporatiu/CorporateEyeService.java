@@ -95,7 +95,6 @@ public final class CorporateEyeService extends Service {
     private int alertMargin = 5;
     private String alertPlanIdentity = "";
     private Set<String> sentAlerts = new HashSet<>();
-    private int nextAlertId = 9600;
     private long departureAt = -1;
     private CorporateTrainSelection.Train lastTrain;
     private boolean exceedsMdm;
@@ -186,17 +185,19 @@ public final class CorporateEyeService extends Service {
                                 unambiguous = result != null;
                             if (driving && CorporateProjection.project(departureAt, receivedAt, takeoverAt).laps > 0)
                                 unambiguous = false;
+                            CorporateDutyTracker.Snapshot beforeObservation = duty.at(receivedAt);
                             if (duty.observe(receivedAt, requested,
                                 result == null ? "" : result.station,
                                 result == null ? "" : result.track, unambiguous, departureAt)) {
-                                if (requestedKind == CorporateServicePlan.Selection.TRANSFER_PICKUP
+                                if ((requestedKind == CorporateServicePlan.Selection.PICKUP
+                                    || requestedKind == CorporateServicePlan.Selection.TRANSFER_PICKUP)
                                     && alertsEnabled && result != null && CorporateDutyTracker.sameStation(result.station,
                                         CorporateServicePlan.stationName(Integer.toString(requestedStop)))) {
-                                    String route = result.station + " → " + CorporateServicePlan.stationName(Integer.toString(destination));
-                                    CorporateServicePlan.Notice arrival = new CorporateServicePlan.Notice("arrival-" + plannedRelay,
-                                        "Agafa el " + requested, route, OfficialDepartureCountdown.clock(receivedAt),
-                                        "El " + requested + " és a " + result.station + " · " + route, false);
-                                    sendServiceNoticeOnce(arrival, arrival.body);
+                                    int row = beforeObservation == null ? notificationRow
+                                        : beforeObservation.pickupRow;
+                                    CorporateServicePlan.Notice arrival = ServiceAlertPolicy.confirmedArrival(
+                                        servicePlan, row, requested, result.station, destination, receivedAt);
+                                    if (arrival != null) sendServiceNoticeOnce(arrival, arrival.body);
                                 }
                                 applyServiceSelection(receivedAt, true);
                             }
@@ -244,6 +245,7 @@ public final class CorporateEyeService extends Service {
         manager.createNotificationChannel(new NotificationChannel(
             CHANNEL, "El meu servei · seguiment", NotificationManager.IMPORTANCE_LOW));
         createAlertsChannel(manager);
+        migrateLegacyServiceNotifications(manager);
     }
 
     static void createAlertsChannel(NotificationManager manager) {
@@ -274,6 +276,7 @@ public final class CorporateEyeService extends Service {
         }
         if (intent != null && "UPDATE_ALERTS".equals(intent.getAction()) && isActive) {
             configureAlerts();
+            cleanupServiceNotifications(System.currentTimeMillis());
             return START_NOT_STICKY;
         }
         if (intent != null) {
@@ -342,6 +345,7 @@ public final class CorporateEyeService extends Service {
             return START_NOT_STICKY;
         }
         configureAlerts();
+        cleanupServiceNotifications(System.currentTimeMillis());
         lastTrain = null;
         receivedAt = 0;
         departureAt = -1;
@@ -561,9 +565,49 @@ public final class CorporateEyeService extends Service {
         }
     }
 
+    private void migrateLegacyServiceNotifications(NotificationManager manager) {
+        SharedPreferences settings = getSharedPreferences("corporate-alerts-v1", MODE_PRIVATE);
+        if (settings.getBoolean("stable-notification-tags-v1", false)) return;
+        // Versions through 0.14.28 used process-local IDs starting at 9600.
+        // Remove only that app-owned range once, leaving the foreground ID intact.
+        for (int id = 9600; id < 10_000; id++) manager.cancel(id);
+        settings.edit().putBoolean("stable-notification-tags-v1", true).apply();
+    }
+
+    private void cleanupServiceNotifications(long now) {
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        CorporateDutyTracker.Snapshot snapshot = "service".equals(mode) && duty != null
+            ? duty.at(now) : null;
+        for (android.service.notification.StatusBarNotification active
+                : manager.getActiveNotifications()) {
+            String tag = active.getTag();
+            if (tag == null || !tag.startsWith(ServiceAlertPolicy.TAG_PREFIX)) continue;
+            String key = servicePlan == null ? null
+                : ServiceAlertPolicy.keyFromTag(servicePlan.identity(), tag);
+            if (key == null
+                || !ServiceAlertPolicy.isRelevant(key, now, alertsEnabled, servicePlan, snapshot))
+                manager.cancel(tag, active.getId());
+        }
+    }
+
+    private void cancelAllServiceNotifications() {
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        for (android.service.notification.StatusBarNotification active
+                : manager.getActiveNotifications()) {
+            String tag = active.getTag();
+            if (tag != null && tag.startsWith(ServiceAlertPolicy.TAG_PREFIX))
+                manager.cancel(tag, active.getId());
+        }
+    }
+
     private void tickServiceAlerts(long now) {
+        cleanupServiceNotifications(now);
         if (previewOnly || !alertsEnabled || servicePlan == null || !"service".equals(mode)) return;
         java.util.List<CorporateServicePlan.Notice> notices = servicePlan.noticesAt(now, alertMargin);
+        CorporateDutyTracker.Snapshot snapshot = duty == null ? null : duty.at(now);
+        CorporateServicePlan.Notice liveTrainNotice = ServiceAlertPolicy.liveTrainNotice(
+            servicePlan, snapshot, lastTrain, receivedAt, departureAt, now, alertMargin);
+        if (liveTrainNotice != null) notices.add(liveTrainNotice);
         if (selectionKind == CorporateServicePlan.Selection.CONNECTION && now - receivedAt <= 60_000) {
             StringBuilder details = new StringBuilder();
             long first = 0;
@@ -577,18 +621,24 @@ public final class CorporateEyeService extends Service {
             if (first > now && first - now <= alertMargin * 60_000L) {
                 String route = CorporateServicePlan.stationName(Integer.toString(stop)) + " · Via " + targetVia
                     + " → " + CorporateServicePlan.stationName(Integer.toString(connectionDestination));
-                notices.add(new CorporateServicePlan.Notice("connection-" + takeoverAt, "Enllaç amb el " + train,
-                    route, OfficialDepartureCountdown.clock(first), details.toString(), false));
+                int row = snapshot == null ? notificationRow : snapshot.pickupRow;
+                notices.add(new CorporateServicePlan.Notice(ServiceAlertPolicy.connectionKey(row),
+                    "TREN · enllaç amb el " + train, route, OfficialDepartureCountdown.clock(first),
+                    "Previsions de Miralín corporatiu\n" + details, true));
             }
         }
         for (CorporateServicePlan.Notice notice : notices) {
-            if (sentAlerts.contains(notice.key)) continue;
             String content = notice.body;
-            // The separate live source is the published SORTIDA, not measured arrival.
-            if (notice.pickup && departureAt > now && lastTrain != null) {
+            if (notice.key.startsWith("live-train-") && departureAt > now && lastTrain != null) {
                 String countdown = OfficialDepartureCountdown.display(departureAt, now);
                 if (!"--".equals(countdown))
-                    content += "\nSortida TMB " + countdown;
+                    content += "\nPas previst " + countdown;
+            }
+            if (sentAlerts.contains(notice.key)) {
+                // Keep a visible live notice synchronized when TMB changes its
+                // published passage time, without alerting again.
+                if (notice.key.startsWith("live-")) postServiceNotification(notice, content);
+                continue;
             }
             sendServiceNoticeOnce(notice, content);
         }
@@ -604,7 +654,9 @@ public final class CorporateEyeService extends Service {
 
     private boolean postServiceNotification(CorporateServicePlan.Notice notice, String body) {
         try {
-            getSystemService(NotificationManager.class).notify(nextAlertId++,
+            getSystemService(NotificationManager.class).notify(
+                ServiceAlertPolicy.tag(servicePlan.identity(), notice.key),
+                ServiceAlertPolicy.NOTIFICATION_ID,
                 serviceNotification(this, notice, body));
             return true;
         } catch (Exception ignored) { return false; }
@@ -625,6 +677,7 @@ public final class CorporateEyeService extends Service {
             .setContentText(notice.route)
             .setStyle(new Notification.BigTextStyle().bigText(body))
             .setContentIntent(open)
+            .setOnlyAlertOnce(true)
             .addAction(new Notification.Action.Builder((android.graphics.drawable.Icon) null,
                 "Obre el servei", open).build())
             .setAutoCancel(true)
@@ -858,6 +911,7 @@ public final class CorporateEyeService extends Service {
             overlay = null;
             eye = null;
         }
+        cancelAllServiceNotifications();
         super.onDestroy();
     }
 
