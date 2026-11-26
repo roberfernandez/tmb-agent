@@ -14,7 +14,7 @@
     "historicalLocalCommit": "83a45fd2091656dfe43db7fed26a3bc55580242e",
     "validatedGithubCommit": "3f832ac469f54e6e5f5e61377bb88f9febfef74e",
     "nextVersion": "0.14.29",
-    "candidateCommit": "df8d3f1752263c6a4a2a68cdb281d1e3b3959524",
+    "candidateCommit": "5e4a6f96497d53003637d2eb6b5f8b7167040989",
     "candidateVersionCode": 46,
     "candidateApkSha256": "c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc",
     "status": "candidate-awaiting-user-validation"

@@ -19,7 +19,7 @@ normal sin depender del historial del chat ni de archivos temporales.
 | SHA-256 del certificado | `8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56` |
 
 La candidata 0.14.29 está fijada en el commit de implementación
-`df8d3f1752263c6a4a2a68cdb281d1e3b3959524`; continúa como candidata hasta la
+`5e4a6f96497d53003637d2eb6b5f8b7167040989`; continúa como candidata hasta la
 confirmación expresa de Róber.
 
 La 0.14.28 se recuperó del commit local histórico

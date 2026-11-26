@@ -31,7 +31,7 @@ APK candidata: `artifacts/el-meu-servei-motor/0.14.29/El-meu-servei-motor-0.14.2
 SHA-256 `c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc`.
 Paquete `cat.tmbagent.elmeuservei.motor`, `versionCode 46`, certificado
 `8892fa0f…7f56`. Actualiza la 0.14.28 sin desinstalar.
-Commit de implementación: `df8d3f1752263c6a4a2a68cdb281d1e3b3959524`.
+Commit de implementación GitHub: `5e4a6f96497d53003637d2eb6b5f8b7167040989`.
 
 Pruebas ejecutadas: compilación limpia, tests Java del motor, verificación de
 paquete/firma y 139 pruebas Node de TMBAgent.
