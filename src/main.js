@@ -306,7 +306,8 @@ function render() {
       const module = modules.find(item => item.id === card?.dataset.module);
       if (!event.defaultPrevented && card && card.dataset.module !== 'administracio' && module?.trackOpens !== false) recordOpen(card.dataset.module);
     });
-    refreshCQuadreBadges();
+    const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 0));
+    schedule(refreshCQuadreBadges);
   } else {
     const module = modules.find(item => moduleRoute === `/${item.id}`);
     if (module?.id === 'cquadre') {
@@ -440,8 +441,14 @@ async function authorizedRender() {
       location.replace(loginUrl(location));
       return;
     }
-    try { canAdmin = (await callAdmin({ action: 'capabilities' })).can_manage === true; } catch { canAdmin = false; }
+    // La portada no necesita comprobar permisos de administración. Esa consulta solo
+    // se hace al entrar en la ruta privada, para no añadir otro viaje de red al arranque.
+    canAdmin = false;
     if (requestId !== checking) return;
+    if (route === '#/administracio') {
+      try { canAdmin = (await callAdmin({ action: 'capabilities' })).can_manage === true; } catch { canAdmin = false; }
+      if (requestId !== checking) return;
+    }
     launcherHeartbeat(!document.hidden);
     if (!preserveView || (route === '#/administracio' && !canAdmin)) {
       render();

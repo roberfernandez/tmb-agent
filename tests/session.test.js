@@ -16,29 +16,20 @@ test('missing or expired session cannot open launcher', async () => {
   assert.equal(await checkSession(storage(null),request),'login');
   assert.equal(await checkSession(storage({...session,expires_at:1}),request),'login');
 });
-test('approved user validated against Auth; ignores stored identity', async () => {
+test('one server capability request validates identity and approval before opening launcher', async () => {
   const calls=[];
-  const request=async(url,options)=>{calls.push(url);assert.equal(options.cache,'no-store');return reply(calls.length===1?{id:'server-user'}:[{estado:'aprobado'}]);};
+  const request=async(url,options)=>{calls.push({url,options});return reply({ok:true,can_manage:false});};
   assert.equal(await checkSession(storage(session),request),'approved');
-  assert.ok(calls[1].includes('user_id=eq.server-user'));
-  assert.ok(!calls[1].includes('untrusted-local-id'));
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].options.method,'POST');
+  assert.deepEqual(JSON.parse(calls[0].options.body),{action:'capabilities'});
 });
-for (const estado of ['pendiente','rechazado','blocked',null]) {
-  test(`unauthorized state ${estado} denies launcher`, async () => {
-    let n=0;
-    assert.equal(await checkSession(storage(session),async()=>reply(++n===1?{id:'server-user'}:[{estado}])),'login');
-  });
-}
-test('invalid server session denies access', async()=>{
-  assert.equal(await checkSession(storage(session),async()=>reply({},401)),'login');
+test('server denial blocks launcher without trusting local data', async()=>{
+  assert.equal(await checkSession(storage(session),async()=>reply({error:'Accés denegat'},403)),'login');
 });
-test('network failure never grants cached approval', async()=>{
-  await assert.rejects(checkSession(storage(session),async()=>{throw new Error('offline');}));
+test('network failure never grants access', async()=>{
+  await assert.rejects(checkSession(storage(session),async()=>{throw new Error('offline');}),/offline/);
 });
-test('restoration reads same session again and revalidates remotely', async()=>{
-  const request=async(url)=>reply(url.includes('/auth/')?{id:'server-user'}:[{estado:'aprobado'}]);
-  for (let n=0;n<2;n++) assert.equal(await checkSession(storage(session),request),'approved');
-});
-test('login URL includes no tokens, preserves route only',()=>{
+test('login URL includes no tokens and preserves route only',()=>{
   assert.equal(loginUrl({pathname:'/tmb-agent/',hash:'#/dea'}),'/tmb-agent/auth/?returnTo=%2Ftmb-agent%2F%23%2Fdea');
 });
