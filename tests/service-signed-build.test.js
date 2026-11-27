@@ -40,6 +40,8 @@ test('the workflow verifies identity, version and update compatibility before pu
   assert.match(workflow, /scripts\/build-el-meu-servei-motor\.sh/);
   assert.match(verifier, /EXPECTED_VERSION_NAME/);
   assert.match(verifier, /EXPECTED_VERSION_CODE/);
+  assert.match(verifier, /verify --print-certs \"\$apk\" 2>&1/);
+  assert.match(verifier, /certificate SHA-256 digest:/);
   assert.match(workflow, /actions\/upload-artifact@v4/);
   assert.match(workflow, /gh release (create|upload)/);
 });

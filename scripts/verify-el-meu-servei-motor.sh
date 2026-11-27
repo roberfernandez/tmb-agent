@@ -31,10 +31,15 @@ if [[ -n "$expected_version_code" && "$badging" != *"versionCode='$expected_vers
   exit 6
 fi
 
-certificate=$($apksigner verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+signature_output=$($apksigner verify --print-certs "$apk" 2>&1)
+certificate=$(printf '%s\n' "$signature_output" | awk '
+  BEGIN { IGNORECASE = 1 }
+  /certificate SHA-256 digest:/ { print tolower($NF); exit }
+')
 expected=8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56
 [[ "$certificate" == "$expected" ]] || {
   echo "Firma incompatible. Esperada $expected y obtenida ${certificate:-ninguna}" >&2
+  [[ -n "$certificate" ]] || printf '%s\n' "$signature_output" >&2
   exit 4
 }
 
