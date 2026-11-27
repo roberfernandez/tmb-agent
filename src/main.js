@@ -441,14 +441,10 @@ async function authorizedRender() {
       location.replace(loginUrl(location));
       return;
     }
-    // La portada no necesita comprobar permisos de administración. Esa consulta solo
-    // se hace al entrar en la ruta privada, para no añadir otro viaje de red al arranque.
-    canAdmin = false;
+    // La portada debe conocer si el usuario puede ver las herramientas privadas.
+    // La autorización sigue haciéndose en servidor; aquí solo se obtiene la capacidad.
+    try { canAdmin = (await callAdmin({ action: 'capabilities' })).can_manage === true; } catch { canAdmin = false; }
     if (requestId !== checking) return;
-    if (route === '#/administracio') {
-      try { canAdmin = (await callAdmin({ action: 'capabilities' })).can_manage === true; } catch { canAdmin = false; }
-      if (requestId !== checking) return;
-    }
     launcherHeartbeat(!document.hidden);
     if (!preserveView || (route === '#/administracio' && !canAdmin)) {
       render();
