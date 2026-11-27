@@ -65,3 +65,16 @@ de servicio, los relevos tempranos y tardíos, los traslados en ambos sentidos,
 terminales, seguimiento manual, alias M/P, MDM y doble galón, tres zonas táctiles,
 visor, notificación permanente, limpieza de avisos y separación entre fuente real
 y horario del servicio.
+
+## Distribución y firma
+
+- GitHub Actions es el método canónico para compilar, firmar y publicar APK.
+- La clave original sólo existe en GitHub Actions Secrets y en copias privadas de
+  custodia; nunca en Git, documentación, artefactos o registros.
+- Cualquier APK entregable debe conservar el paquete
+  `cat.tmbagent.elmeuservei.motor` y el certificado SHA-256 registrado.
+- El trabajo que usa la clave no tiene permiso de escritura sobre el repositorio.
+- ChatGPT normal inicia una compilación cambiando `requestId` en el manifiesto de
+  solicitud; ningún cambio de versión se hace sólo para repetir una compilación.
+- Una prerelease o un APK correcto técnicamente sigue siendo candidata hasta que
+  Róber confirme expresamente su funcionamiento en servicio real.

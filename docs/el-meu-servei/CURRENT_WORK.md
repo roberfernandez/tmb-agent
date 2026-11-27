@@ -1,6 +1,6 @@
 # Trabajo en curso
 
-Actualizado el 26 de noviembre de 2026.
+Actualizado el 27 de noviembre de 2026.
 
 ## Android 0.14.29
 
@@ -35,6 +35,23 @@ Commit de implementación GitHub: `5e4a6f96497d53003637d2eb6b5f8b7167040989`.
 
 Pruebas ejecutadas: compilación limpia, tests Java del motor, verificación de
 paquete/firma y 139 pruebas Node de TMBAgent.
+
+## Compilación firmada independiente de Work
+
+Preparado un workflow exclusivo que compila la fuente canónica, usa la firma
+original desde GitHub Actions Secrets y publica tanto un artefacto descargable como
+una prerelease con APK directo. La solicitud está separada en
+`.github/el-meu-servei-build.json`, por lo que una conversación normal puede iniciar
+otra compilación cambiando sólo `requestId` mediante el conector de GitHub.
+
+Comprobaciones locales realizadas sin cambiar código funcional ni versión: tests
+del contrato del workflow, compilación limpia de 0.14.29, 38 tareas Gradle y tests
+Java correctos. El APK resultante vuelve a ser idéntico, SHA-256
+`c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc`, con
+paquete `cat.tmbagent.elmeuservei.motor`, `versionCode 46` y certificado esperado.
+
+Pendiente en este punto: cargar los cuatro secretos cifrados en GitHub, publicar el
+workflow, dispararlo mediante el manifiesto y verificar el artefacto descargado.
 
 ## iPhone sin cuota de Apple
 

@@ -1,0 +1,175 @@
+name: El meu servei motor signed APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/el-meu-servei-build.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: el-meu-servei-motor-signed
+  cancel-in-progress: false
+
+jobs:
+  build-signed-apk:
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.metadata.outputs.version_name }}
+      version_code: ${{ steps.metadata.outputs.version_code }}
+      apk_name: ${{ steps.metadata.outputs.apk_name }}
+      artifact_name: ${{ steps.metadata.outputs.artifact_name }}
+      release_tag: ${{ steps.metadata.outputs.release_tag }}
+      publish_release: ${{ steps.metadata.outputs.publish_release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Validate requested product and version
+        id: metadata
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const request = JSON.parse(fs.readFileSync('.github/el-meu-servei-build.json', 'utf8'));
+          const gradle = fs.readFileSync('miralin-corporatiu-android/app/build.gradle', 'utf8');
+          const required = {
+            schema: 1,
+            product: 'El meu servei · motor',
+            sourcePath: 'miralin-corporatiu-android',
+            applicationId: 'cat.tmbagent.elmeuservei.motor',
+            signingCertificateSha256: '8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56'
+          };
+          for (const [key, value] of Object.entries(required)) {
+            if (request[key] !== value) throw new Error(`Build request has invalid ${key}`);
+          }
+          if (!/^[A-Za-z0-9._-]+$/.test(request.requestId || '')) throw new Error('Invalid requestId');
+          if (!/^\d+\.\d+\.\d+$/.test(request.versionName || '')) throw new Error('Invalid versionName');
+          if (!Number.isInteger(request.versionCode) || request.versionCode <= request.previousVersionCode) {
+            throw new Error('versionCode must be newer than the installed candidate base');
+          }
+          const gradleVersionName = gradle.match(/versionName\s+'([^']+)'/)?.[1];
+          const gradleVersionCode = Number(gradle.match(/versionCode\s+(\d+)/)?.[1]);
+          const gradleApplicationId = gradle.match(/applicationId\s+'([^']+)'/)?.[1];
+          if (gradleVersionName !== request.versionName) throw new Error('Requested and Gradle versionName differ');
+          if (gradleVersionCode !== request.versionCode) throw new Error('Requested and Gradle versionCode differ');
+          if (gradleApplicationId !== request.applicationId) throw new Error('Requested and Gradle applicationId differ');
+          const apkName = `El-meu-servei-motor-${request.versionName}.apk`;
+          const artifactName = `El-meu-servei-motor-${request.versionName}-signed`;
+          const releaseTag = `el-meu-servei-motor-v${request.versionName}`;
+          const output = process.env.GITHUB_OUTPUT;
+          fs.appendFileSync(output, `version_name=${request.versionName}\n`);
+          fs.appendFileSync(output, `version_code=${request.versionCode}\n`);
+          fs.appendFileSync(output, `apk_name=${apkName}\n`);
+          fs.appendFileSync(output, `artifact_name=${artifactName}\n`);
+          fs.appendFileSync(output, `release_tag=${releaseTag}\n`);
+          fs.appendFileSync(output, `publish_release=${request.publishRelease === true}\n`);
+          NODE
+
+      - name: Restore protected signing store
+        shell: bash
+        env:
+          MOTOR_SIGNING_KEYSTORE_BASE64: ${{ secrets.MOTOR_SIGNING_KEYSTORE_BASE64 }}
+          MOTOR_SIGNING_STORE_PASSWORD: ${{ secrets.MOTOR_SIGNING_STORE_PASSWORD }}
+          MOTOR_SIGNING_KEY_ALIAS: ${{ secrets.MOTOR_SIGNING_KEY_ALIAS }}
+          MOTOR_SIGNING_KEY_PASSWORD: ${{ secrets.MOTOR_SIGNING_KEY_PASSWORD }}
+        run: |
+          set +x
+          test -n "$MOTOR_SIGNING_KEYSTORE_BASE64"
+          test -n "$MOTOR_SIGNING_STORE_PASSWORD"
+          test -n "$MOTOR_SIGNING_KEY_ALIAS"
+          test -n "$MOTOR_SIGNING_KEY_PASSWORD"
+          signing_store="$RUNNER_TEMP/el-meu-servei-signing.keystore"
+          printf '%s' "$MOTOR_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$signing_store"
+          chmod 600 "$signing_store"
+          certificate=$(keytool -exportcert \
+            -keystore "$signing_store" \
+            -alias "$MOTOR_SIGNING_KEY_ALIAS" \
+            -storepass:env MOTOR_SIGNING_STORE_PASSWORD | sha256sum | cut -d' ' -f1)
+          expected=8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56
+          test "$certificate" = "$expected"
+
+      - name: Build, sign and verify APK
+        shell: bash
+        env:
+          MOTOR_SIGNING_STORE_FILE: ${{ runner.temp }}/el-meu-servei-signing.keystore
+          MOTOR_SIGNING_STORE_PASSWORD: ${{ secrets.MOTOR_SIGNING_STORE_PASSWORD }}
+          MOTOR_SIGNING_KEY_ALIAS: ${{ secrets.MOTOR_SIGNING_KEY_ALIAS }}
+          MOTOR_SIGNING_KEY_PASSWORD: ${{ secrets.MOTOR_SIGNING_KEY_PASSWORD }}
+          EXPECTED_VERSION_NAME: ${{ steps.metadata.outputs.version_name }}
+          EXPECTED_VERSION_CODE: ${{ steps.metadata.outputs.version_code }}
+        run: scripts/build-el-meu-servei-motor.sh
+
+      - name: Preserve verification record
+        shell: bash
+        env:
+          VERSION_NAME: ${{ steps.metadata.outputs.version_name }}
+          APK_NAME: ${{ steps.metadata.outputs.apk_name }}
+        run: |
+          apk="artifacts/el-meu-servei-motor/$VERSION_NAME/$APK_NAME"
+          sha256sum "$apk" > "artifacts/el-meu-servei-motor/$VERSION_NAME/GITHUB-ACTIONS-SHA256SUMS"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.metadata.outputs.artifact_name }}
+          path: |
+            artifacts/el-meu-servei-motor/${{ steps.metadata.outputs.version_name }}/${{ steps.metadata.outputs.apk_name }}
+            artifacts/el-meu-servei-motor/${{ steps.metadata.outputs.version_name }}/GITHUB-ACTIONS-SHA256SUMS
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Remove signing store
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/el-meu-servei-signing.keystore"
+
+  publish-release:
+    needs: build-signed-apk
+    if: needs.build-signed-apk.outputs.publish_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-signed-apk.outputs.artifact_name }}
+          path: signed-apk
+
+      - name: Publish direct APK download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ needs.build-signed-apk.outputs.version_name }}
+          VERSION_CODE: ${{ needs.build-signed-apk.outputs.version_code }}
+          APK_NAME: ${{ needs.build-signed-apk.outputs.apk_name }}
+          RELEASE_TAG: ${{ needs.build-signed-apk.outputs.release_tag }}
+        run: |
+          apk="signed-apk/$APK_NAME"
+          test -f "$apk"
+          notes=$(printf '%s\n' \
+            "Candidata firmada de El meu servei · motor $VERSION_NAME (versionCode $VERSION_CODE)." \
+            "Paquete: cat.tmbagent.elmeuservei.motor" \
+            "Certificado SHA-256: 8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56" \
+            "Pendiente de validación de Róber en servicio real.")
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$apk" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$RELEASE_TAG" --prerelease --title "El meu servei · motor $VERSION_NAME" \
+              --notes "$notes" --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$RELEASE_TAG" "$apk" --prerelease --target "$GITHUB_SHA" \
+              --title "El meu servei · motor $VERSION_NAME" --notes "$notes" \
+              --repo "$GITHUB_REPOSITORY"
+          fi

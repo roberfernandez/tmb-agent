@@ -19,6 +19,11 @@
   Miralín corporativo. Sustituye las rutas activas del prototipo de `miralin.cat`.
 - Los workflows del antiguo Miralin Tren Ull y del prototipo iOS quedan archivados
   y sin publicación automática.
+- Compilación, firma y publicación reproducibles mediante GitHub Actions, con la
+  clave original protegida por Secrets y validación automática de paquete, versión,
+  `versionCode` y certificado antes de ofrecer el APK.
+- Manifiesto de solicitud textual para que Work o ChatGPT normal puedan iniciar la
+  misma compilación sin depender de archivos locales ni aumentar la versión.
 
 ## 0.14.28 — validada por Róber
 

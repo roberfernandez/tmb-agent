@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "product": "El meu servei · motor",
+  "sourcePath": "miralin-corporatiu-android",
+  "applicationId": "cat.tmbagent.elmeuservei.motor",
+  "versionName": "0.14.29",
+  "versionCode": 46,
+  "previousVersionCode": 45,
+  "signingCertificateSha256": "8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56",
+  "requestId": "bootstrap-signed-ci-2026-11-27",
+  "publishRelease": true
+}

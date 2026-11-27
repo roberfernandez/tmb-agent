@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updatedAt": "2026-11-26",
+  "updatedAt": "2026-11-27",
   "repository": "roberfernandez/tmb-agent",
   "integrationBranch": "main",
   "android": {
@@ -26,6 +26,18 @@
     "oldPrototypeAllowed": false,
     "pilotPath": "public/proves/servei/iphone/",
     "blockingFinding": "The corporate site did not advertise CORS authorization; the real iPhone pilot must confirm the browser result"
+  },
+  "signedBuild": {
+    "workflow": ".github/workflows/el-meu-servei-signed-apk.yml",
+    "request": ".github/el-meu-servei-build.json",
+    "triggerForNormalChat": "update requestId on main with the GitHub connector",
+    "secrets": [
+      "MOTOR_SIGNING_KEYSTORE_BASE64",
+      "MOTOR_SIGNING_STORE_PASSWORD",
+      "MOTOR_SIGNING_KEY_ALIAS",
+      "MOTOR_SIGNING_KEY_PASSWORD"
+    ],
+    "status": "prepared-awaiting-first-github-run"
   },
   "currentWorkDocument": "docs/el-meu-servei/CURRENT_WORK.md"
 }

@@ -4,6 +4,8 @@ set -euo pipefail
 apk=${1:?"Uso: verify-el-meu-servei-motor.sh APK [APKSIGNER] [AAPT]"}
 apksigner=${2:-${APKSIGNER:-}}
 aapt=${3:-${AAPT:-}}
+expected_version_name=${EXPECTED_VERSION_NAME:-}
+expected_version_code=${EXPECTED_VERSION_CODE:-}
 
 if [[ -z "$apksigner" || -z "$aapt" ]]; then
   build_tools=${ANDROID_HOME:-}/build-tools
@@ -18,6 +20,16 @@ badging=$($aapt dump badging "$apk" | sed -n '1p')
   echo "Paquete Android incorrecto" >&2
   exit 3
 }
+
+if [[ -n "$expected_version_name" && "$badging" != *"versionName='$expected_version_name'"* ]]; then
+  echo "versionName incorrecta. Esperada $expected_version_name" >&2
+  exit 5
+fi
+
+if [[ -n "$expected_version_code" && "$badging" != *"versionCode='$expected_version_code'"* ]]; then
+  echo "versionCode incorrecto. Esperado $expected_version_code" >&2
+  exit 6
+fi
 
 certificate=$($apksigner verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
 expected=8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56

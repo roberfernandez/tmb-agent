@@ -51,15 +51,53 @@ APK, huella y metadatos en `artifacts/el-meu-servei-motor/`.
 
 ## Compilación y firma
 
-La firma compatible está fuera del repositorio. La clave no se copia a GitHub,
-al chat, a los artefactos de Actions ni a la documentación. El certificado
-público esperado tiene la huella SHA-256 indicada arriba.
+La firma original compatible se conserva únicamente como cuatro secretos cifrados
+del repositorio. Sus valores nunca se copian al código, documentación, artefactos
+ni registros:
 
-La compilación local debe recibir por variables de entorno la ruta del almacén,
-el alias y las contraseñas. El script de compilación comprueba el paquete, la
-versión y la huella antes de aceptar el APK. GitHub Actions ejecuta pruebas y
-una compilación técnica, pero no publica un APK actualizable si no dispone de la
-firma protegida.
+- `MOTOR_SIGNING_KEYSTORE_BASE64`: almacén original completo codificado en Base64.
+- `MOTOR_SIGNING_STORE_PASSWORD`: contraseña del almacén.
+- `MOTOR_SIGNING_KEY_ALIAS`: alias de la clave original.
+- `MOTOR_SIGNING_KEY_PASSWORD`: contraseña de la clave.
+
+No se debe generar otra clave ni sustituir ninguno de esos secretos. La identidad
+pública que debe producir siempre es
+`8892fa0f4f446685f24eda202b4ee5493792f064291e2bddd7e33060046b7f56`.
+
+El workflow `.github/workflows/el-meu-servei-signed-apk.yml` reconstruye el almacén
+sólo en el directorio temporal del runner, verifica su certificado antes de usarlo
+y lo elimina incluso si falla la compilación. El trabajo que recibe los secretos
+tiene permisos de sólo lectura. Un segundo trabajo, que nunca recibe los secretos,
+publica el APK ya verificado.
+
+### Compilación firmada desde Work o ChatGPT normal
+
+1. Leer `.github/el-meu-servei-build.json` y comprobar que `applicationId`,
+   `versionName` y `versionCode` coinciden con `app/build.gradle`.
+2. Confirmar que `versionCode` es mayor que `previousVersionCode`. Esto, junto al
+   mismo paquete y certificado, permite actualizar la instalación anterior sin
+   desinstalar ni borrar su configuración.
+3. Cambiar únicamente `requestId` por un identificador nuevo y publicar ese archivo
+   en `main`. El conector de GitHub disponible en una conversación normal puede
+   hacerlo con una actualización de archivo de texto; ese push inicia Actions.
+4. Vigilar el workflow **El meu servei motor signed APK** hasta que sus trabajos
+   `build-signed-apk` y `publish-release` estén en verde.
+5. Descargar el artefacto firmado de la ejecución o el APK directo de la versión
+   previa en `https://github.com/roberfernandez/tmb-agent/releases`.
+6. Antes de entregarlo, verificar con `scripts/verify-el-meu-servei-motor.sh` el
+   paquete, la versión, el `versionCode` y la huella del certificado.
+
+También se puede iniciar manualmente con **Run workflow** gracias a
+`workflow_dispatch`, pero el cambio de `requestId` es el procedimiento permanente
+para que ChatGPT normal pueda iniciarlo con las herramientas de GitHub disponibles.
+El workflow compara la solicitud con Gradle, ejecuta las pruebas Java, firma,
+comprueba paquete/versión/certificado, conserva el APK 90 días como artefacto y
+crea o actualiza una prerelease con descarga directa. Recompilar una candidata no
+obliga a incrementar su versión; sólo cambia `requestId`.
+
+La compilación local sigue disponible mediante
+`scripts/build-el-meu-servei-motor.sh`, pasando el almacén y los tres datos de firma
+por variables de entorno. El mismo verificador se utiliza localmente y en Actions.
 
 El historial fuente 0.14.1–0.14.28 y los 28 APK están enlazados, con sus huellas,
 desde `artifacts/el-meu-servei-motor/APK_INDEX.md`. Esto permite recuperarlos sin

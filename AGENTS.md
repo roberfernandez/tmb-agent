@@ -21,5 +21,11 @@ Every motor change must include automated regression tests and updates to
 recorded separately from a merely built candidate. Never replace the validated
 reference until Róber confirms that the candidate works in service.
 
+Signed APKs are built only by `.github/workflows/el-meu-servei-signed-apk.yml`.
+From a normal ChatGPT conversation, trigger it by changing only `requestId` in
+`.github/el-meu-servei-build.json` after confirming that its package, version and
+versionCode match `miralin-corporatiu-android/app/build.gradle`. Never recreate,
+replace or export the signing key.
+
 Signing keys, passwords, corporate credentials, and personal service data must
 remain outside Git. The public signing-certificate fingerprint may be committed.
