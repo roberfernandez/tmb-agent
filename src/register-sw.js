@@ -1,4 +1,4 @@
 // Register before session checks can navigate to auth/.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/tmb-agent/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/tmb-agent/sw.js?v=20261127-2').catch(() => {});
 }
