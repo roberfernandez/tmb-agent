@@ -185,20 +185,13 @@ public final class CorporateEyeService extends Service {
                                 unambiguous = result != null;
                             if (driving && CorporateProjection.project(departureAt, receivedAt, takeoverAt).laps > 0)
                                 unambiguous = false;
-                            CorporateDutyTracker.Snapshot beforeObservation = duty.at(receivedAt);
                             if (duty.observe(receivedAt, requested,
                                 result == null ? "" : result.station,
                                 result == null ? "" : result.track, unambiguous, departureAt)) {
-                                if ((requestedKind == CorporateServicePlan.Selection.PICKUP
-                                    || requestedKind == CorporateServicePlan.Selection.TRANSFER_PICKUP)
-                                    && alertsEnabled && result != null && CorporateDutyTracker.sameStation(result.station,
-                                        CorporateServicePlan.stationName(Integer.toString(requestedStop)))) {
-                                    int row = beforeObservation == null ? notificationRow
-                                        : beforeObservation.pickupRow;
-                                    CorporateServicePlan.Notice arrival = ServiceAlertPolicy.confirmedArrival(
-                                        servicePlan, row, requested, result.station, destination, receivedAt);
-                                    if (arrival != null) sendServiceNoticeOnce(arrival, arrival.body);
-                                }
+                                // The live-train notice is the arrival warning. Do not emit a
+                                // second "arrival confirmed" notification here: this callback
+                                // also runs while confirming the handover/boarding transition,
+                                // which is precisely when the user may be leaving the train.
                                 applyServiceSelection(receivedAt, true);
                             }
                             publishDutyStatus(receivedAt);

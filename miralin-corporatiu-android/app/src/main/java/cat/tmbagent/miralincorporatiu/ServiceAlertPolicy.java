@@ -41,18 +41,6 @@ final class ServiceAlertPolicy {
             route, time, details, true);
     }
 
-    static CorporateServicePlan.Notice confirmedArrival(CorporateServicePlan plan, int row,
-            String train, String station, int destination, long now) {
-        if (plan == null || row < 0 || row >= plan.viewerSegments().size()
-            || train == null || station == null) return null;
-        CorporateServicePlan.Segment driving = plan.viewerSegments().get(row);
-        if (!driving.driving() || !driving.train.equals(train)) return null;
-        String route = station + " → " + CorporateServicePlan.stationName(Integer.toString(destination));
-        String time = OfficialDepartureCountdown.clock(now);
-        return new CorporateServicePlan.Notice(liveTrainKey(row), "TREN " + train,
-            route, time, "Arribada confirmada per Miralín corporatiu", true);
-    }
-
     static String liveTrainKey(int row) { return "live-train-" + row; }
 
     static String connectionKey(int row) { return "live-connection-" + row; }

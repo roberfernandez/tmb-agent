@@ -7,6 +7,8 @@
 - Se evita el aviso degenerado «La Pau → La Pau».
 - Se añade regresión para el caso de un tren observado en Jaume I antes de la
   toma prevista en La Pau.
+- Se elimina el aviso duplicado de «llegada confirmada» durante la transición de
+  toma, que podía vibrar en el reloj justo al abandonar el tren.
 
 ## 0.14.29 — candidata pendiente de validar por Róber
 

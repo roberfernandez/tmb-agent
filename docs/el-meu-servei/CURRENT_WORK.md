@@ -15,6 +15,11 @@ Pau. La compilación local no ha podido ejecutarse en este entorno porque falta
 el plugin Android Gradle 8.7.3 en la caché disponible; debe validarse en GitHub
 Actions antes de entregar una APK.
 
+Se ha eliminado además el aviso secundario de «llegada confirmada» durante la
+transición de toma. Esa transición puede ejecutarse justo al dejar el tren y
+provocar vibraciones repetidas en el reloj. El aviso dinámico previo se mantiene;
+al confirmar la toma se limpia y no se genera otro.
+
 Actualizado el 27 de noviembre de 2026.
 
 ## Android 0.14.29
