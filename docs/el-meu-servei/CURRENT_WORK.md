@@ -27,14 +27,17 @@ Implementado en 0.14.29.
 - Etiqueta estable por identidad de servicio y fila para impedir fugas entre días.
 - Migración única de los antiguos IDs aleatorios 9600–9999.
 
-APK candidata: `artifacts/el-meu-servei-motor/0.14.29/El-meu-servei-motor-0.14.29.apk`.
-SHA-256 `c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc`.
+APK candidata publicada:
+`https://github.com/roberfernandez/tmb-agent/releases/download/el-meu-servei-motor-v0.14.29/El-meu-servei-motor-0.14.29.apk`.
+SHA-256 `969735724a76b692e0c9b8f672a6bfab24d7776033b04729155bf087fc0d7c8b`.
 Paquete `cat.tmbagent.elmeuservei.motor`, `versionCode 46`, certificado
-`8892fa0f…7f56`. Actualiza la 0.14.28 sin desinstalar.
+`8892fa0f…7f56`. Actualiza la 0.14.28 sin desinstalar. La compilación local de
+control se conserva con SHA-256 `c8f296fd…49fc`; ambas contienen el mismo DEX,
+recursos y manifiesto.
 Commit de implementación GitHub: `5e4a6f96497d53003637d2eb6b5f8b7167040989`.
 
 Pruebas ejecutadas: compilación limpia, tests Java del motor, verificación de
-paquete/firma y 139 pruebas Node de TMBAgent.
+paquete/firma y 143 pruebas Node de TMBAgent.
 
 ## Compilación firmada independiente de Work
 
@@ -44,14 +47,23 @@ una prerelease con APK directo. La solicitud está separada en
 `.github/el-meu-servei-build.json`, por lo que una conversación normal puede iniciar
 otra compilación cambiando sólo `requestId` mediante el conector de GitHub.
 
-Comprobaciones locales realizadas sin cambiar código funcional ni versión: tests
-del contrato del workflow, compilación limpia de 0.14.29, 38 tareas Gradle y tests
-Java correctos. El APK resultante vuelve a ser idéntico, SHA-256
-`c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc`, con
-paquete `cat.tmbagent.elmeuservei.motor`, `versionCode 46` y certificado esperado.
+Sistema operativo y probado de extremo a extremo sin cambiar código funcional ni
+incrementar la versión. Los cuatro secretos cifrados están configurados; sus
+valores no aparecen en Git, documentación, artefactos ni registros. La ejecución
+GitHub Actions
+[`45934184355`](https://github.com/roberfernandez/tmb-agent/actions/runs/45934184355)
+fue iniciada por el commit textual
+`147110f7f7d3cc05930775f83b6a88def9a2730b`, demostrando la vía disponible para
+ChatGPT normal.
 
-Pendiente en este punto: cargar los cuatro secretos cifrados en GitHub, publicar el
-workflow, dispararlo mediante el manifiesto y verificar el artefacto descargado.
+Resultados comprobados: `build-signed-apk` y `publish-release` en verde; artefacto
+`El-meu-servei-motor-0.14.29-signed` (ID `15169553387`); prerelease directa
+publicada; 38 tareas Gradle y tests Java correctos; paquete
+`cat.tmbagent.elmeuservei.motor`; `versionName 0.14.29`; `versionCode 46`;
+certificado `8892fa0f…7f56`; SHA-256 del APK de GitHub
+`969735724a76b692e0c9b8f672a6bfab24d7776033b04729155bf087fc0d7c8b`.
+La descarga se verificó fuera del runner y coincide con el SHA registrado por la
+propia ejecución.
 
 ## iPhone sin cuota de Apple
 

@@ -24,6 +24,10 @@
   `versionCode` y certificado antes de ofrecer el APK.
 - Manifiesto de solicitud textual para que Work o ChatGPT normal puedan iniciar la
   misma compilación sin depender de archivos locales ni aumentar la versión.
+- Prueba real completa de GitHub Actions superada: restauración protegida de la
+  firma original, compilación, verificación, artefacto y prerelease directa. La
+  descarga se volvió a comprobar fuera del runner y conserva paquete, versión,
+  `versionCode` y certificado compatibles con la 0.14.28 instalada.
 
 ## 0.14.28 — validada por Róber
 

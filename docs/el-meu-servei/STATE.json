@@ -16,7 +16,8 @@
     "nextVersion": "0.14.29",
     "candidateCommit": "5e4a6f96497d53003637d2eb6b5f8b7167040989",
     "candidateVersionCode": 46,
-    "candidateApkSha256": "c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc",
+    "candidateApkSha256": "969735724a76b692e0c9b8f672a6bfab24d7776033b04729155bf087fc0d7c8b",
+    "localControlApkSha256": "c8f296fd7ca6fc82ae548f603d0b8e6fc271dea04bd907c9cfd65d6a1eac49fc",
     "status": "candidate-awaiting-user-validation"
   },
   "ios": {
@@ -37,7 +38,15 @@
       "MOTOR_SIGNING_KEY_ALIAS",
       "MOTOR_SIGNING_KEY_PASSWORD"
     ],
-    "status": "prepared-awaiting-first-github-run"
+    "status": "operational-verified",
+    "normalChatTriggerVerified": true,
+    "verifiedCommit": "147110f7f7d3cc05930775f83b6a88def9a2730b",
+    "verifiedRunId": 45934184355,
+    "artifactId": 15169553387,
+    "artifactName": "El-meu-servei-motor-0.14.29-signed",
+    "releaseTag": "el-meu-servei-motor-v0.14.29",
+    "releaseApkSha256": "969735724a76b692e0c9b8f672a6bfab24d7776033b04729155bf087fc0d7c8b",
+    "releaseUrl": "https://github.com/roberfernandez/tmb-agent/releases/download/el-meu-servei-motor-v0.14.29/El-meu-servei-motor-0.14.29.apk"
   },
   "currentWorkDocument": "docs/el-meu-servei/CURRENT_WORK.md"
 }

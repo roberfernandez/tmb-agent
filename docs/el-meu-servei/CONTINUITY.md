@@ -70,6 +70,17 @@ y lo elimina incluso si falla la compilación. El trabajo que recibe los secreto
 tiene permisos de sólo lectura. Un segundo trabajo, que nunca recibe los secretos,
 publica el APK ya verificado.
 
+El sistema quedó probado de extremo a extremo el 27 de noviembre de 2026 en la
+ejecución [45934184355](https://github.com/roberfernandez/tmb-agent/actions/runs/45934184355),
+iniciada desde el conector de GitHub mediante el commit de texto
+`147110f7f7d3cc05930775f83b6a88def9a2730b`. Los dos trabajos terminaron en verde.
+El artefacto descargado volvió a superar la comprobación independiente de paquete,
+`versionName`, `versionCode` y certificado. Su SHA-256 es
+`969735724a76b692e0c9b8f672a6bfab24d7776033b04729155bf087fc0d7c8b`.
+El código DEX, los recursos y el manifiesto son idénticos a los de la compilación
+local de control; la diferencia de bytes del APK completo procede del proceso de
+empaquetado y firma realizado en otro runner, no de cambios funcionales.
+
 ### Compilación firmada desde Work o ChatGPT normal
 
 1. Leer `.github/el-meu-servei-build.json` y comprobar que `applicationId`,
@@ -83,7 +94,8 @@ publica el APK ya verificado.
 4. Vigilar el workflow **El meu servei motor signed APK** hasta que sus trabajos
    `build-signed-apk` y `publish-release` estén en verde.
 5. Descargar el artefacto firmado de la ejecución o el APK directo de la versión
-   previa en `https://github.com/roberfernandez/tmb-agent/releases`.
+   en GitHub Releases. Para la candidata actual:
+   `https://github.com/roberfernandez/tmb-agent/releases/download/el-meu-servei-motor-v0.14.29/El-meu-servei-motor-0.14.29.apk`.
 6. Antes de entregarlo, verificar con `scripts/verify-el-meu-servei-motor.sh` el
    paquete, la versión, el `versionCode` y la huella del certificado.
 
@@ -94,6 +106,11 @@ El workflow compara la solicitud con Gradle, ejecuta las pruebas Java, firma,
 comprueba paquete/versión/certificado, conserva el APK 90 días como artefacto y
 crea o actualiza una prerelease con descarga directa. Recompilar una candidata no
 obliga a incrementar su versión; sólo cambia `requestId`.
+
+La prueba real confirmó además que una conversación con acceso al conector de
+GitHub puede publicar el cambio de `requestId`, vigilar la ejecución, descargar el
+artefacto y comprobarlo sin acceder al entorno local de Work. No necesita conocer
+ni manipular los secretos de firma.
 
 La compilación local sigue disponible mediante
 `scripts/build-el-meu-servei-motor.sh`, pasando el almacén y los tres datos de firma
