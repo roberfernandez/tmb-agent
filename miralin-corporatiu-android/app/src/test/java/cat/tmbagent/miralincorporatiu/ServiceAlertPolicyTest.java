@@ -23,7 +23,7 @@ public final class ServiceAlertPolicyTest {
         long now = at(25, 19, 20);
         CorporateDutyTracker.Snapshot waiting = tracker.at(now);
         CorporateTrainSelection.Train live = new CorporateTrainSelection.Train(
-            "413", "19:28", "05:10", "La Pau", "Via 1");
+            "413", "19:28", "05:10", "Selva de Mar", "Via 1");
 
         CorporateServicePlan.Notice notice = ServiceAlertPolicy.liveTrainNotice(
             plan, waiting, live, now, at(25, 19, 28), now, 10);
