@@ -1,5 +1,13 @@
 # Changelog de El meu servei · motor
 
+## Próxima corrección — avisos de toma prematuros
+
+- Los trenes observados antes de su estación real de toma se mantienen para el
+  seguimiento interno, pero no generan todavía avisos al usuario ni al reloj.
+- Se evita el aviso degenerado «La Pau → La Pau».
+- Se añade regresión para el caso de un tren observado en Jaume I antes de la
+  toma prevista en La Pau.
+
 ## 0.14.29 — candidata pendiente de validar por Róber
 
 - Consolidación del código completo sobre GitHub partiendo de la 0.14.28 validada.

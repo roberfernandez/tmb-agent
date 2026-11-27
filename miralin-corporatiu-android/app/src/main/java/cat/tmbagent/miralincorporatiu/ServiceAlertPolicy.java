@@ -27,6 +27,11 @@ final class ServiceAlertPolicy {
 
         String origin = CorporateServicePlan.stationName(driving.from);
         String destination = CorporateServicePlan.stationName(driving.to);
+        // The train may already be visible elsewhere on the line hours before
+        // the service pickup. That is useful for internal tracking, but it is
+        // not yet an actionable arrival notification. Wait until the live row
+        // is at the actual boarding station (the origin of this CON segment).
+        if (!CorporateDutyTracker.sameStation(liveTrain.station, origin)) return null;
         boolean transferPickup = kind == CorporateServicePlan.Selection.TRANSFER_PICKUP;
         String route = transferPickup ? origin + " → " + destination
             : origin + (snapshot.selection.via > 0 ? " · Via " + snapshot.selection.via : "");

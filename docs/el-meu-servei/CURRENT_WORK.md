@@ -1,5 +1,20 @@
 # Trabajo en curso
 
+## Corrección pendiente de publicación — aviso prematuro de tren
+
+Se ha identificado y corregido en `ServiceAlertPolicy` un caso en el que un tren
+del servicio se veía en una estación anterior a la de toma y, aun así, generaba
+un aviso inmediato en la persiana/reloj. El motor seguirá usando esa lectura para
+el seguimiento interno, pero el aviso dinámico solo se emitirá cuando Miralín
+muestre el tren en la estación real de embarque. Esto evita casos como un aviso
+del 417 en Jaume I cuando debe tomarse en La Pau y el texto erróneo «La Pau → La
+Pau».
+
+Se añadió una prueba de regresión para tren visto en Jaume I antes de llegar a La
+Pau. La compilación local no ha podido ejecutarse en este entorno porque falta
+el plugin Android Gradle 8.7.3 en la caché disponible; debe validarse en GitHub
+Actions antes de entregar una APK.
+
 Actualizado el 27 de noviembre de 2026.
 
 ## Android 0.14.29
