@@ -201,7 +201,12 @@ final class CorporateDutyTracker {
                 && !boarded[candidate + 1] && !skipped[candidate + 1]
                 && (selectedRow < 0 || selectedRow == candidate || selectedRow == candidate - 1))
                 linkedTransfer = candidate;
-            if (linkedTransfer >= 0 && !boarded[linkedTransfer + 1]) {
+            // An explicit row selection has priority over the clock-based
+            // transfer resolver. This is essential when the pickup is delayed:
+            // the user may select the preceding EST/TRA row again even though
+            // the printed CON start time has already passed.
+            if (linkedTransfer >= 0 && !boarded[linkedTransfer + 1]
+                && !manualCheckpointActive(now)) {
                 int i = linkedTransfer;
                 CorporateServicePlan.Segment leg = rows.get(i), drive = rows.get(i + 1);
                 int origin = Integer.parseInt(leg.from), dest = Integer.parseInt(leg.to);

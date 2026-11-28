@@ -212,6 +212,17 @@ public final class CorporateDutyTrackerTest {
         assertFalse(afterPickupTime.driving);
     }
 
+    @Test public void delayedPickupAllowsSelectingThePreviousStationAfterScheduledStart() {
+        CorporateDutyTracker track = tracker();
+        long delayed = at(17,23,40); // CON row 4 is already due, train not boarded.
+        assertTrue(track.selectRow(delayed, 3)); // EST immediately before that CON.
+        CorporateDutyTracker.Snapshot selected = track.at(delayed);
+        assertEquals(3, selected.photoRow);
+        assertEquals(4, selected.pickupRow);
+        assertTrue(selected.waiting);
+        assertFalse(selected.driving);
+    }
+
     @Test public void aFreshStartDuringTheLastDrivingRowDoesNotAssumeEarlierTrainsWereMissed() {
         CorporateDutyTracker track = tracker();
         CorporateDutyTracker.Snapshot snapshot = track.at(at(17,23,41));
