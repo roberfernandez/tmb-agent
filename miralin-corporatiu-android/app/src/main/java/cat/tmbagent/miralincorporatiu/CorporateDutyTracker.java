@@ -90,7 +90,7 @@ final class CorporateDutyTracker {
         // Later verified boarding supersedes a manually marked station even if
         // that boarding was delayed beyond its scheduled start.
         for (int i = selectedRow + 1; i < rows.size(); i++) {
-            if (rows.get(i).driving() && boarded[i]) {
+            if (rows.get(i).driving() && confirmedBoarding(i)) {
                 selectedRow = -1;
                 return false;
             }
@@ -101,12 +101,18 @@ final class CorporateDutyTracker {
             CorporateServicePlan.Segment later = rows.get(i);
             if (plan.minuteMillis(later.start) > selectedAt
                 && now >= plan.minuteMillis(later.start)
-                && (!later.driving() || boarded[i])) {
+                && (!later.driving() || confirmedBoarding(i))) {
                 selectedRow = -1;
                 return false;
             }
         }
         return true;
+    }
+
+    /** A scheduled resume is only a position seed, not proof that the train was boarded. */
+    private boolean confirmedBoarding(int index) {
+        return index >= 0 && index < evidence.length
+            && ("corporate".equals(evidence[index]) || "manual".equals(evidence[index]));
     }
 
     static final class Snapshot {

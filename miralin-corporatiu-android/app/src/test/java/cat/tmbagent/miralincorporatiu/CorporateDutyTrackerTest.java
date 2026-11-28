@@ -223,6 +223,18 @@ public final class CorporateDutyTrackerTest {
         assertFalse(selected.driving);
     }
 
+    @Test public void manualPreviousPieceOverridesAClockOnlyResume() {
+        CorporateServicePlan plan = new CorporateServicePlan("2026-11-17", SCHEDULE);
+        CorporateDutyTracker track = new CorporateDutyTracker(plan);
+        long now = at(17,21,50); // inside the first CON row
+        track.resumeAt(now); // position seed must not count as boarding evidence
+        assertTrue(track.selectRow(now, 1)); // return to the preceding EST row
+        CorporateDutyTracker.Snapshot selected = track.at(now);
+        assertEquals(1, selected.photoRow);
+        assertFalse(selected.driving);
+        assertTrue(selected.waiting);
+    }
+
     @Test public void aFreshStartDuringTheLastDrivingRowDoesNotAssumeEarlierTrainsWereMissed() {
         CorporateDutyTracker track = tracker();
         CorporateDutyTracker.Snapshot snapshot = track.at(at(17,23,41));

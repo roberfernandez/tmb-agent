@@ -15,6 +15,11 @@ Pau. La compilación local no ha podido ejecutarse en este entorno porque falta
 el plugin Android Gradle 8.7.3 en la caché disponible; debe validarse en GitHub
 Actions antes de entregar una APK.
 
+La selección manual se ha reforzado para que también prevalezca sobre una
+reanudación automática basada únicamente en el reloj. Esa reanudación no se
+considera prueba de que el tren haya sido tomado; solo una observación corporativa
+válida o una confirmación manual puede liberar la pieza anterior.
+
 Se ha eliminado además el aviso secundario de «llegada confirmada» durante la
 transición de toma. Esa transición puede ejecutarse justo al dejar el tren y
 provocar vibraciones repetidas en el reloj. El aviso dinámico previo se mantiene;
